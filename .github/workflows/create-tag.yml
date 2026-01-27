@@ -1,0 +1,54 @@
+name: Create Release Tag
+
+on:
+  workflow_dispatch:
+    inputs:
+      part:
+        description: 'Version bump type (major, minor, patch) or specific version (x.y.z)'
+        required: true
+        default: 'patch'
+        type: string
+
+jobs:
+  create-tag:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: lts/*
+
+      - name: Configure Git User
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+      - name: Bump Version
+        run: |
+          # Bump package.json version without committing or tagging yet
+          npm version ${{ inputs.part }} --no-git-tag-version
+          
+          # Extract new version
+          NEW_VERSION=$(node -p "require('./package.json').version")
+          echo "NEW_VERSION=$NEW_VERSION" >> $GITHUB_ENV
+          
+          # Sync version to tauri.conf.json
+          jq --arg v "$NEW_VERSION" '.version = $v' src-tauri/tauri.conf.json > src-tauri/tauri.conf.json.tmp && mv src-tauri/tauri.conf.json.tmp src-tauri/tauri.conf.json
+
+      - name: Commit and Push Tag
+        run: |
+          git add package.json package-lock.json src-tauri/tauri.conf.json
+          git commit -m "chore: release v${{ env.NEW_VERSION }}"
+          
+          # Push commit first
+          git push origin main
+          
+          # Create and push tag
+          git tag v${{ env.NEW_VERSION }}
+          git push origin v${{ env.NEW_VERSION }}
