@@ -16,7 +16,7 @@ import { invoke } from "@tauri-apps/api/core";
 
 interface CategoryResultsViewProps {
     scanResults: { groups: FileMetadata[][] };
-    selectionQueue: string[];
+    selectedSet: Set<string>;
     toggleSelection: (path: string) => void;
     handlePreview: (e: React.MouseEvent, file: FileMetadata) => void;
     isMedia: (path: string) => boolean;
@@ -24,13 +24,14 @@ interface CategoryResultsViewProps {
 
 type CategoryType = 'Images' | 'Videos' | 'Documents' | 'Archives' | 'Others';
 
-export const CategoryResultsView: React.FC<CategoryResultsViewProps> = ({
+export const CategoryResultsView: React.FC<CategoryResultsViewProps> = React.memo(({
     scanResults,
-    selectionQueue,
+    selectedSet,
     toggleSelection,
     handlePreview,
     isMedia,
 }) => {
+    const [focusedIndex, setFocusedIndex] = React.useState<number>(-1);
 
     const handleReveal = async (e: React.MouseEvent, path: string) => {
         e.stopPropagation();
@@ -58,10 +59,6 @@ export const CategoryResultsView: React.FC<CategoryResultsViewProps> = ({
         const archiveExts = ['zip', 'rar', '7z', 'tar', 'gz', 'iso', 'dmg'];
 
         scanResults.groups.forEach(cluster => {
-            // We only care about duplicate files, but here we list ALL files in the cluster?
-            // "Category View: Group by Images, Videos or Docs. Cleaning up specific media types."
-            // This view usually lists all duplicates found, categorized.
-
             cluster.forEach(file => {
                 const ext = file.path.split('.').pop()?.toLowerCase() || "";
                 let category: CategoryType = 'Others';
@@ -90,6 +87,36 @@ export const CategoryResultsView: React.FC<CategoryResultsViewProps> = ({
 
     }, [scanResults]);
 
+    const allFiles = React.useMemo(() => {
+        return categoryGroups.flatMap(category => category.files);
+    }, [categoryGroups]);
+
+    React.useEffect(() => {
+        const handleKeyDown = (e: KeyboardEvent) => {
+            if (e.key === "ArrowDown") {
+                e.preventDefault();
+                setFocusedIndex(prev => Math.min(prev + 1, allFiles.length - 1));
+            } else if (e.key === "ArrowUp") {
+                e.preventDefault();
+                setFocusedIndex(prev => Math.max(prev - 1, 0));
+            } else if (e.key === "Enter" || e.key === " ") {
+                if (focusedIndex >= 0 && focusedIndex < allFiles.length) {
+                    toggleSelection(allFiles[focusedIndex].path);
+                }
+            }
+        };
+
+        window.addEventListener("keydown", handleKeyDown);
+        return () => window.removeEventListener("keydown", handleKeyDown);
+    }, [allFiles, focusedIndex, toggleSelection]);
+
+    React.useEffect(() => {
+        if (focusedIndex >= 0 && allFiles[focusedIndex]) {
+            const element = document.getElementById(`cat-file-${allFiles[focusedIndex].path}`);
+            element?.scrollIntoView({ block: "nearest", behavior: "smooth" });
+        }
+    }, [focusedIndex, allFiles]);
+
     const getIcon = (category: CategoryType) => {
         switch (category) {
             case 'Images': return <FileImage className="w-5 h-5 text-purple-500" />;
@@ -100,11 +127,12 @@ export const CategoryResultsView: React.FC<CategoryResultsViewProps> = ({
         }
     };
 
+    let globalFileCounter = 0;
+
     return (
         <div className="space-y-6">
             {categoryGroups.map((category) => (
                 <div key={category.name} className="bg-white rounded-2xl border border-black/[0.05] overflow-hidden shadow-sm shadow-slate-200/50">
-                    {/* Category Header */}
                     <div className="bg-slate-900 px-5 py-4 border-b border-white/5 flex items-center justify-between">
                         <div className="flex items-center gap-4">
                             <div className="w-10 h-10 bg-white/10 rounded-xl border border-white/10 flex items-center justify-center shrink-0">
@@ -126,20 +154,26 @@ export const CategoryResultsView: React.FC<CategoryResultsViewProps> = ({
                         </div>
                     </div>
 
-                    {/* File List Grid for Media? Or List? Let's stick to List for consistency with other views first */}
                     <div className="divide-y divide-black/[0.03]">
                         {category.files.map((file) => {
-                            const isChecked = selectionQueue.includes(file.path);
+                            const currentIndex = globalFileCounter++;
+                            const isFocused = focusedIndex === currentIndex;
+                            const isChecked = selectedSet.has(file.path);
                             const fileName = file.path.split('/').pop() || "unknown";
                             const folderPath = file.path.split('/').slice(0, -1).join('/') || "/";
 
                             return (
                                 <div
                                     key={file.path}
-                                    onClick={(e) => handlePreview(e, file)}
+                                    id={`cat-file-${file.path}`}
+                                    onClick={(e) => {
+                                        handlePreview(e, file);
+                                        setFocusedIndex(currentIndex);
+                                    }}
                                     className={cn(
-                                        "px-5 py-3 flex items-center justify-between cursor-pointer group/file hover:bg-slate-50 transition-colors",
-                                        isChecked ? "bg-primary/[0.02]" : ""
+                                        "px-5 py-3 flex items-center justify-between cursor-pointer group/file transition-all",
+                                        isChecked ? "bg-emerald-50 hover:bg-emerald-100/80" : "hover:bg-slate-50",
+                                        isFocused ? "ring-2 ring-emerald-500 ring-inset z-10" : ""
                                     )}
                                 >
                                     <div className="flex items-center gap-4 overflow-hidden">
@@ -147,30 +181,37 @@ export const CategoryResultsView: React.FC<CategoryResultsViewProps> = ({
                                             onClick={(e) => {
                                                 e.stopPropagation();
                                                 toggleSelection(file.path);
+                                                setFocusedIndex(currentIndex);
                                             }}
                                             className={cn(
                                                 "w-4 h-4 rounded-md border flex items-center justify-center shrink-0 transition-all cursor-pointer hover:scale-110 active:scale-95",
                                                 isChecked
-                                                    ? "bg-primary border-primary text-primary-foreground shadow-sm"
-                                                    : "border-slate-200 hover:border-primary/40"
+                                                    ? "bg-emerald-500 border-emerald-600 text-white shadow-sm"
+                                                    : "border-slate-200 hover:border-emerald-400/40"
                                             )}>
                                             {isChecked && <CheckCircle2 className="w-3 h-3" />}
                                         </div>
                                         <div className="flex flex-col min-w-0">
                                             <span className={cn(
                                                 "text-[11px] font-bold truncate max-w-[400px]",
-                                                isChecked ? "text-primary" : "text-slate-900"
+                                                isChecked ? "text-emerald-700" : "text-slate-900"
                                             )}>
                                                 {fileName}
                                             </span>
-                                            <span className="text-[9px] font-medium text-slate-400 truncate max-w-[500px]">
+                                            <span className={cn(
+                                                "text-[9px] font-medium truncate max-w-[500px]",
+                                                isChecked ? "text-emerald-600/60" : "text-slate-400"
+                                            )}>
                                                 {folderPath}
                                             </span>
                                         </div>
                                     </div>
 
                                     <div className="flex items-center gap-4">
-                                        <span className="text-[9px] font-bold text-slate-400 tabular-nums">
+                                        <span className={cn(
+                                            "text-[9px] font-bold tabular-nums",
+                                            isChecked ? "text-emerald-600/50" : "text-slate-400"
+                                        )}>
                                             {formatSize(file.size)}
                                         </span>
 
@@ -178,7 +219,7 @@ export const CategoryResultsView: React.FC<CategoryResultsViewProps> = ({
                                             {isMedia(file.path) && (
                                                 <button
                                                     onClick={(e) => handlePreview(e, file)}
-                                                    className="w-6 h-6 rounded-md flex items-center justify-center transition-all hover:bg-primary/10 text-primary/60 hover:text-primary"
+                                                    className="w-6 h-6 rounded-md flex items-center justify-center transition-all hover:bg-emerald-500/10 text-emerald-600/60 hover:text-emerald-600"
                                                     title="Preview File"
                                                 >
                                                     <Eye className="w-3.5 h-3.5" />
@@ -186,7 +227,7 @@ export const CategoryResultsView: React.FC<CategoryResultsViewProps> = ({
                                             )}
                                             <button
                                                 onClick={(e) => handleReveal(e, file.path)}
-                                                className="w-6 h-6 rounded-md flex items-center justify-center transition-all hover:bg-primary/10 text-primary/60 hover:text-primary"
+                                                className="w-6 h-6 rounded-md flex items-center justify-center transition-all hover:bg-emerald-500/10 text-emerald-600/60 hover:text-emerald-600"
                                                 title="Reveal in Finder"
                                             >
                                                 <ExternalLink className="w-3.5 h-3.5" />
@@ -201,4 +242,4 @@ export const CategoryResultsView: React.FC<CategoryResultsViewProps> = ({
             ))}
         </div>
     );
-};
+});

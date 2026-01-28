@@ -21,12 +21,19 @@ struct ScanResult {
 }
 
 #[tauri::command]
-fn start_scan(paths: Vec<String>, scan_hidden: bool, state: State<AppState>) -> ScanResult {
+fn start_scan(
+    paths: Vec<String>, 
+    scan_hidden: bool, 
+    scan_images: bool,
+    scan_videos: bool,
+    scan_zips: bool,
+    state: State<AppState>
+) -> ScanResult {
     // Phase 1: Traversal
     println!("Starting scan for paths: {:?}", paths);
     let mut all_files = Vec::new();
     for path in &paths {
-        let found = scan_directory(path, scan_hidden);
+        let found = scan_directory(path, scan_hidden, scan_images, scan_videos, scan_zips);
         println!("Scanned path: {}. Found {} files.", path, found.len());
         all_files.extend(found);
     }
@@ -128,38 +135,12 @@ fn start_scan(paths: Vec<String>, scan_hidden: bool, state: State<AppState>) -> 
 }
 
 #[derive(Serialize)]
-struct DriveInfo {
+pub struct DriveInfo {
     name: String,
     mount_point: String,
     total_space: u64,
     available_space: u64,
     is_removable: bool,
-}
-
-#[tauri::command]
-fn get_available_drives() -> Vec<DriveInfo> {
-    let disks = Disks::new_with_refreshed_list();
-    disks.iter().map(|disk| {
-        let mount_point = disk.mount_point().to_string_lossy().into_owned();
-        let mut name = disk.name().to_string_lossy().into_owned();
-
-        // macOS Friendly Name Extraction
-        if mount_point.starts_with("/Volumes/") {
-            if let Some(vol_name) = mount_point.strip_prefix("/Volumes/") {
-                if !vol_name.is_empty() {
-                    name = vol_name.to_string();
-                }
-            }
-        }
-
-        DriveInfo {
-            name,
-            mount_point,
-            total_space: disk.total_space(),
-            available_space: disk.available_space(),
-            is_removable: disk.is_removable(),
-        }
-    }).collect()
 }
 
 #[derive(Serialize)]
@@ -244,6 +225,7 @@ fn get_available_drives_bash() -> Vec<DriveInfo> {
 fn get_system_nodes(app: tauri::AppHandle) -> Vec<DriveInfo> {
     use tauri::path::BaseDirectory;
     let mut nodes = Vec::new();
+    let disks = Disks::new_with_refreshed_list();
 
     let targets = vec![
         (BaseDirectory::Desktop, "Desktop"),
@@ -253,16 +235,36 @@ fn get_system_nodes(app: tauri::AppHandle) -> Vec<DriveInfo> {
 
     for (dir, label) in targets {
         if let Ok(path) = app.path().resolve("", dir) {
+            let path_str = path.to_string_lossy();
+            
+            // Find the disk that contains this path (longest matching prefix)
+            let matching_disk = disks.iter().filter(|d| {
+                path_str.starts_with(&*d.mount_point().to_string_lossy())
+            }).max_by_key(|d| d.mount_point().to_string_lossy().len());
+
             nodes.push(DriveInfo {
                 name: label.to_string(),
-                mount_point: path.to_string_lossy().into_owned(),
-                total_space: 0,
-                available_space: 0,
+                mount_point: path_str.into_owned(),
+                total_space: matching_disk.map(|d| d.total_space()).unwrap_or(0),
+                available_space: matching_disk.map(|d| d.available_space()).unwrap_or(0),
                 is_removable: false,
             });
         }
     }
     nodes
+}
+
+#[tauri::command]
+fn get_folder_size(path: String) -> u64 {
+    jwalk::WalkDir::new(&path)
+        .skip_hidden(false)
+        .parallelism(jwalk::Parallelism::RayonNewPool(0))
+        .into_iter()
+        .filter_map(|e| e.ok())
+        .filter_map(|e| e.metadata().ok())
+        .filter(|m| m.is_file())
+        .map(|m| m.len())
+        .sum()
 }
 
 #[tauri::command]
@@ -306,13 +308,13 @@ pub fn run() {
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
-            get_available_drives, 
             get_available_drives_bash, 
             get_system_nodes,
             start_scan, 
             delete_selections,
             reveal_in_finder,
-            allow_folder_access
+            allow_folder_access,
+            get_folder_size
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

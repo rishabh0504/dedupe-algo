@@ -1,3 +1,4 @@
+import React from "react";
 import { useDrives, Drive } from "../hooks/useDrives";
 import { useStore } from "../store/useStore";
 import {
@@ -13,7 +14,10 @@ import {
     FileText,
     Download,
     Eye,
-    EyeOff
+    EyeOff,
+    Image,
+    Video,
+    FileArchive
 } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 import { invoke } from "@tauri-apps/api/core";
@@ -35,7 +39,20 @@ import { cn } from "@/lib/utils";
 
 export function AppSidebar() {
     const { data: drives, isLoading: isLoadingDrives } = useDrives();
-    const { scanQueue, addToQueue, removeFromQueue, isScanning, scanHidden, setScanHidden } = useStore();
+    const {
+        scanQueue,
+        addToQueue,
+        removeFromQueue,
+        isScanning,
+        scanHidden,
+        setScanHidden,
+        scanImages,
+        setScanImages,
+        scanVideos,
+        setScanVideos,
+        scanZips,
+        setScanZips
+    } = useStore();
 
     const { data: systemNodes, isLoading: isLoadingNodes } = useQuery({
         queryKey: ["systemNodes"],
@@ -190,6 +207,45 @@ export function AppSidebar() {
                         <Switch
                             checked={scanHidden}
                             onCheckedChange={setScanHidden}
+                            disabled={isScanning}
+                            className="scale-75"
+                        />
+                    </div>
+
+                    <div className="flex items-center justify-between px-2">
+                        <div className="flex items-center gap-2">
+                            <Image className={cn("w-3.5 h-3.5", scanImages ? "text-primary" : "text-muted-foreground opacity-40")} />
+                            <span className="text-[10px] font-black uppercase tracking-widest opacity-60">Images</span>
+                        </div>
+                        <Switch
+                            checked={scanImages}
+                            onCheckedChange={setScanImages}
+                            disabled={isScanning}
+                            className="scale-75"
+                        />
+                    </div>
+
+                    <div className="flex items-center justify-between px-2">
+                        <div className="flex items-center gap-2">
+                            <Video className={cn("w-3.5 h-3.5", scanVideos ? "text-primary" : "text-muted-foreground opacity-40")} />
+                            <span className="text-[10px] font-black uppercase tracking-widest opacity-60">Videos</span>
+                        </div>
+                        <Switch
+                            checked={scanVideos}
+                            onCheckedChange={setScanVideos}
+                            disabled={isScanning}
+                            className="scale-75"
+                        />
+                    </div>
+
+                    <div className="flex items-center justify-between px-2">
+                        <div className="flex items-center gap-2">
+                            <FileArchive className={cn("w-3.5 h-3.5", scanZips ? "text-primary" : "text-muted-foreground opacity-40")} />
+                            <span className="text-[10px] font-black uppercase tracking-widest opacity-60">Archives</span>
+                        </div>
+                        <Switch
+                            checked={scanZips}
+                            onCheckedChange={setScanZips}
                             disabled={isScanning}
                             className="scale-75"
                         />

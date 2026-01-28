@@ -18,11 +18,17 @@ interface UIState {
   scanResults: ScanResult | null;
   selectionQueue: string[]; // paths to delete
   scanHidden: boolean;
+  scanImages: boolean;
+  scanVideos: boolean;
+  scanZips: boolean;
   scanPhase: 'idle' | 'metadata' | 'partial' | 'full';
   scanTimestamp: number;
   setScanning: (isScanning: boolean) => void;
   setScanPhase: (phase: 'idle' | 'metadata' | 'partial' | 'full') => void;
   setScanHidden: (scanHidden: boolean) => void;
+  setScanImages: (scanImages: boolean) => void;
+  setScanVideos: (scanVideos: boolean) => void;
+  setScanZips: (scanZips: boolean) => void;
   setScanTimestamp: (ts: number) => void;
   addToQueue: (path: string) => void;
   removeFromQueue: (path: string) => void;
@@ -39,12 +45,18 @@ export const useStore = create<UIState>((set) => ({
   scanQueue: [],
   scanResults: null,
   selectionQueue: [],
-  scanHidden: false,
+  scanHidden: true,
+  scanImages: true,
+  scanVideos: true,
+  scanZips: true,
   scanPhase: 'idle',
   scanTimestamp: 0,
   setScanning: (isScanning) => set({ isScanning }),
   setScanPhase: (scanPhase) => set({ scanPhase }),
   setScanHidden: (scanHidden) => set({ scanHidden }),
+  setScanImages: (scanImages) => set({ scanImages }),
+  setScanVideos: (scanVideos) => set({ scanVideos }),
+  setScanZips: (scanZips) => set({ scanZips }),
   setScanTimestamp: (ts) => set({ scanTimestamp: ts }),
   addToQueue: (path) => set((state) => ({
     scanQueue: state.scanQueue.includes(path) ? state.scanQueue : [...state.scanQueue, path]

@@ -39,7 +39,13 @@ pub fn get_full_hash(path: &str) -> Option<String> {
     Some(hasher.finalize().to_hex().to_string())
 }
 
-pub fn scan_directory(path: &str, scan_hidden: bool) -> Vec<FileMetadata> {
+pub fn scan_directory(
+    path: &str, 
+    scan_hidden: bool,
+    scan_images: bool,
+    scan_videos: bool,
+    scan_zips: bool
+) -> Vec<FileMetadata> {
 
 
     // Comprehensive Blacklist
@@ -55,17 +61,29 @@ pub fn scan_directory(path: &str, scan_hidden: bool) -> Vec<FileMetadata> {
         "__pycache__", ".git", ".hg", ".svn", ".vscode", ".idea"
     ];
 
-    // User-Data Extension Whitelist
-    let whitelist_exts = [
-        "jpg", "jpeg", "png", "gif", "webp", "heic", "tiff", "bmp", // Images
-        "mp4", "mov", "avi", "mkv", "wmv", "flv", "webm",           // Videos
-        "zip", "tar", "gz", "7z", "rar",                           // Archives
+    // Build Whitelist dynamically
+    let mut whitelist_exts = Vec::new();
+    
+    if scan_images {
+        whitelist_exts.extend_from_slice(&["jpg", "jpeg", "png", "gif", "webp", "heic", "tiff", "bmp"]);
+    }
+    
+    if scan_videos {
+        whitelist_exts.extend_from_slice(&["mp4", "mov", "avi", "mkv", "wmv", "flv", "webm"]);
+    }
+    
+    if scan_zips {
+        whitelist_exts.extend_from_slice(&["zip", "tar", "gz", "7z", "rar"]);
+    }
+
+    // Always include documents and audio for now, or we could add toggles for them too if needed
+    // But the user specifically asked for Images, Videos, and Zips.
+    whitelist_exts.extend_from_slice(&[
         "pdf", "docx", "xlsx", "pptx", "txt", "md",                // Documents
         "mp3", "wav", "flac", "m4a", "ogg"                         // Audio
-    ];
+    ]);
 
-    // Use the global Rayon thread pool to avoid per-call pool overhead
-    rayon::spawn(move || {}); // Ensure pool is initialized
+
     
     jwalk::WalkDirGeneric::<((), ())>::new(path)
         .skip_hidden(!scan_hidden)

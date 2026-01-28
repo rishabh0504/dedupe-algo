@@ -3,7 +3,6 @@ import { useStore, FileMetadata } from "../store/useStore";
 import { formatSize, cn } from "../lib/utils";
 import {
     Trash2,
-    Calendar,
     ChevronRight,
     AlertCircle,
     X,
@@ -36,7 +35,7 @@ interface ResultsViewProps {
 }
 
 export function ResultsView({ onRescan }: ResultsViewProps) {
-    const { scanResults, selectionQueue, toggleSelection, smartSelect, clearSelection } = useStore();
+    const { scanResults, selectionQueue, toggleSelection, clearSelection } = useStore();
     const [isConfirmOpen, setConfirmOpen] = useState(false);
     const [previewFile, setPreviewFile] = useState<FileMetadata | null>(null);
     const [previewError, setPreviewError] = useState(false);
@@ -56,20 +55,29 @@ export function ResultsView({ onRescan }: ResultsViewProps) {
         );
     }
 
-    const totalReclaimable = scanResults.groups.reduce((acc: number, group: FileMetadata[]) => {
-        const groupSize = group[0].size;
-        const dupesCount = group.length - 1;
-        return acc + (groupSize * dupesCount);
-    }, 0);
+    const totalReclaimable = React.useMemo(() => {
+        if (!scanResults) return 0;
+        return scanResults.groups.reduce((acc, group) => {
+            const groupSize = group[0]?.size || 0;
+            const dupesCount = Math.max(0, group.length - 1);
+            return acc + (groupSize * dupesCount);
+        }, 0);
+    }, [scanResults]);
 
-    const selectedSize = selectionQueue.reduce((acc: number, path: string) => {
-        if (!scanResults) return acc;
-        for (const group of scanResults.groups) {
-            const file = group.find((f: FileMetadata) => f.path === path);
-            if (file) return acc + file.size;
-        }
-        return acc;
-    }, 0);
+    const filePathMap = React.useMemo(() => {
+        const map = new Map<string, number>();
+        if (!scanResults) return map;
+        scanResults.groups.forEach(group => {
+            group.forEach(file => {
+                map.set(file.path, file.size);
+            });
+        });
+        return map;
+    }, [scanResults]);
+
+    const selectedSize = React.useMemo(() => {
+        return selectionQueue.reduce((acc, path) => acc + (filePathMap.get(path) || 0), 0);
+    }, [selectionQueue, filePathMap]);
 
     const handlePreview = async (e: React.MouseEvent, file: FileMetadata) => {
         e.stopPropagation();
@@ -102,6 +110,8 @@ export function ResultsView({ onRescan }: ResultsViewProps) {
         const originalUrl = convertFileSrc(normalized);
         return originalUrl.replace(/ /g, '%20').replace(/\+/g, '%2B');
     };
+
+    const selectedSet = React.useMemo(() => new Set(selectionQueue), [selectionQueue]);
 
     // Robust State Synchronization
     useEffect(() => {
@@ -165,25 +175,6 @@ export function ResultsView({ onRescan }: ResultsViewProps) {
                         <div className="h-4 w-px bg-slate-200" />
 
                         <div className="flex gap-2">
-                            <Button
-                                variant="ghost"
-                                size="sm"
-                                onClick={() => smartSelect("newest")}
-                                className="rounded-lg h-8 px-3 font-black text-[9px] uppercase tracking-wider hover:bg-primary/5 text-slate-500 hover:text-primary transition-all"
-                            >
-                                <Calendar className="w-3 h-3 mr-1.5" />
-                                Retain Newest
-                            </Button>
-                            <Button
-                                variant="ghost"
-                                size="sm"
-                                onClick={() => smartSelect("oldest")}
-                                className="rounded-lg h-8 px-3 font-black text-[9px] uppercase tracking-wider hover:bg-primary/5 text-slate-500 hover:text-primary transition-all"
-                            >
-                                <Calendar className="w-3 h-3 mr-1.5" />
-                                Retain Oldest
-                            </Button>
-
                             {selectionQueue.length > 0 && (
                                 <Button
                                     variant="ghost"
@@ -206,7 +197,7 @@ export function ResultsView({ onRescan }: ResultsViewProps) {
                             {viewMode === 'cluster' && (
                                 <ClusterResultsView
                                     scanResults={scanResults}
-                                    selectionQueue={selectionQueue}
+                                    selectedSet={selectedSet}
                                     toggleSelection={toggleSelection}
                                     handlePreview={handlePreview}
                                     isMedia={isMedia}
@@ -215,7 +206,7 @@ export function ResultsView({ onRescan }: ResultsViewProps) {
                             {viewMode === 'folder' && (
                                 <FolderResultsView
                                     scanResults={scanResults}
-                                    selectionQueue={selectionQueue}
+                                    selectedSet={selectedSet}
                                     toggleSelection={toggleSelection}
                                     handlePreview={handlePreview}
                                     isMedia={isMedia}
@@ -224,7 +215,7 @@ export function ResultsView({ onRescan }: ResultsViewProps) {
                             {viewMode === 'category' && (
                                 <CategoryResultsView
                                     scanResults={scanResults}
-                                    selectionQueue={selectionQueue}
+                                    selectedSet={selectedSet}
                                     toggleSelection={toggleSelection}
                                     handlePreview={handlePreview}
                                     isMedia={isMedia}

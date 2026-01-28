@@ -24,7 +24,7 @@ function App() {
 
   const handleStartScan = async () => {
     if (scanQueue.length === 0) return;
-    const { setScanPhase, setScanning, setResults, scanHidden, setScanTimestamp } = useStore.getState();
+    const { setScanPhase, setScanning, setResults, scanHidden, scanImages, scanVideos, scanZips, setScanTimestamp } = useStore.getState();
 
     setResults(null);
     setScanning(true);
@@ -37,7 +37,10 @@ function App() {
 
       const response = await invoke<ScanResult>("start_scan", {
         paths: scanQueue,
-        scanHidden
+        scanHidden,
+        scanImages,
+        scanVideos,
+        scanZips
       });
 
       setScanPhase('full');

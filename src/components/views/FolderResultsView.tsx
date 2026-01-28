@@ -14,7 +14,7 @@ import { invoke } from "@tauri-apps/api/core";
 
 interface FolderResultsViewProps {
     scanResults: { groups: FileMetadata[][] };
-    selectionQueue: string[];
+    selectedSet: Set<string>;
     toggleSelection: (path: string) => void;
     handlePreview: (e: React.MouseEvent, file: FileMetadata) => void;
     isMedia: (path: string) => boolean;
@@ -29,13 +29,15 @@ interface NestedFolderGroup {
     }[];
 }
 
-export const FolderResultsView: React.FC<FolderResultsViewProps> = ({
+export const FolderResultsView: React.FC<FolderResultsViewProps> = React.memo(({
     scanResults,
-    selectionQueue,
+    selectedSet,
     toggleSelection,
     handlePreview,
     isMedia,
 }) => {
+    const [focusedIndex, setFocusedIndex] = React.useState<number>(-1);
+    const [expandedFolders, setExpandedFolders] = React.useState<string[]>([]);
 
     const handleReveal = async (e: React.MouseEvent, path: string) => {
         e.stopPropagation();
@@ -71,7 +73,6 @@ export const FolderResultsView: React.FC<FolderResultsViewProps> = ({
             });
         });
 
-        // Filter: Only keep folders that have > 1 file in a set (intra-folder strictness)
         return Array.from(folderMap.values())
             .map(folder => ({
                 ...folder,
@@ -82,22 +83,70 @@ export const FolderResultsView: React.FC<FolderResultsViewProps> = ({
 
     }, [scanResults]);
 
+    const allFiles = React.useMemo(() => {
+        return resultGroups.flatMap(folder => folder.duplicateSets.flatMap(set => set.files));
+    }, [resultGroups]);
+
+    React.useEffect(() => {
+        const handleKeyDown = (e: KeyboardEvent) => {
+            if (e.key === "ArrowDown") {
+                e.preventDefault();
+                setFocusedIndex(prev => Math.min(prev + 1, allFiles.length - 1));
+            } else if (e.key === "ArrowUp") {
+                e.preventDefault();
+                setFocusedIndex(prev => Math.max(prev - 1, 0));
+            } else if (e.key === "Enter" || e.key === " ") {
+                if (focusedIndex >= 0 && focusedIndex < allFiles.length) {
+                    toggleSelection(allFiles[focusedIndex].path);
+                }
+            }
+        };
+
+        window.addEventListener("keydown", handleKeyDown);
+        return () => window.removeEventListener("keydown", handleKeyDown);
+    }, [allFiles, focusedIndex, toggleSelection]);
+
+    React.useEffect(() => {
+        if (focusedIndex >= 0 && allFiles[focusedIndex]) {
+            const focusedFile = allFiles[focusedIndex];
+            const parentDir = focusedFile.path.split('/').slice(0, -1).join('/') || "/";
+            const folderIdx = resultGroups.findIndex(g => g.folderPath === parentDir);
+
+            if (folderIdx !== -1) {
+                const folderId = `folder-${folderIdx}`;
+                if (!expandedFolders.includes(folderId)) {
+                    setExpandedFolders(prev => [...prev, folderId]);
+                }
+            }
+
+            const element = document.getElementById(`folder-file-${focusedFile.path}`);
+            element?.scrollIntoView({ block: "nearest", behavior: "smooth" });
+        }
+    }, [focusedIndex, allFiles, resultGroups]);
+
+    let globalFileCounter = 0;
+
     return (
         <div className="w-full space-y-2">
-            <Accordion type="multiple" className="w-full space-y-4">
+            <Accordion
+                type="multiple"
+                className="w-full space-y-4"
+                value={expandedFolders}
+                onValueChange={setExpandedFolders}
+            >
                 {resultGroups.map((folder, idx) => {
-                    // Check if any file in this entire folder is currently selected
+                    const folderId = `folder-${idx}`;
                     const hasSelection = folder.duplicateSets.some(set =>
-                        set.files.some(f => selectionQueue.includes(f.path))
+                        set.files.some(f => selectedSet.has(f.path))
                     );
 
                     return (
                         <AccordionItem
                             key={idx}
-                            value={`folder-${idx}`}
+                            value={folderId}
                             className="border border-black/[0.05] rounded-2xl bg-white shadow-sm shadow-slate-200/50 overflow-hidden px-0"
                         >
-                            <AccordionTrigger className="px-5 py-4 hover:no-underline bg-slate-900 hover:bg-slate-800 transition-colors group/trigger border-b border-white/5 relative overflow-hidden">
+                            <AccordionTrigger asChild className="px-5 py-4 hover:no-underline bg-slate-900 hover:bg-slate-800 transition-colors group/trigger border-b border-white/5 relative overflow-hidden">
                                 <div className="flex items-center gap-4 text-left w-full min-w-0 pr-4">
                                     <div className="w-10 h-10 bg-white/10 rounded-xl flex items-center justify-center text-white border border-white/10 shrink-0">
                                         <Folder className="w-5 h-5" />
@@ -138,16 +187,14 @@ export const FolderResultsView: React.FC<FolderResultsViewProps> = ({
                                             onClick={(e) => {
                                                 e.stopPropagation();
                                                 if (hasSelection) {
-                                                    // USAGE: Unselect ALL files in this folder
                                                     folder.duplicateSets.forEach(set => {
                                                         set.files.forEach(f => {
-                                                            if (selectionQueue.includes(f.path)) {
+                                                            if (selectedSet.has(f.path)) {
                                                                 toggleSelection(f.path);
                                                             }
                                                         });
                                                     });
                                                 } else {
-                                                    // USAGE: Smart Select Logic
                                                     folder.duplicateSets.forEach(set => {
                                                         const sorted = [...set.files].sort((a, b) => {
                                                             if (a.modified !== b.modified) return a.modified - b.modified;
@@ -155,7 +202,7 @@ export const FolderResultsView: React.FC<FolderResultsViewProps> = ({
                                                         });
                                                         for (let i = 1; i < sorted.length; i++) {
                                                             const f = sorted[i];
-                                                            if (!selectionQueue.includes(f.path)) {
+                                                            if (!selectedSet.has(f.path)) {
                                                                 toggleSelection(f.path);
                                                             }
                                                         }
@@ -166,7 +213,7 @@ export const FolderResultsView: React.FC<FolderResultsViewProps> = ({
                                                 "h-8 px-3 text-[10px] font-black uppercase tracking-widest transition-all border shrink-0 whitespace-nowrap",
                                                 hasSelection
                                                     ? "bg-white text-slate-900 hover:bg-white/90 border-white"
-                                                    : "bg-white/10 text-white/60 hover:text-white hover:bg-destructive border-white/5 hover:border-destructive/50"
+                                                    : "bg-white/10 text-white/60 hover:text-white hover:bg-emerald-600 border-white/5 hover:border-emerald-500/50"
                                             )}
                                         >
                                             {hasSelection ? (
@@ -185,12 +232,10 @@ export const FolderResultsView: React.FC<FolderResultsViewProps> = ({
                                 </div>
                             </AccordionTrigger>
 
-
                             <AccordionContent className="pb-0 border-t border-black/[0.03]">
                                 <div className="divide-y divide-black/[0.03]">
                                     {folder.duplicateSets.map((set, sIdx) => (
                                         <div key={sIdx} className="bg-white">
-                                            {/* Inner Set Header if needed, or just list files */}
                                             {folder.duplicateSets.length > 1 && (
                                                 <div className="pl-12 pr-6 py-1.5 bg-slate-50/50 text-[9px] font-black uppercase tracking-widest text-slate-400 border-b border-black/[0.02]">
                                                     Duplicate Set {sIdx + 1}
@@ -198,16 +243,23 @@ export const FolderResultsView: React.FC<FolderResultsViewProps> = ({
                                             )}
 
                                             {set.files.map((file) => {
-                                                const isChecked = selectionQueue.includes(file.path);
+                                                const currentIndex = globalFileCounter++;
+                                                const isFocused = focusedIndex === currentIndex;
+                                                const isChecked = selectedSet.has(file.path);
                                                 const fileName = file.path.split('/').pop() || "unknown";
 
                                                 return (
                                                     <div
                                                         key={file.path}
-                                                        onClick={(e) => handlePreview(e, file)}
+                                                        id={`folder-file-${file.path}`}
+                                                        onClick={(e) => {
+                                                            handlePreview(e, file);
+                                                            setFocusedIndex(currentIndex);
+                                                        }}
                                                         className={cn(
-                                                            "pl-12 pr-6 py-3 flex items-center justify-between cursor-pointer group/file hover:bg-slate-50 transition-colors",
-                                                            isChecked ? "bg-primary/[0.02]" : ""
+                                                            "pl-12 pr-6 py-3 flex items-center justify-between cursor-pointer group/file transition-all",
+                                                            isChecked ? "bg-emerald-50 hover:bg-emerald-100/80" : "hover:bg-slate-50",
+                                                            isFocused ? "ring-2 ring-emerald-500 ring-inset z-10" : ""
                                                         )}
                                                     >
                                                         <div className="flex items-center gap-4 overflow-hidden">
@@ -215,23 +267,27 @@ export const FolderResultsView: React.FC<FolderResultsViewProps> = ({
                                                                 onClick={(e) => {
                                                                     e.stopPropagation();
                                                                     toggleSelection(file.path);
+                                                                    setFocusedIndex(currentIndex);
                                                                 }}
                                                                 className={cn(
                                                                     "w-4 h-4 rounded-md border flex items-center justify-center shrink-0 transition-all cursor-pointer hover:scale-110 active:scale-95",
                                                                     isChecked
-                                                                        ? "bg-primary border-primary text-primary-foreground shadow-sm"
-                                                                        : "border-slate-200 hover:border-primary/40"
+                                                                        ? "bg-emerald-500 border-emerald-600 text-white shadow-sm"
+                                                                        : "border-slate-200 hover:border-emerald-400/40"
                                                                 )}>
                                                                 {isChecked && <CheckCircle2 className="w-3 h-3" />}
                                                             </div>
                                                             <div className="flex flex-col min-w-0">
                                                                 <span className={cn(
                                                                     "text-[11px] font-bold truncate max-w-[400px]",
-                                                                    isChecked ? "text-primary" : "text-slate-900"
+                                                                    isChecked ? "text-emerald-700" : "text-slate-900"
                                                                 )}>
                                                                     {fileName}
                                                                 </span>
-                                                                <span className="text-[9px] font-medium text-slate-400 tabular-nums">
+                                                                <span className={cn(
+                                                                    "text-[9px] font-medium tabular-nums",
+                                                                    isChecked ? "text-emerald-600/60" : "text-slate-400"
+                                                                )}>
                                                                     {formatSize(file.size)} &middot; {new Date(file.modified * 1000).toLocaleDateString()}
                                                                 </span>
                                                             </div>
@@ -241,7 +297,7 @@ export const FolderResultsView: React.FC<FolderResultsViewProps> = ({
                                                             {isMedia(file.path) && (
                                                                 <button
                                                                     onClick={(e) => handlePreview(e, file)}
-                                                                    className="w-7 h-7 rounded-lg flex items-center justify-center transition-all hover:bg-primary/10 text-primary/60 hover:text-primary"
+                                                                    className="w-7 h-7 rounded-lg flex items-center justify-center transition-all hover:bg-emerald-500/10 text-emerald-600/60 hover:text-emerald-600"
                                                                     title="Preview File"
                                                                 >
                                                                     <Eye className="w-3.5 h-3.5" />
@@ -249,7 +305,7 @@ export const FolderResultsView: React.FC<FolderResultsViewProps> = ({
                                                             )}
                                                             <button
                                                                 onClick={(e) => handleReveal(e, file.path)}
-                                                                className="w-7 h-7 rounded-lg flex items-center justify-center transition-all hover:bg-primary/10 text-primary/60 hover:text-primary"
+                                                                className="w-7 h-7 rounded-lg flex items-center justify-center transition-all hover:bg-emerald-500/10 text-emerald-600/60 hover:text-emerald-600"
                                                                 title="Reveal in Finder"
                                                             >
                                                                 <ExternalLink className="w-3.5 h-3.5" />
@@ -268,4 +324,4 @@ export const FolderResultsView: React.FC<FolderResultsViewProps> = ({
             </Accordion>
         </div>
     );
-};
+});
