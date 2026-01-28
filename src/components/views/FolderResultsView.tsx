@@ -144,9 +144,9 @@ export const FolderResultsView: React.FC<FolderResultsViewProps> = React.memo(({
                         <AccordionItem
                             key={idx}
                             value={folderId}
-                            className="border border-black/[0.05] rounded-2xl bg-white shadow-sm shadow-slate-200/50 overflow-hidden px-0"
+                            className="border border-white/5 rounded-2xl bg-[#0c0c0c] shadow-2xl overflow-hidden px-0"
                         >
-                            <AccordionTrigger asChild className="px-5 py-4 hover:no-underline bg-slate-900 hover:bg-slate-800 transition-colors group/trigger border-b border-white/5 relative overflow-hidden">
+                            <AccordionTrigger className="px-5 py-4 hover:no-underline bg-zinc-900 hover:bg-zinc-800 transition-colors group/trigger border-b border-white/5 relative overflow-hidden">
                                 <div className="flex items-center gap-4 text-left w-full min-w-0 pr-4">
                                     <div className="w-10 h-10 bg-white/10 rounded-xl flex items-center justify-center text-white border border-white/10 shrink-0">
                                         <Folder className="w-5 h-5" />
@@ -232,12 +232,12 @@ export const FolderResultsView: React.FC<FolderResultsViewProps> = React.memo(({
                                 </div>
                             </AccordionTrigger>
 
-                            <AccordionContent className="pb-0 border-t border-black/[0.03]">
-                                <div className="divide-y divide-black/[0.03]">
+                            <AccordionContent className="pb-0 border-t border-white/5">
+                                <div className="divide-y divide-white/5">
                                     {folder.duplicateSets.map((set, sIdx) => (
-                                        <div key={sIdx} className="bg-white">
+                                        <div key={sIdx} className="bg-[#0c0c0c]">
                                             {folder.duplicateSets.length > 1 && (
-                                                <div className="pl-12 pr-6 py-1.5 bg-slate-50/50 text-[9px] font-black uppercase tracking-widest text-slate-400 border-b border-black/[0.02]">
+                                                <div className="pl-12 pr-6 py-1.5 bg-white/[0.02] text-[9px] font-black uppercase tracking-widest text-white/20 border-b border-white/5">
                                                     Duplicate Set {sIdx + 1}
                                                 </div>
                                             )}
@@ -258,7 +258,7 @@ export const FolderResultsView: React.FC<FolderResultsViewProps> = React.memo(({
                                                         }}
                                                         className={cn(
                                                             "pl-12 pr-6 py-3 flex items-center justify-between cursor-pointer group/file transition-all",
-                                                            isChecked ? "bg-emerald-50 hover:bg-emerald-100/80" : "hover:bg-slate-50",
+                                                            isChecked ? "bg-emerald-500/10 hover:bg-emerald-500/20" : "hover:bg-white/[0.02]",
                                                             isFocused ? "ring-2 ring-emerald-500 ring-inset z-10" : ""
                                                         )}
                                                     >
@@ -286,7 +286,7 @@ export const FolderResultsView: React.FC<FolderResultsViewProps> = React.memo(({
                                                                 </span>
                                                                 <span className={cn(
                                                                     "text-[9px] font-medium tabular-nums",
-                                                                    isChecked ? "text-emerald-600/60" : "text-slate-400"
+                                                                    isChecked ? "text-emerald-500/40" : "text-white/40"
                                                                 )}>
                                                                     {formatSize(file.size)} &middot; {new Date(file.modified * 1000).toLocaleDateString()}
                                                                 </span>

@@ -4,6 +4,9 @@ use blake3::Hasher;
 
 use serde::Serialize;
 use std::time::SystemTime;
+use std::collections::HashSet;
+use std::io::Seek;
+use std::io::SeekFrom;
 
 #[derive(Serialize, Clone, Debug)]
 pub struct FileMetadata {
@@ -16,12 +19,26 @@ pub struct FileMetadata {
 
 pub fn get_partial_hash(path: &str) -> Option<String> {
     let mut file = File::open(path).ok()?;
-    let mut buffer = [0u8; 16384]; // 16KB
-    let n = file.read(&mut buffer).ok()?;
-    if n == 0 { return None; }
+    let metadata = file.metadata().ok()?;
+    let size = metadata.len();
     
+    if size == 0 { return None; }
+
     let mut hasher = Hasher::new();
+    let mut buffer = [0u8; 16384]; // 16KB
+    
+    // Hash the head
+    let n = file.read(&mut buffer).ok()?;
     hasher.update(&buffer[..n]);
+
+    // If file is large enough, hash the tail to reduce collisions
+    // This is vital for video files that share the same headers
+    if size > 32768 {
+        let _ = file.seek(SeekFrom::End(-16384)).ok()?;
+        let n = file.read(&mut buffer).ok()?;
+        hasher.update(&buffer[..n]);
+    }
+    
     Some(hasher.finalize().to_hex().to_string())
 }
 
@@ -29,7 +46,7 @@ pub fn get_full_hash(path: &str) -> Option<String> {
     let file = File::open(path).ok()?;
     let mut reader = BufReader::new(file);
     let mut hasher = Hasher::new();
-    let mut buffer = [0u8; 65536]; // 64KB buffer
+    let mut buffer = [0u8; 131072]; // 128KB buffer for NVMe optimization
     
     while let Ok(n) = reader.read(&mut buffer) {
         if n == 0 { break; }
@@ -61,32 +78,37 @@ pub fn scan_directory(
         "__pycache__", ".git", ".hg", ".svn", ".vscode", ".idea"
     ];
 
-    // Build Whitelist dynamically
-    let mut whitelist_exts = Vec::new();
+    // Build Whitelist dynamically (Using HashSet for O(1) lookup)
+    let mut whitelist_exts = HashSet::new();
     
     if scan_images {
-        whitelist_exts.extend_from_slice(&["jpg", "jpeg", "png", "gif", "webp", "heic", "tiff", "bmp"]);
+        for ext in ["jpg", "jpeg", "png", "gif", "webp", "heic", "tiff", "bmp"] {
+            whitelist_exts.insert(ext.to_string());
+        }
     }
     
     if scan_videos {
-        whitelist_exts.extend_from_slice(&["mp4", "mov", "avi", "mkv", "wmv", "flv", "webm"]);
+        for ext in ["mp4", "mov", "avi", "mkv", "wmv", "flv", "webm"] {
+            whitelist_exts.insert(ext.to_string());
+        }
     }
     
     if scan_zips {
-        whitelist_exts.extend_from_slice(&["zip", "tar", "gz", "7z", "rar"]);
+        for ext in ["zip", "tar", "gz", "7z", "rar"] {
+            whitelist_exts.insert(ext.to_string());
+        }
     }
 
-    // Always include documents and audio for now, or we could add toggles for them too if needed
-    // But the user specifically asked for Images, Videos, and Zips.
-    whitelist_exts.extend_from_slice(&[
-        "pdf", "docx", "xlsx", "pptx", "txt", "md",                // Documents
-        "mp3", "wav", "flac", "m4a", "ogg"                         // Audio
-    ]);
+    // Always include documents and audio
+    for ext in ["pdf", "docx", "xlsx", "pptx", "txt", "md", "mp3", "wav", "flac", "m4a", "ogg"] {
+        whitelist_exts.insert(ext.to_string());
+    }
 
 
     
     jwalk::WalkDirGeneric::<((), ())>::new(path)
         .skip_hidden(!scan_hidden)
+        .follow_links(false) // Core protection: never follow symlinks to avoid recursion or duplication
         .parallelism(jwalk::Parallelism::RayonNewPool(0))
         .into_iter()
         .filter_map(|e| e.ok())
@@ -120,13 +142,13 @@ pub fn scan_directory(
                     }
                 }
 
-                // 3. Extension Whitelist Check
+                // 3. Extension Whitelist Check (O(1))
                 let ext = path_buf.extension()
                     .and_then(|s| s.to_str())
                     .unwrap_or("")
                     .to_lowercase();
                 
-                if !whitelist_exts.iter().any(|&w| w == ext) {
+                if !whitelist_exts.contains(&ext) {
                     return None;
                 }
 

@@ -66,9 +66,9 @@ export const ClusterResultsView: React.FC<ClusterResultsViewProps> = React.memo(
     let globalFileIndex = 0;
 
     return (
-        <div className="overflow-hidden border border-black/[0.05] rounded-2xl bg-white shadow-xl shadow-slate-200/50">
-            <table className="min-w-full divide-y divide-black/[0.03]">
-                <thead className="bg-slate-900 sticky top-0 z-10 backdrop-blur-md border-b border-white/5">
+        <div className="overflow-hidden border border-white/5 rounded-2xl bg-[#0c0c0c] shadow-2xl">
+            <table className="min-w-full divide-y divide-white/5">
+                <thead className="bg-zinc-900 sticky top-0 z-10 backdrop-blur-md border-b border-white/5">
                     <tr className="divide-x divide-white/5">
                         <th className="w-10 px-5 py-3 text-left">
                             <div className="w-3.5 h-3.5 border border-white/20 rounded-sm" />
@@ -79,7 +79,7 @@ export const ClusterResultsView: React.FC<ClusterResultsViewProps> = React.memo(
                         <th className="w-16 px-5 py-3 text-center text-[8px] font-black text-white/40 uppercase tracking-widest">Action</th>
                     </tr>
                 </thead>
-                <tbody className="divide-y divide-black/[0.02]">
+                <tbody className="divide-y divide-white/[0.02]">
                     {scanResults.groups.map((group, idx) => (
                         <React.Fragment key={idx}>
                             <tr className="bg-slate-800/50">
@@ -111,7 +111,7 @@ export const ClusterResultsView: React.FC<ClusterResultsViewProps> = React.memo(
                                         }}
                                         className={cn(
                                             "group transition-all cursor-pointer",
-                                            isChecked ? "bg-emerald-50 hover:bg-emerald-100/80" : "hover:bg-slate-50",
+                                            isChecked ? "bg-emerald-500/10 hover:bg-emerald-500/20" : "hover:bg-white/[0.02]",
                                             isFocused ? "ring-2 ring-emerald-500 ring-inset z-10" : ""
                                         )}
                                     >
@@ -135,11 +135,11 @@ export const ClusterResultsView: React.FC<ClusterResultsViewProps> = React.memo(
                                             <div className="flex flex-col min-w-0">
                                                 <span className={cn(
                                                     "text-[11px] font-bold tracking-tight truncate max-w-[350px]",
-                                                    isChecked ? "text-emerald-700" : "text-slate-900"
+                                                    isChecked ? "text-emerald-400" : "text-white"
                                                 )}>{fileName}</span>
                                                 <span className={cn(
                                                     "text-[8px] font-medium truncate max-w-[450px]",
-                                                    isChecked ? "text-emerald-600/60" : "text-slate-400"
+                                                    isChecked ? "text-emerald-500/40" : "text-white/40"
                                                 )}>
                                                     {folderPath}
                                                 </span>
@@ -148,7 +148,7 @@ export const ClusterResultsView: React.FC<ClusterResultsViewProps> = React.memo(
                                         <td className="px-5 py-2.5 text-right align-middle">
                                             <span className={cn(
                                                 "text-[10px] font-black tabular-nums italic",
-                                                isChecked ? "text-emerald-600/50" : "text-slate-400"
+                                                isChecked ? "text-emerald-400/50" : "text-white/20"
                                             )}>
                                                 {formatSize(file.size)}
                                             </span>
@@ -156,7 +156,7 @@ export const ClusterResultsView: React.FC<ClusterResultsViewProps> = React.memo(
                                         <td className="px-5 py-2.5 text-center align-middle">
                                             <span className={cn(
                                                 "text-[9px] font-bold tabular-nums",
-                                                isChecked ? "text-emerald-600/40" : "text-slate-300"
+                                                isChecked ? "text-emerald-400/40" : "text-white/10"
                                             )}>
                                                 {new Date(file.modified * 1000).toLocaleDateString()}
                                             </span>

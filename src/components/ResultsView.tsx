@@ -13,18 +13,15 @@ import {
     CheckCircle2,
     ExternalLink,
     RotateCcw,
+    Search,
+    LayoutGrid,
+    Binary,
+    Folders
 } from "lucide-react";
 import { DeleteConfirmation } from "./DeleteConfirmation";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { ScrollArea, ScrollBar } from "@/components/ui/scroll-area";
-import {
-    Select,
-    SelectContent,
-    SelectItem,
-    SelectTrigger,
-    SelectValue,
-} from "@/components/ui/select";
 import { invoke, convertFileSrc } from "@tauri-apps/api/core";
 import { ClusterResultsView } from "./views/ClusterResultsView";
 import { FolderResultsView } from "./views/FolderResultsView";
@@ -40,6 +37,19 @@ export function ResultsView({ onRescan }: ResultsViewProps) {
     const [previewFile, setPreviewFile] = useState<FileMetadata | null>(null);
     const [previewError, setPreviewError] = useState(false);
     const [viewMode, setViewMode] = useState<'cluster' | 'folder' | 'category'>('cluster');
+    const [searchQuery, setSearchQuery] = useState("");
+
+    const filteredResults = React.useMemo(() => {
+        if (!scanResults) return null;
+        if (!searchQuery.trim()) return scanResults;
+
+        const query = searchQuery.toLowerCase();
+        const filtered = scanResults.groups.filter(group =>
+            group.some(file => file.path.toLowerCase().includes(query))
+        );
+
+        return { groups: filtered };
+    }, [scanResults, searchQuery]);
 
     if (!scanResults || scanResults.groups.length === 0) {
         return (
@@ -125,68 +135,97 @@ export function ResultsView({ onRescan }: ResultsViewProps) {
     const closePreview = () => setPreviewFile(null);
 
     return (
-        <div className="flex-1 flex flex-row h-full overflow-hidden bg-[#f9fafb] animate-in fade-in duration-500">
+        <div className="flex-1 flex flex-row h-full overflow-hidden bg-[#0c0c0c] animate-in fade-in duration-500">
 
             {/* LEFT COLUMN: AUDIT MATRIX */}
-            <div className="flex-1 flex flex-col h-full overflow-hidden border-r border-black/[0.03]">
+            <div className="flex-1 flex flex-col h-full overflow-hidden border-r border-white/5">
                 {/* Header / Actions */}
-                <div className="p-6 pb-4 flex items-center justify-between bg-white/80 backdrop-blur-3xl sticky top-0 z-20 shadow-sm border-b border-black/[0.03]">
-                    <div className="flex flex-col">
-                        <div className="flex items-center gap-2">
-                            <h2 className="text-lg font-black tracking-tighter uppercase italic leading-none text-slate-900">Audit Matrix</h2>
-                            <Badge variant="secondary" className="bg-primary/10 text-primary border-primary/20 text-[8px] h-4 px-1 font-black uppercase tracking-widest leading-none">
-                                {scanResults.groups.length} Groups
-                            </Badge>
+                <div className="p-6 pb-6 flex flex-col gap-6 bg-white/[0.02] backdrop-blur-3xl sticky top-0 z-20 shadow-sm border-b border-white/5">
+                    <div className="flex items-center justify-between">
+                        <div className="flex flex-col">
+                            <div className="flex items-center gap-2">
+                                <h2 className="text-xl font-black tracking-tighter uppercase italic leading-none text-white">Audit Matrix</h2>
+                                <Badge variant="secondary" className="bg-primary/10 text-primary border-primary/20 text-[8px] h-4 px-1 font-black uppercase tracking-widest leading-none">
+                                    {scanResults.groups.length} Groups
+                                </Badge>
+                            </div>
+                            <div className="flex items-center gap-2 mt-1">
+                                <span className="text-[9px] font-bold text-slate-400 uppercase tracking-widest leading-none">
+                                    Total Potential Yield: {formatSize(totalReclaimable)}
+                                </span>
+                            </div>
                         </div>
-                        <div className="flex items-center gap-2 mt-1">
-                            <span className="text-[9px] font-bold text-slate-400 uppercase tracking-widest leading-none">
-                                Potential Yield: {formatSize(totalReclaimable)}
-                            </span>
+
+                        <div className="flex gap-3 items-center">
+                            <Button
+                                variant="outline"
+                                size="icon"
+                                onClick={onRescan}
+                                className="h-9 w-9 text-slate-400 hover:text-primary hover:bg-primary/5 border-slate-200 rounded-xl"
+                                title="Rescan Folder"
+                            >
+                                <RotateCcw className="w-4 h-4" />
+                            </Button>
+
+                            <div className="h-5 w-px bg-slate-200 mx-1" />
+
+                            <div className="flex gap-1.5 p-1 bg-white/[0.05] rounded-2xl border border-white/5">
+                                {[
+                                    { id: 'cluster', icon: LayoutGrid, label: 'Cluster' },
+                                    { id: 'category', icon: Binary, label: 'Category' },
+                                    { id: 'folder', icon: Folders, label: 'Folder' }
+                                ].map((tab) => (
+                                    <button
+                                        key={tab.id}
+                                        onClick={() => setViewMode(tab.id as any)}
+                                        className={cn(
+                                            "flex items-center gap-2 px-3 py-1.5 rounded-xl text-[9px] font-black uppercase tracking-widest transition-all",
+                                            viewMode === tab.id
+                                                ? "bg-white/10 text-white shadow-sm border border-white/10"
+                                                : "text-white/40 hover:text-white/60"
+                                        )}
+                                    >
+                                        <tab.icon className="w-3.5 h-3.5" />
+                                        {tab.label}
+                                    </button>
+                                ))}
+                            </div>
                         </div>
                     </div>
 
-                    <div className="flex gap-4 items-center">
-                        <Button
-                            variant="outline"
-                            size="icon"
-                            onClick={onRescan}
-                            className="h-8 w-8 text-slate-400 hover:text-primary hover:bg-primary/5 border-slate-200"
-                            title="Rescan Folder"
-                        >
-                            <RotateCcw className="w-3.5 h-3.5" />
-                        </Button>
-
-                        <div className="h-4 w-px bg-slate-200" />
-
-                        {/* View Switcher Dropdown */}
-                        <div className="w-[180px]">
-                            <Select value={viewMode} onValueChange={(v) => setViewMode(v as any)}>
-                                <SelectTrigger className="h-8 text-[10px] font-black uppercase tracking-widest bg-slate-50 border-slate-200 text-slate-700">
-                                    <SelectValue placeholder="Select View" />
-                                </SelectTrigger>
-                                <SelectContent>
-                                    <SelectItem value="cluster" className="text-[10px] font-bold uppercase tracking-wider">Cluster View</SelectItem>
-                                    <SelectItem value="category" className="text-[10px] font-bold uppercase tracking-wider">Category View</SelectItem>
-                                    <SelectItem value="folder" className="text-[10px] font-bold uppercase tracking-wider">Folder View</SelectItem>
-                                </SelectContent>
-                            </Select>
-                        </div>
-
-                        <div className="h-4 w-px bg-slate-200" />
-
-                        <div className="flex gap-2">
-                            {selectionQueue.length > 0 && (
-                                <Button
-                                    variant="ghost"
-                                    size="sm"
-                                    onClick={clearSelection}
-                                    className="rounded-lg h-8 px-3 font-black text-[9px] uppercase tracking-wider hover:bg-destructive/5 text-destructive hover:text-destructive transition-all animate-in fade-in zoom-in duration-300"
+                    <div className="flex items-center gap-4">
+                        <div className="flex-1 relative group">
+                            <div className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-primary transition-colors">
+                                <Search className="w-4 h-4" />
+                            </div>
+                            <input
+                                type="text"
+                                value={searchQuery}
+                                onChange={(e) => setSearchQuery(e.target.value)}
+                                placeholder="Search by filename or path metadata..."
+                                className="w-full h-11 pl-11 pr-4 bg-white/[0.03] border border-white/10 rounded-2xl text-xs font-medium placeholder:text-white/20 text-white focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all"
+                            />
+                            {searchQuery && (
+                                <button
+                                    onClick={() => setSearchQuery("")}
+                                    className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
                                 >
-                                    <X className="w-3 h-3 mr-1.5" />
-                                    Unselect All
-                                </Button>
+                                    <X className="w-3.5 h-3.5" />
+                                </button>
                             )}
                         </div>
+
+                        {selectionQueue.length > 0 && (
+                            <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={clearSelection}
+                                className="rounded-xl h-11 px-6 font-black text-[10px] uppercase tracking-widest hover:bg-destructive/5 text-destructive border border-transparent hover:border-destructive/20 transition-all"
+                            >
+                                <X className="w-3.5 h-3.5 mr-2" />
+                                Clear {selectionQueue.length} Selections
+                            </Button>
+                        )}
                     </div>
                 </div>
 
@@ -194,27 +233,27 @@ export function ResultsView({ onRescan }: ResultsViewProps) {
                 <div className="flex-1 relative overflow-hidden">
                     <ScrollArea className="h-full w-full">
                         <div className="p-6">
-                            {viewMode === 'cluster' && (
+                            {viewMode === 'cluster' && filteredResults && (
                                 <ClusterResultsView
-                                    scanResults={scanResults}
+                                    scanResults={filteredResults}
                                     selectedSet={selectedSet}
                                     toggleSelection={toggleSelection}
                                     handlePreview={handlePreview}
                                     isMedia={isMedia}
                                 />
                             )}
-                            {viewMode === 'folder' && (
+                            {viewMode === 'folder' && filteredResults && (
                                 <FolderResultsView
-                                    scanResults={scanResults}
+                                    scanResults={filteredResults}
                                     selectedSet={selectedSet}
                                     toggleSelection={toggleSelection}
                                     handlePreview={handlePreview}
                                     isMedia={isMedia}
                                 />
                             )}
-                            {viewMode === 'category' && (
+                            {viewMode === 'category' && filteredResults && (
                                 <CategoryResultsView
-                                    scanResults={scanResults}
+                                    scanResults={filteredResults}
                                     selectedSet={selectedSet}
                                     toggleSelection={toggleSelection}
                                     handlePreview={handlePreview}
@@ -230,7 +269,7 @@ export function ResultsView({ onRescan }: ResultsViewProps) {
 
             {/* RIGHT COLUMN: PREVIEW PANEL (COLLAPSIBLE) */}
             {previewFile && (
-                <div className="w-[480px] flex flex-col h-full bg-white/40 backdrop-blur-3xl border-l border-black/[0.03] overflow-hidden relative group/preview animate-in slide-in-from-right duration-300">
+                <div className="w-[480px] flex flex-col h-full bg-[#0c0c0c] border-l border-white/5 overflow-hidden relative group/preview animate-in slide-in-from-right duration-300">
                     <div className="flex-1 flex flex-col overflow-hidden">
                         {/* Preview Content */}
                         <div className="flex-1 flex flex-col bg-black/95 relative overflow-hidden group/media">
@@ -239,7 +278,7 @@ export function ResultsView({ onRescan }: ResultsViewProps) {
                                     variant="ghost"
                                     size="icon"
                                     onClick={closePreview}
-                                    className="rounded-xl bg-white text-black hover:bg-white/90 shadow-lg border-2 border-transparent hover:scale-105 transition-all"
+                                    className="rounded-xl bg-white/10 text-white hover:bg-white/20 shadow-lg border border-white/10 hover:scale-105 transition-all"
                                 >
                                     <X className="w-4 h-4" />
                                 </Button>

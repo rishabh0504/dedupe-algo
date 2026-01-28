@@ -29,14 +29,15 @@ fn start_scan(
     scan_zips: bool,
     state: State<AppState>
 ) -> ScanResult {
-    // Phase 1: Traversal
+    // Phase 1: Traversal (Parallel across root paths)
     println!("Starting scan for paths: {:?}", paths);
-    let mut all_files = Vec::new();
-    for path in &paths {
-        let found = scan_directory(path, scan_hidden, scan_images, scan_videos, scan_zips);
-        println!("Scanned path: {}. Found {} files.", path, found.len());
-        all_files.extend(found);
-    }
+    let all_files: Vec<FileMetadata> = paths.par_iter()
+        .flat_map(|path| {
+            let found = scan_directory(path, scan_hidden, scan_images, scan_videos, scan_zips);
+            println!("Scanned path: {}. Found {} files.", path, found.len());
+            found
+        })
+        .collect();
     println!("Total files found in Phase 1: {}", all_files.len());
 
     // Pass 1: Group by Size
@@ -55,75 +56,79 @@ fn start_scan(
 
     if potential_dupes.is_empty() { return ScanResult { groups: Vec::new() }; }
 
+    // Optimization: Pre-fetch all hashes from DB to avoid locking inside parallel pass
+    let cached_hashes = {
+        let cache_lock = state.cache.lock().unwrap();
+        cache_lock.as_ref().and_then(|c| c.get_all_cached_hashes().ok()).unwrap_or_default()
+    };
+
     // Pass 2: Partial Hash (Parallel)
-    let hashed_files: Vec<FileMetadata> = potential_dupes.into_par_iter()
+    let hashed_files_p2: Vec<FileMetadata> = potential_dupes.into_par_iter()
         .map(|mut f| {
-            let cache_lock = state.cache.lock().unwrap();
-            if let Some(cache) = cache_lock.as_ref() {
-                if let Ok(Some((Some(ph), _))) = cache.get_hashes(&f.path, f.size, f.modified) {
-                    f.partial_hash = Some(ph);
+            // Check in-memory cache first
+            if let Some((size, mod_time, Some(ph), _)) = cached_hashes.get(&f.path) {
+                if *size == f.size && *mod_time == f.modified {
+                    f.partial_hash = Some(ph.clone());
                     return f;
                 }
             }
-            drop(cache_lock);
-
+            // Not in cache, compute it
             f.partial_hash = scanner::get_partial_hash(&f.path);
-            
-            if let Some(ph) = &f.partial_hash {
-                let cache_lock = state.cache.lock().unwrap();
-                if let Some(cache) = cache_lock.as_ref() {
-                    let _ = cache.upsert_partial(&f.path, f.size, f.modified, ph);
-                }
-            }
             f
         })
         .collect();
 
-    // Group by (Size, Partial Hash)
+    // Grouping by (Size, Partial Hash)
     let mut partial_groups: HashMap<(u64, String), Vec<FileMetadata>> = HashMap::new();
-    for f in hashed_files {
+    for f in &hashed_files_p2 {
         if let Some(ph) = &f.partial_hash {
-            partial_groups.entry((f.size, ph.clone())).or_default().push(f);
+            partial_groups.entry((f.size, ph.clone())).or_default().push(f.clone());
         }
     }
 
-    // Discard unique partial hashes
-    let potential_dupes_p2: Vec<FileMetadata> = partial_groups.into_iter()
+    // Pass 3: Full Hash (Parallel)
+    let potential_dupes_p3: Vec<FileMetadata> = partial_groups.into_iter()
         .filter(|(_, group)| group.len() > 1)
         .flat_map(|(_, group)| group)
         .collect();
 
-    if potential_dupes_p2.is_empty() { return ScanResult { groups: Vec::new() }; }
+    if potential_dupes_p3.is_empty() { return ScanResult { groups: Vec::new() }; }
 
-    // Pass 3: Full Hash (Parallel)
-    let full_hashed_files: Vec<FileMetadata> = potential_dupes_p2.into_par_iter()
+    let hashed_files_p3: Vec<FileMetadata> = potential_dupes_p3.into_par_iter()
         .map(|mut f| {
-            let cache_lock = state.cache.lock().unwrap();
-            if let Some(cache) = cache_lock.as_ref() {
-                if let Ok(Some((_, Some(fh)))) = cache.get_hashes(&f.path, f.size, f.modified) {
-                    f.full_hash = Some(fh);
+            // Check in-memory cache first
+            if let Some((size, mod_time, _, Some(fh))) = cached_hashes.get(&f.path) {
+                if *size == f.size && *mod_time == f.modified {
+                    f.full_hash = Some(fh.clone());
                     return f;
                 }
             }
-            drop(cache_lock);
-
+            // Not in cache, compute it
             f.full_hash = scanner::get_full_hash(&f.path);
-            
-            if let Some(fh) = &f.full_hash {
-                let cache_lock = state.cache.lock().unwrap();
-                if let Some(cache) = cache_lock.as_ref() {
-                    let _ = cache.upsert_full(&f.path, f.size, f.modified, fh);
-                }
-            }
             f
         })
         .collect();
 
     // Final Grouping by (Size, Full Hash)
     let mut final_groups: HashMap<(u64, String), Vec<FileMetadata>> = HashMap::new();
-    for f in full_hashed_files {
+    let mut updates_to_cache = Vec::new();
+
+    for f in hashed_files_p3 {
         if let Some(fh) = &f.full_hash {
-            final_groups.entry((f.size, fh.clone())).or_default().push(f);
+            final_groups.entry((f.size, fh.clone())).or_default().push(f.clone());
+            // Collect updates for DB
+            updates_to_cache.push((f.path, f.size, f.modified, f.partial_hash, Some(fh.clone())));
+        } else if let Some(ph) = &f.partial_hash {
+            // Even if full hash was skipped, we might want to cache partial
+            updates_to_cache.push((f.path, f.size, f.modified, Some(ph.clone()), None));
+        }
+    }
+
+    // Batch Update Cache at the very end (Efficient transaction)
+    if !updates_to_cache.is_empty() {
+        let mut cache_lock = state.cache.lock().unwrap();
+        if let Some(cache) = cache_lock.as_mut() {
+            let _ = cache.batch_upsert(updates_to_cache);
         }
     }
 

@@ -1,4 +1,3 @@
-import React from "react";
 import { useDrives, Drive } from "../hooks/useDrives";
 import { useStore } from "../store/useStore";
 import {
@@ -102,7 +101,7 @@ export function AppSidebar() {
                                     {node.name || "Unknown"}
                                 </span>
                                 {isQueued && (
-                                    <div className="w-1.5 h-1.5 rounded-full bg-primary animate-pulse shrink-0" />
+                                    <div className="w-1.5 h-1.5 rounded-full bg-primary shadow-[0_0_8px_rgba(var(--primary),0.5)] animate-pulse shrink-0" />
                                 )}
                             </div>
                             <span className="text-[10px] text-muted-foreground font-medium opacity-50 truncate">
@@ -130,14 +129,17 @@ export function AppSidebar() {
 
     return (
         <Sidebar className="border-r border-border/40 bg-background/50 backdrop-blur-3xl" variant="inset">
-            <SidebarHeader className="p-6">
-                <div className="flex items-center gap-3">
-                    <div className="w-12 h-12 bg-primary/10 rounded-xl flex items-center justify-center border border-primary/20">
+            <SidebarHeader className="p-6 relative overflow-hidden">
+                <div className="absolute inset-0 opacity-[0.03] pointer-events-none"
+                    style={{ backgroundImage: 'radial-gradient(circle, #000 1px, transparent 1px)', backgroundSize: '16px 16px' }} />
+
+                <div className="relative flex items-center gap-3">
+                    <div className="w-12 h-12 bg-white/[0.05] rounded-2xl flex items-center justify-center border border-white/5 shadow-xl shadow-black/5 transition-transform hover:rotate-3">
                         <img src="/src/assets/logo.png" alt="Logo" className="w-7 h-7 object-contain" />
                     </div>
                     <div className="flex flex-col">
-                        <h2 className="text-lg font-black tracking-tighter uppercase italic leading-none">dedupe-algo</h2>
-                        <span className="text-[9px] font-bold text-muted-foreground uppercase tracking-widest mt-1 opacity-50">Studio Interface</span>
+                        <h2 className="text-xl font-black tracking-tighter uppercase italic leading-none text-white">dedupe-pro</h2>
+                        <span className="text-[9px] font-black text-primary uppercase tracking-[0.2em] mt-1 opacity-60">High Performance Audit</span>
                     </div>
                 </div>
             </SidebarHeader>
@@ -199,10 +201,10 @@ export function AppSidebar() {
 
             <SidebarFooter className="p-4 border-t border-border/40">
                 <div className="space-y-4">
-                    <div className="flex items-center justify-between px-2">
+                    <div className="flex items-center justify-between px-2 py-1 hover:bg-muted/30 rounded-lg transition-colors group">
                         <div className="flex items-center gap-2">
-                            {scanHidden ? <Eye className="w-3.5 h-3.5 text-primary" /> : <EyeOff className="w-3.5 h-3.5 text-muted-foreground opacity-40" />}
-                            <span className="text-[10px] font-black uppercase tracking-widest opacity-60">Scan Hidden</span>
+                            {scanHidden ? <Eye className="w-3.5 h-3.5 text-primary" /> : <EyeOff className="w-3.5 h-3.5 text-muted-foreground opacity-40 shrink-0" />}
+                            <span className="text-[10px] font-black uppercase tracking-widest opacity-60 group-hover:opacity-100 transition-opacity">Scan Hidden</span>
                         </div>
                         <Switch
                             checked={scanHidden}
@@ -212,10 +214,10 @@ export function AppSidebar() {
                         />
                     </div>
 
-                    <div className="flex items-center justify-between px-2">
+                    <div className="flex items-center justify-between px-2 py-1 hover:bg-muted/30 rounded-lg transition-colors group">
                         <div className="flex items-center gap-2">
-                            <Image className={cn("w-3.5 h-3.5", scanImages ? "text-primary" : "text-muted-foreground opacity-40")} />
-                            <span className="text-[10px] font-black uppercase tracking-widest opacity-60">Images</span>
+                            <Image className={cn("w-3.5 h-3.5 shrink-0", scanImages ? "text-primary" : "text-muted-foreground opacity-40")} />
+                            <span className="text-[10px] font-black uppercase tracking-widest opacity-60 group-hover:opacity-100 transition-opacity">Images</span>
                         </div>
                         <Switch
                             checked={scanImages}
@@ -225,10 +227,10 @@ export function AppSidebar() {
                         />
                     </div>
 
-                    <div className="flex items-center justify-between px-2">
+                    <div className="flex items-center justify-between px-2 py-1 hover:bg-muted/30 rounded-lg transition-colors group">
                         <div className="flex items-center gap-2">
-                            <Video className={cn("w-3.5 h-3.5", scanVideos ? "text-primary" : "text-muted-foreground opacity-40")} />
-                            <span className="text-[10px] font-black uppercase tracking-widest opacity-60">Videos</span>
+                            <Video className={cn("w-3.5 h-3.5 shrink-0", scanVideos ? "text-primary" : "text-muted-foreground opacity-40")} />
+                            <span className="text-[10px] font-black uppercase tracking-widest opacity-60 group-hover:opacity-100 transition-opacity">Videos</span>
                         </div>
                         <Switch
                             checked={scanVideos}
@@ -238,10 +240,10 @@ export function AppSidebar() {
                         />
                     </div>
 
-                    <div className="flex items-center justify-between px-2">
+                    <div className="flex items-center justify-between px-2 py-1 hover:bg-muted/30 rounded-lg transition-colors group">
                         <div className="flex items-center gap-2">
-                            <FileArchive className={cn("w-3.5 h-3.5", scanZips ? "text-primary" : "text-muted-foreground opacity-40")} />
-                            <span className="text-[10px] font-black uppercase tracking-widest opacity-60">Archives</span>
+                            <FileArchive className={cn("w-3.5 h-3.5 shrink-0", scanZips ? "text-primary" : "text-muted-foreground opacity-40")} />
+                            <span className="text-[10px] font-black uppercase tracking-widest opacity-60 group-hover:opacity-100 transition-opacity">Archives</span>
                         </div>
                         <Switch
                             checked={scanZips}

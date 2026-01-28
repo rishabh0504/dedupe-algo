@@ -102,47 +102,53 @@ export function ScanQueueView({ onStartScan }: { onStartScan: () => void }) {
 
     if (scanQueue.length === 0) {
         return (
-            <div className="flex-1 flex flex-col items-center justify-center p-12 text-center animate-in fade-in slide-in-from-bottom-5 duration-700">
-                <div className="relative group mb-6">
-                    <div className="absolute -inset-4 bg-primary/20 rounded-full blur-2xl group-hover:bg-primary/30 transition-all duration-500 opacity-0 group-hover:opacity-100" />
-                    <div className="w-20 h-20 bg-card rounded-3xl flex items-center justify-center border border-border/50 shadow-2xl relative">
-                        <Database className="w-8 h-8 text-primary opacity-20" />
+            <div className="flex-1 flex flex-col items-center justify-center p-12 text-center animate-in fade-in slide-in-from-bottom-5 duration-700 relative overflow-hidden bg-[#0c0c0c]">
+                <div className="absolute inset-0 opacity-[0.05] pointer-events-none"
+                    style={{ backgroundImage: 'radial-gradient(circle, #fff 1px, transparent 1px)', backgroundSize: '24px 24px' }} />
+
+                <div className="relative group mb-8">
+                    <div className="absolute -inset-8 bg-primary/20 rounded-full blur-3xl group-hover:bg-primary/40 transition-all duration-700 opacity-0 group-hover:opacity-100" />
+                    <div className="w-24 h-24 bg-zinc-900 rounded-[2.5rem] flex items-center justify-center border border-white/5 shadow-2xl relative transition-transform group-hover:scale-110 duration-500">
+                        <Database className="w-10 h-10 text-primary opacity-30 group-hover:opacity-100 transition-opacity" />
                     </div>
                 </div>
-                <h3 className="text-2xl font-black tracking-tighter mb-2 grayscale-[0.5] uppercase italic">Queue Empty</h3>
-                <p className="text-[11px] font-medium text-muted-foreground max-w-[240px] mb-8 leading-relaxed opacity-60">
-                    Map locations from the sidebar to initialize your analysis stack.
+                <h3 className="text-3xl font-black tracking-tighter mb-3 grayscale-[0.5] uppercase italic text-white">Queue Offline</h3>
+                <p className="text-[12px] font-bold text-white/40 max-w-[280px] mb-8 leading-relaxed opacity-80 uppercase tracking-widest">
+                    Select workstation nodes from the sidebar to initialize your data analysis stack.
                 </p>
             </div>
         );
     }
 
     return (
-        <div className="flex-1 flex flex-col overflow-hidden animate-in fade-in duration-500">
-            <div className="px-6 py-4 flex justify-between items-center border-b border-border/10">
+        <div className="flex-1 flex flex-col overflow-hidden animate-in fade-in duration-500 bg-[#0c0c0c]">
+            <div className="px-6 py-4 flex justify-between items-center border-b border-white/5 bg-white/[0.02]">
                 <div className="space-y-0.5">
-                    <h2 className="text-xl font-black tracking-tighter uppercase italic">Target Queue</h2>
-                    <p className="text-[9px] font-bold text-muted-foreground uppercase tracking-widest opacity-40">
+                    <h2 className="text-xl font-black tracking-tighter uppercase italic text-white">Target Queue</h2>
+                    <p className="text-[9px] font-bold text-white/40 uppercase tracking-widest opacity-40">
                         {scanQueue.length} Volumes in Memory Buffer
                     </p>
                 </div>
                 <Button
                     onClick={onStartScan}
                     disabled={isScanning || isIndexing}
-                    className="rounded-xl px-6 h-10 text-[11px] font-black shadow-lg shadow-primary/10 bg-primary hover:bg-primary/90 text-primary-foreground group transition-all disabled:opacity-50 disabled:grayscale"
+                    className="rounded-2xl px-8 h-12 text-[11px] font-black shadow-2xl shadow-primary/20 bg-primary hover:bg-primary/90 text-primary-foreground group transition-all disabled:opacity-50 disabled:grayscale relative overflow-hidden active:scale-95"
                 >
-                    {isIndexing ? (
-                        <>
-                            <Loader2 className="w-3.5 h-3.5 mr-2 animate-spin" />
-                            Readying Engine...
-                        </>
-                    ) : (
-                        <>
-                            <Search className="w-3.5 h-3.5 mr-2" />
-                            Execute Audit
-                            <ArrowRight className="w-3.5 h-3.5 ml-2 group-hover:translate-x-1 transition-transform" />
-                        </>
-                    )}
+                    <div className="absolute inset-0 bg-white/10 translate-y-full group-hover:translate-y-0 transition-transform duration-300" />
+                    <div className="relative flex items-center">
+                        {isIndexing ? (
+                            <>
+                                <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                                Readying Engine...
+                            </>
+                        ) : (
+                            <>
+                                <Search className="w-4 h-4 mr-2" />
+                                Launch System Audit
+                                <ArrowRight className="w-4 h-4 ml-2 group-hover:translate-x-1.5 transition-transform" />
+                            </>
+                        )}
+                    </div>
                 </Button>
             </div>
 
@@ -183,7 +189,7 @@ function TargetCard({ drive, onRemove, isScanning }: { drive: Drive, onRemove: (
 
     return (
         <Card className={cn(
-            "bg-card/30 border-border rounded-2xl overflow-hidden group hover:border-primary transition-all shadow-sm",
+            "bg-zinc-900/50 backdrop-blur-xl border-white/5 rounded-3xl overflow-hidden group hover:border-primary/40 transition-all shadow-sm hover:shadow-xl hover:shadow-primary/5",
             isFetchingSize && "opacity-80"
         )}>
             <CardHeader className="p-4 flex flex-row items-start justify-between space-y-0">
@@ -239,15 +245,15 @@ function TargetCard({ drive, onRemove, isScanning }: { drive: Drive, onRemove: (
                     isFetchingSize ? "bg-primary/10 border-primary/30" : "bg-primary/5 border-primary/10 group-hover:bg-primary/10"
                 )}>
                     <div className="flex flex-col">
-                        <span className="text-[8px] font-black uppercase tracking-tighter opacity-40">Folder Intensity</span>
-                        <div className="flex items-center gap-2">
+                        <span className="text-[9px] font-black uppercase tracking-widest opacity-30 italic">IO Intensity</span>
+                        <div className="flex items-center gap-2 mt-0.5">
                             {isFetchingSize ? (
-                                <div className="flex items-center gap-1.5">
+                                <div className="flex items-center gap-2">
                                     <Loader2 className="w-3 h-3 animate-spin text-primary" />
-                                    <span className="text-[9px] font-black text-primary/40 animate-pulse uppercase tracking-wider">Analyzing...</span>
+                                    <span className="text-[10px] font-black text-primary/60 animate-pulse uppercase tracking-[0.1em]">Indexing...</span>
                                 </div>
                             ) : (
-                                <span className="text-[11px] font-black text-primary tracking-tight">
+                                <span className="text-[13px] font-black text-white tracking-tight">
                                     {formatSize(folderSize || 0)}
                                 </span>
                             )}

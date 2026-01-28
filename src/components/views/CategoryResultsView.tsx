@@ -132,10 +132,10 @@ export const CategoryResultsView: React.FC<CategoryResultsViewProps> = React.mem
     return (
         <div className="space-y-6">
             {categoryGroups.map((category) => (
-                <div key={category.name} className="bg-white rounded-2xl border border-black/[0.05] overflow-hidden shadow-sm shadow-slate-200/50">
-                    <div className="bg-slate-900 px-5 py-4 border-b border-white/5 flex items-center justify-between">
+                <div key={category.name} className="bg-[#0c0c0c] rounded-2xl border border-white/5 overflow-hidden shadow-2xl">
+                    <div className="bg-zinc-900 px-5 py-4 border-b border-white/5 flex items-center justify-between">
                         <div className="flex items-center gap-4">
-                            <div className="w-10 h-10 bg-white/10 rounded-xl border border-white/10 flex items-center justify-center shrink-0">
+                            <div className="w-10 h-10 bg-white/5 rounded-xl border border-white/10 flex items-center justify-center shrink-0">
                                 {getIcon(category.name)}
                             </div>
                             <div className="flex flex-col">
@@ -154,7 +154,7 @@ export const CategoryResultsView: React.FC<CategoryResultsViewProps> = React.mem
                         </div>
                     </div>
 
-                    <div className="divide-y divide-black/[0.03]">
+                    <div className="divide-y divide-white/[0.02]">
                         {category.files.map((file) => {
                             const currentIndex = globalFileCounter++;
                             const isFocused = focusedIndex === currentIndex;
@@ -172,7 +172,7 @@ export const CategoryResultsView: React.FC<CategoryResultsViewProps> = React.mem
                                     }}
                                     className={cn(
                                         "px-5 py-3 flex items-center justify-between cursor-pointer group/file transition-all",
-                                        isChecked ? "bg-emerald-50 hover:bg-emerald-100/80" : "hover:bg-slate-50",
+                                        isChecked ? "bg-emerald-500/10 hover:bg-emerald-500/20" : "hover:bg-white/[0.02]",
                                         isFocused ? "ring-2 ring-emerald-500 ring-inset z-10" : ""
                                     )}
                                 >
@@ -194,13 +194,13 @@ export const CategoryResultsView: React.FC<CategoryResultsViewProps> = React.mem
                                         <div className="flex flex-col min-w-0">
                                             <span className={cn(
                                                 "text-[11px] font-bold truncate max-w-[400px]",
-                                                isChecked ? "text-emerald-700" : "text-slate-900"
+                                                isChecked ? "text-emerald-400" : "text-white"
                                             )}>
                                                 {fileName}
                                             </span>
                                             <span className={cn(
                                                 "text-[9px] font-medium truncate max-w-[500px]",
-                                                isChecked ? "text-emerald-600/60" : "text-slate-400"
+                                                isChecked ? "text-emerald-500/40" : "text-white/40"
                                             )}>
                                                 {folderPath}
                                             </span>

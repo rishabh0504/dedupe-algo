@@ -33,43 +33,46 @@ impl CacheManager {
         Ok(())
     }
 
-    pub fn get_hashes(&self, path: &str, size: u64, modified: u64) -> Result<Option<(Option<String>, Option<String>)>> {
-        let mut stmt = self.conn.prepare(
-            "SELECT partial_hash, full_hash FROM scan_cache WHERE path = ? AND size = ? AND modified = ?"
-        )?;
-        
-        let mut rows = stmt.query(params![path, size, modified])?;
+    /// Fetches all cached hashes for a set of paths to minimize DB roundtrips.
+    /// Note: Returns ALL hashes in the DB for easier bulk processing if needed.
+    pub fn get_all_cached_hashes(&self) -> Result<std::collections::HashMap<String, (u64, u64, Option<String>, Option<String>)>> {
+        let mut stmt = self.conn.prepare("SELECT path, size, modified, partial_hash, full_hash FROM scan_cache")?;
+        let rows = stmt.query_map([], |row| {
+            Ok((
+                row.get::<_, String>(0)?,
+                (
+                    row.get::<_, u64>(1)?,
+                    row.get::<_, u64>(2)?,
+                    row.get::<_, Option<String>>(3)?,
+                    row.get::<_, Option<String>>(4)?
+                )
+            ))
+        })?;
 
-        if let Some(row) = rows.next()? {
-            Ok(Some((row.get(0)?, row.get(1)?)))
-        } else {
-            Ok(None)
+        let mut map = std::collections::HashMap::new();
+        for row in rows {
+            let (path, data) = row?;
+            map.insert(path, data);
         }
+        Ok(map)
     }
 
-    pub fn upsert_partial(&self, path: &str, size: u64, modified: u64, partial_hash: &str) -> Result<()> {
-        self.conn.execute(
-            "INSERT INTO scan_cache (path, size, modified, partial_hash)
-             VALUES (?1, ?2, ?3, ?4)
-             ON CONFLICT(path) DO UPDATE SET
-                size = excluded.size,
-                modified = excluded.modified,
-                partial_hash = excluded.partial_hash",
-            params![path, size, modified, partial_hash],
-        )?;
-        Ok(())
-    }
-
-    pub fn upsert_full(&self, path: &str, size: u64, modified: u64, full_hash: &str) -> Result<()> {
-        self.conn.execute(
-            "INSERT INTO scan_cache (path, size, modified, full_hash)
-             VALUES (?1, ?2, ?3, ?4)
-             ON CONFLICT(path) DO UPDATE SET
-                size = excluded.size,
-                modified = excluded.modified,
-                full_hash = excluded.full_hash",
-            params![path, size, modified, full_hash],
-        )?;
-        Ok(())
+    pub fn batch_upsert(&mut self, updates: Vec<(String, u64, u64, Option<String>, Option<String>)>) -> Result<()> {
+        let tx = self.conn.transaction()?;
+        {
+            let mut stmt = tx.prepare(
+                "INSERT INTO scan_cache (path, size, modified, partial_hash, full_hash)
+                 VALUES (?1, ?2, ?3, ?4, ?5)
+                 ON CONFLICT(path) DO UPDATE SET
+                    size = excluded.size,
+                    modified = excluded.modified,
+                    partial_hash = COALESCE(excluded.partial_hash, scan_cache.partial_hash),
+                    full_hash = COALESCE(excluded.full_hash, scan_cache.full_hash)"
+            )?;
+            for (path, size, mod_time, ph, fh) in updates {
+                stmt.execute(params![path, size, mod_time, ph, fh])?;
+            }
+        }
+        tx.commit()
     }
 }
