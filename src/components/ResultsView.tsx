@@ -1,32 +1,46 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { useStore, FileMetadata } from "../store/useStore";
 import { formatSize, cn } from "../lib/utils";
 import {
     Trash2,
-    CheckCircle2,
-    AlertCircle,
     Calendar,
     ChevronRight,
-    FolderClosed,
-    Eye,
-    ExternalLink,
+    AlertCircle,
     X,
     Video,
     Image as ImageIcon,
     ImageOff,
     VideoOff,
+    CheckCircle2,
+    ExternalLink,
+    RotateCcw,
 } from "lucide-react";
 import { DeleteConfirmation } from "./DeleteConfirmation";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { ScrollArea } from "@/components/ui/scroll-area";
+import { ScrollArea, ScrollBar } from "@/components/ui/scroll-area";
+import {
+    Select,
+    SelectContent,
+    SelectItem,
+    SelectTrigger,
+    SelectValue,
+} from "@/components/ui/select";
 import { invoke, convertFileSrc } from "@tauri-apps/api/core";
+import { ClusterResultsView } from "./views/ClusterResultsView";
+import { FolderResultsView } from "./views/FolderResultsView";
+import { CategoryResultsView } from "./views/CategoryResultsView";
 
-export function ResultsView() {
-    const { scanResults, selectionQueue, toggleSelection, smartSelect } = useStore();
+interface ResultsViewProps {
+    onRescan: () => void;
+}
+
+export function ResultsView({ onRescan }: ResultsViewProps) {
+    const { scanResults, selectionQueue, toggleSelection, smartSelect, clearSelection } = useStore();
     const [isConfirmOpen, setConfirmOpen] = useState(false);
     const [previewFile, setPreviewFile] = useState<FileMetadata | null>(null);
     const [previewError, setPreviewError] = useState(false);
+    const [viewMode, setViewMode] = useState<'cluster' | 'folder' | 'category'>('cluster');
 
     if (!scanResults || scanResults.groups.length === 0) {
         return (
@@ -57,16 +71,10 @@ export function ResultsView() {
         return acc;
     }, 0);
 
-    const handleReveal = async (e: React.MouseEvent, path: string) => {
-        e.stopPropagation();
-        await invoke("reveal_in_finder", { path });
-    };
-
     const handlePreview = async (e: React.MouseEvent, file: FileMetadata) => {
         e.stopPropagation();
 
         // Security Handshake: Dynamically allow the asset protocol to see this folder
-        // This is critical for macOS security policies in Tauri v2
         try {
             const folderPath = file.path.split('/').slice(0, -1).join('/');
             await invoke("allow_folder_access", { path: folderPath });
@@ -74,7 +82,7 @@ export function ResultsView() {
             console.error("Security handshake failed:", err);
         }
 
-        setPreviewError(false); // Reset error state on new preview
+        setPreviewError(false);
         setPreviewFile(file);
     };
 
@@ -88,28 +96,15 @@ export function ResultsView() {
         return ["mp4", "mov"].includes(ext || "");
     };
 
-    /**
-     * Universal macOS Path Fix for dedupe-algo (Perfect Encoding)
-     * Handles NFD/NFC normalization and surgical asset protocol encoding.
-     */
     const safeConvertFileSrc = (path: string) => {
         if (!path) return "";
-
-        // 1. macOS Normalization: Ensure the string is in standard NFC format
         const normalized = path.normalize('NFC');
-
-        // 2. Initial conversion to get the verified protocol/hostname
         const originalUrl = convertFileSrc(normalized);
-
-        // 3. Perfect Encoding: 
-        // Ensure spaces are %20 and literal '+' are %2B.
-        return originalUrl
-            .replace(/ /g, '%20')
-            .replace(/\+/g, '%2B');
+        return originalUrl.replace(/ /g, '%20').replace(/\+/g, '%2B');
     };
 
-    // Robust State Synchronization: Clear preview if file is no longer in results
-    React.useEffect(() => {
+    // Robust State Synchronization
+    useEffect(() => {
         if (!previewFile || !scanResults) return;
         const exists = scanResults.groups.some(group =>
             group.some(file => file.path === previewFile.path)
@@ -117,7 +112,6 @@ export function ResultsView() {
         if (!exists) setPreviewFile(null);
     }, [scanResults, previewFile]);
 
-    // Handle Closing Preview specifically
     const closePreview = () => setPreviewFile(null);
 
     return (
@@ -141,25 +135,67 @@ export function ResultsView() {
                         </div>
                     </div>
 
-                    <div className="flex gap-2">
+                    <div className="flex gap-4 items-center">
                         <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => smartSelect("newest")}
-                            className="rounded-lg h-8 px-3 font-black text-[9px] uppercase tracking-wider hover:bg-primary/5 text-slate-500 hover:text-primary transition-all"
+                            variant="outline"
+                            size="icon"
+                            onClick={onRescan}
+                            className="h-8 w-8 text-slate-400 hover:text-primary hover:bg-primary/5 border-slate-200"
+                            title="Rescan Folder"
                         >
-                            <Calendar className="w-3 h-3 mr-1.5" />
-                            Retain Newest
+                            <RotateCcw className="w-3.5 h-3.5" />
                         </Button>
-                        <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => smartSelect("oldest")}
-                            className="rounded-lg h-8 px-3 font-black text-[9px] uppercase tracking-wider hover:bg-primary/5 text-slate-500 hover:text-primary transition-all"
-                        >
-                            <Calendar className="w-3 h-3 mr-1.5" />
-                            Retain Oldest
-                        </Button>
+
+                        <div className="h-4 w-px bg-slate-200" />
+
+                        {/* View Switcher Dropdown */}
+                        <div className="w-[180px]">
+                            <Select value={viewMode} onValueChange={(v) => setViewMode(v as any)}>
+                                <SelectTrigger className="h-8 text-[10px] font-black uppercase tracking-widest bg-slate-50 border-slate-200 text-slate-700">
+                                    <SelectValue placeholder="Select View" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    <SelectItem value="cluster" className="text-[10px] font-bold uppercase tracking-wider">Cluster View</SelectItem>
+                                    <SelectItem value="category" className="text-[10px] font-bold uppercase tracking-wider">Category View</SelectItem>
+                                    <SelectItem value="folder" className="text-[10px] font-bold uppercase tracking-wider">Folder View</SelectItem>
+                                </SelectContent>
+                            </Select>
+                        </div>
+
+                        <div className="h-4 w-px bg-slate-200" />
+
+                        <div className="flex gap-2">
+                            <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => smartSelect("newest")}
+                                className="rounded-lg h-8 px-3 font-black text-[9px] uppercase tracking-wider hover:bg-primary/5 text-slate-500 hover:text-primary transition-all"
+                            >
+                                <Calendar className="w-3 h-3 mr-1.5" />
+                                Retain Newest
+                            </Button>
+                            <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => smartSelect("oldest")}
+                                className="rounded-lg h-8 px-3 font-black text-[9px] uppercase tracking-wider hover:bg-primary/5 text-slate-500 hover:text-primary transition-all"
+                            >
+                                <Calendar className="w-3 h-3 mr-1.5" />
+                                Retain Oldest
+                            </Button>
+
+                            {selectionQueue.length > 0 && (
+                                <Button
+                                    variant="ghost"
+                                    size="sm"
+                                    onClick={clearSelection}
+                                    className="rounded-lg h-8 px-3 font-black text-[9px] uppercase tracking-wider hover:bg-destructive/5 text-destructive hover:text-destructive transition-all animate-in fade-in zoom-in duration-300"
+                                >
+                                    <X className="w-3 h-3 mr-1.5" />
+                                    Unselect All
+                                </Button>
+                            )}
+                        </div>
                     </div>
                 </div>
 
@@ -167,112 +203,36 @@ export function ResultsView() {
                 <div className="flex-1 relative overflow-hidden">
                     <ScrollArea className="h-full w-full">
                         <div className="p-6">
-                            <div className="overflow-hidden border border-black/[0.05] rounded-2xl bg-white shadow-xl shadow-slate-200/50">
-                                <table className="min-w-full divide-y divide-black/[0.03]">
-                                    <thead className="bg-slate-50/80 sticky top-0 z-10 backdrop-blur-md border-b border-black/[0.03]">
-                                        <tr className="divide-x divide-black/[0.03]">
-                                            <th className="w-10 px-4 py-3 text-left">
-                                                <div className="w-3.5 h-3.5 border border-slate-200 rounded-sm" />
-                                            </th>
-                                            <th className="px-4 py-3 text-left text-[8px] font-black text-slate-400 uppercase tracking-widest">Name & Path</th>
-                                            <th className="w-24 px-4 py-3 text-right text-[8px] font-black text-slate-400 uppercase tracking-widest">Size</th>
-                                            <th className="w-24 px-4 py-3 text-center text-[8px] font-black text-slate-400 uppercase tracking-widest">Modified</th>
-                                            <th className="w-16 px-4 py-3 text-center text-[8px] font-black text-slate-400 uppercase tracking-widest">Action</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody className="divide-y divide-black/[0.02]">
-                                        {scanResults.groups.map((group, idx) => (
-                                            <React.Fragment key={idx}>
-                                                <tr className="bg-primary/[0.02]">
-                                                    <td colSpan={5} className="px-4 py-2">
-                                                        <div className="flex items-center gap-2">
-                                                            <div className="w-5 h-5 bg-primary/10 rounded-md flex items-center justify-center text-primary/60 border border-primary/20">
-                                                                <FolderClosed className="w-2.5 h-2.5" />
-                                                            </div>
-                                                            <span className="text-[9px] font-black uppercase tracking-[0.2em] text-primary/50 italic">
-                                                                Cluster {idx + 1} &middot; {formatSize(group[0].size)}
-                                                            </span>
-                                                        </div>
-                                                    </td>
-                                                </tr>
-                                                {group.map((file) => {
-                                                    const isChecked = selectionQueue.includes(file.path);
-                                                    const isPreviewed = previewFile?.path === file.path;
-                                                    const fileName = file.path.split('/').pop() || "unknown";
-                                                    const folderPath = file.path.split('/').slice(0, -1).join('/') || "/";
-
-                                                    return (
-                                                        <tr
-                                                            key={file.path}
-                                                            onClick={() => toggleSelection(file.path)}
-                                                            className={cn(
-                                                                "group transition-colors cursor-pointer hover:bg-slate-50",
-                                                                isChecked ? "bg-primary/[0.03]" : "",
-                                                                isPreviewed ? "ring-1 ring-inset ring-primary/30 bg-primary/5" : ""
-                                                            )}
-                                                        >
-                                                            <td className="px-4 py-2.5 align-middle">
-                                                                <div className={cn(
-                                                                    "w-3.5 h-3.5 rounded-sm border flex items-center justify-center transition-all",
-                                                                    isChecked
-                                                                        ? "bg-primary border-primary text-primary-foreground shadow-sm"
-                                                                        : "border-slate-200 group-hover:border-primary/40"
-                                                                )}>
-                                                                    {isChecked && <CheckCircle2 className="w-2.5 h-2.5" />}
-                                                                </div>
-                                                            </td>
-                                                            <td className="px-4 py-2.5">
-                                                                <div className="flex flex-col min-w-0">
-                                                                    <span className={cn(
-                                                                        "text-[11px] font-bold tracking-tight truncate max-w-[350px]",
-                                                                        isChecked ? "text-primary" : "text-slate-900"
-                                                                    )}>{fileName}</span>
-                                                                    <span className="text-[8px] text-slate-400 font-medium truncate max-w-[450px]">
-                                                                        {folderPath}
-                                                                    </span>
-                                                                </div>
-                                                            </td>
-                                                            <td className="px-4 py-2.5 text-right align-middle">
-                                                                <span className="text-[10px] font-black tabular-nums text-slate-400 italic">
-                                                                    {formatSize(file.size)}
-                                                                </span>
-                                                            </td>
-                                                            <td className="px-4 py-2.5 text-center align-middle">
-                                                                <span className="text-[9px] font-bold tabular-nums text-slate-300">
-                                                                    {new Date(file.modified * 1000).toLocaleDateString()}
-                                                                </span>
-                                                            </td>
-                                                            <td className="px-4 py-2.5 text-center align-middle">
-                                                                <div className="flex items-center justify-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                                                                    {isMedia(file.path) && (
-                                                                        <button
-                                                                            onClick={(e) => handlePreview(e, file)}
-                                                                            className={cn(
-                                                                                "w-6 h-6 rounded-md flex items-center justify-center transition-all",
-                                                                                isPreviewed ? "bg-primary text-white" : "hover:bg-primary/10 text-primary/60 hover:text-primary"
-                                                                            )}
-                                                                        >
-                                                                            <Eye className="w-3.5 h-3.5" />
-                                                                        </button>
-                                                                    )}
-                                                                    <button
-                                                                        onClick={(e) => handleReveal(e, file.path)}
-                                                                        className="w-6 h-6 rounded-md hover:bg-primary/10 flex items-center justify-center text-primary/60 hover:text-primary transition-all"
-                                                                    >
-                                                                        <ExternalLink className="w-3.5 h-3.5" />
-                                                                    </button>
-                                                                </div>
-                                                            </td>
-                                                        </tr>
-                                                    );
-                                                })}
-                                            </React.Fragment>
-                                        ))}
-                                    </tbody>
-                                </table>
-                            </div>
+                            {viewMode === 'cluster' && (
+                                <ClusterResultsView
+                                    scanResults={scanResults}
+                                    selectionQueue={selectionQueue}
+                                    toggleSelection={toggleSelection}
+                                    handlePreview={handlePreview}
+                                    isMedia={isMedia}
+                                />
+                            )}
+                            {viewMode === 'folder' && (
+                                <FolderResultsView
+                                    scanResults={scanResults}
+                                    selectionQueue={selectionQueue}
+                                    toggleSelection={toggleSelection}
+                                    handlePreview={handlePreview}
+                                    isMedia={isMedia}
+                                />
+                            )}
+                            {viewMode === 'category' && (
+                                <CategoryResultsView
+                                    scanResults={scanResults}
+                                    selectionQueue={selectionQueue}
+                                    toggleSelection={toggleSelection}
+                                    handlePreview={handlePreview}
+                                    isMedia={isMedia}
+                                />
+                            )}
                             <div className="h-60" /> {/* Large buffer for footer room */}
                         </div>
+                        <ScrollBar orientation="horizontal" />
                     </ScrollArea>
                 </div>
             </div>

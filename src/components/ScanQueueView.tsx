@@ -16,11 +16,30 @@ import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { cn } from "@/lib/utils";
 
+import { useQuery } from "@tanstack/react-query";
+import { invoke } from "@tauri-apps/api/core";
+// ... imports ...
+
+// Define Drive interface locally or import if available
+interface Drive {
+    name: string;
+    mount_point: string;
+    total_space: number;
+    available_space: number;
+    is_removable: boolean;
+}
+
 export function ScanQueueView({ onStartScan }: { onStartScan: () => void }) {
     const { scanQueue, removeFromQueue, isScanning, scanPhase } = useStore();
     const { data: drives } = useDrives();
 
-    const queuedDrives = drives?.filter(d => scanQueue.includes(d.mount_point)) || [];
+    const { data: systemNodes } = useQuery({
+        queryKey: ["systemNodes"],
+        queryFn: () => invoke<Drive[]>("get_system_nodes")
+    });
+
+    const allNodes = [...(drives || []), ...(systemNodes || [])];
+    const queuedDrives = allNodes.filter(d => scanQueue.includes(d.mount_point)) || [];
 
     const getPhaseMessage = () => {
         switch (scanPhase) {

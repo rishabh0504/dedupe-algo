@@ -24,7 +24,7 @@ function App() {
 
   const handleStartScan = async () => {
     if (scanQueue.length === 0) return;
-    const { setScanPhase, setScanning, setResults, scanHidden } = useStore.getState();
+    const { setScanPhase, setScanning, setResults, scanHidden, setScanTimestamp } = useStore.getState();
 
     setResults(null);
     setScanning(true);
@@ -44,6 +44,7 @@ function App() {
       await new Promise(r => setTimeout(r, 400));
 
       setResults(response);
+      setScanTimestamp(Date.now()); // Force UI refresh
     } catch (error) {
       console.error("Scan failed:", error);
     } finally {
@@ -137,7 +138,7 @@ function App() {
                 <ScanQueueView onStartScan={handleStartScan} />
               </TabsContent>
               <TabsContent value="results" className="flex-1 flex flex-col overflow-hidden mt-0">
-                {scanResults && <ResultsView />}
+                {scanResults && <ResultsView key={useStore.getState().scanTimestamp} onRescan={handleStartScan} />}
               </TabsContent>
             </Tabs>
           </div>

@@ -19,9 +19,11 @@ interface UIState {
   selectionQueue: string[]; // paths to delete
   scanHidden: boolean;
   scanPhase: 'idle' | 'metadata' | 'partial' | 'full';
+  scanTimestamp: number;
   setScanning: (isScanning: boolean) => void;
   setScanPhase: (phase: 'idle' | 'metadata' | 'partial' | 'full') => void;
   setScanHidden: (scanHidden: boolean) => void;
+  setScanTimestamp: (ts: number) => void;
   addToQueue: (path: string) => void;
   removeFromQueue: (path: string) => void;
   clearQueue: () => void;
@@ -39,9 +41,11 @@ export const useStore = create<UIState>((set) => ({
   selectionQueue: [],
   scanHidden: false,
   scanPhase: 'idle',
+  scanTimestamp: 0,
   setScanning: (isScanning) => set({ isScanning }),
   setScanPhase: (scanPhase) => set({ scanPhase }),
   setScanHidden: (scanHidden) => set({ scanHidden }),
+  setScanTimestamp: (ts) => set({ scanTimestamp: ts }),
   addToQueue: (path) => set((state) => ({
     scanQueue: state.scanQueue.includes(path) ? state.scanQueue : [...state.scanQueue, path]
   })),

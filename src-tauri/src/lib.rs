@@ -23,10 +23,14 @@ struct ScanResult {
 #[tauri::command]
 fn start_scan(paths: Vec<String>, scan_hidden: bool, state: State<AppState>) -> ScanResult {
     // Phase 1: Traversal
+    println!("Starting scan for paths: {:?}", paths);
     let mut all_files = Vec::new();
-    for path in paths {
-        all_files.extend(scan_directory(&path, scan_hidden));
+    for path in &paths {
+        let found = scan_directory(path, scan_hidden);
+        println!("Scanned path: {}. Found {} files.", path, found.len());
+        all_files.extend(found);
     }
+    println!("Total files found in Phase 1: {}", all_files.len());
 
     // Pass 1: Group by Size
     let mut size_groups: HashMap<u64, Vec<FileMetadata>> = HashMap::new();
@@ -39,6 +43,8 @@ fn start_scan(paths: Vec<String>, scan_hidden: bool, state: State<AppState>) -> 
         .filter(|(_, group)| group.len() > 1)
         .flat_map(|(_, group)| group)
         .collect();
+
+    println!("Phase 1 Complete. Potential duplicates by size: {}", potential_dupes.len());
 
     if potential_dupes.is_empty() { return ScanResult { groups: Vec::new() }; }
 
@@ -164,6 +170,17 @@ struct DeletionReport {
 
 #[tauri::command]
 fn delete_selections(paths: Vec<String>) -> DeletionReport {
+    // OPTIMIZATION: Try batch delete first (Atomic OS Operation)
+    // This sends all files to trash in one go, which is much faster/cleaner for the OS
+    if trash::delete_all(&paths).is_ok() {
+         return DeletionReport {
+            success_count: paths.len(),
+            fail_count: 0,
+        };
+    }
+
+    // FALLBACK: If batch fails (e.g. one file locked), try to delete individually
+    // so we can at least clean up what is possible.
     let mut success_count = 0;
     let mut fail_count = 0;
 
