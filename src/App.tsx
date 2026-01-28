@@ -4,6 +4,7 @@ import { ResultsView } from "./components/ResultsView";
 import { ScanQueueView } from "./components/ScanQueueView";
 import { useStore, ScanResult } from "./store/useStore";
 import { invoke } from "@tauri-apps/api/core";
+import { OnboardingWizard } from "./components/OnboardingWizard";
 import { Zap, RotateCcw, Search, ListTodo } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
@@ -12,7 +13,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useState, useEffect } from "react";
 
 function App() {
-  const { isScanning, scanQueue, scanResults, setResults } = useStore();
+  const { isScanning, scanQueue, scanResults, setResults, isOnboarded } = useStore();
   const [activeTab, setActiveTab] = useState("queue");
 
   // Auto-switch to results tab when scan completes
@@ -64,6 +65,7 @@ function App() {
   return (
     <SidebarProvider>
       <div className="flex h-screen w-screen overflow-hidden bg-background">
+        {!isOnboarded && <OnboardingWizard />}
         <AppSidebar />
 
         <SidebarInset className="flex flex-col relative overflow-hidden bg-background/50">
@@ -74,7 +76,7 @@ function App() {
                 <img src="/src/assets/logo.png" alt="Logo" className="w-5 h-5 object-contain" />
               </div>
               <div className="flex flex-col">
-                <h1 className="text-sm font-bold tracking-tight">dedupe-algo Workspace</h1>
+                <h1 className="text-sm font-bold tracking-tight">Dedupe-Algo Workspace</h1>
                 <div className="flex items-center gap-2">
                   <Badge variant="outline" className="text-[9px] px-1.5 py-0 font-bold uppercase tracking-wider opacity-60">
                     {scanResults ? "Collision Matrix Loaded" : isScanning ? "Deep-Pass Analyzing..." : "Standby Operational"}

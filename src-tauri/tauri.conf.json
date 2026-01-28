@@ -1,6 +1,6 @@
 {
   "$schema": "https://schema.tauri.app/config/2",
-  "productName": "dedupe-algo",
+  "productName": "Dedupe-Algo",
   "version": "0.1.1",
   "identifier": "com.dedupealgo.app",
   "build": {
@@ -12,7 +12,7 @@
   "app": {
     "windows": [
       {
-        "title": "dedupe-algo | Universal Media Deduplication",
+        "title": "Dedupe-Algo | Universal Media Deduplication",
         "width": 1280,
         "height": 850,
         "resizable": true,
@@ -39,6 +39,13 @@
       "icons/128x128@2x.png",
       "icons/icon.icns",
       "icons/icon.ico"
-    ]
+    ],
+    "macOS": {
+      "infoPlist": {
+        "NSDesktopFolderUsageDescription": "Dedupe-Algo needs access to your Desktop to find and remove duplicate files.",
+        "NSDocumentsFolderUsageDescription": "Dedupe-Algo needs access to your Documents to find and remove duplicate files.",
+        "NSDownloadsFolderUsageDescription": "Dedupe-Algo needs access to your Downloads to find and remove duplicate files."
+      }
+    }
   }
 }

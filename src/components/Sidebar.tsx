@@ -134,7 +134,7 @@ export function AppSidebar() {
                         <img src="/src/assets/logo.png" alt="Logo" className="w-7 h-7 object-contain" />
                     </div>
                     <div className="flex flex-col">
-                        <h2 className="text-xl font-black tracking-tighter uppercase italic leading-none text-white">dedupe-pro</h2>
+                        <h2 className="text-xl font-black tracking-tighter uppercase italic leading-none text-white">Dedupe-Algo</h2>
                         <span className="text-[9px] font-black text-primary uppercase tracking-[0.2em] mt-1 opacity-60">High Performance Audit</span>
                     </div>
                 </div>

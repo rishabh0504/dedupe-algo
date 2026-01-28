@@ -17,7 +17,18 @@ pub struct FileMetadata {
     pub full_hash: Option<String>,
 }
 
+const XATTR_HASH_KEY: &str = "user.dedupe.hash";
+
 pub fn get_partial_hash(path: &str) -> Option<String> {
+    // 1. Try to read from xattr first for instant "verification"
+    if let Ok(Some(cached_hash)) = xattr::get(path, XATTR_HASH_KEY) {
+        if let Ok(hash_str) = String::from_utf8(cached_hash) {
+            // Optimization: If we have ANY hash stored, we can potentially use it 
+            // but for partial we usually want fresh check or specific partial key.
+            // For now, let's just proceed to compute to be safe, or we can use a different key.
+        }
+    }
+
     let mut file = File::open(path).ok()?;
     let metadata = file.metadata().ok()?;
     let size = metadata.len();
@@ -43,6 +54,13 @@ pub fn get_partial_hash(path: &str) -> Option<String> {
 }
 
 pub fn get_full_hash(path: &str) -> Option<String> {
+    // 1. Check xattr for existing hash
+    if let Ok(Some(cached_hash)) = xattr::get(path, XATTR_HASH_KEY) {
+        if let Ok(hash_str) = String::from_utf8(cached_hash) {
+            return Some(hash_str);
+        }
+    }
+
     let file = File::open(path).ok()?;
     let mut reader = BufReader::new(file);
     let mut hasher = Hasher::new();
@@ -53,7 +71,12 @@ pub fn get_full_hash(path: &str) -> Option<String> {
         hasher.update(&buffer[..n]);
     }
     
-    Some(hasher.finalize().to_hex().to_string())
+    let hash = hasher.finalize().to_hex().to_string();
+    
+    // 2. Persist hash to xattr for "Automatic Verification" in future runs
+    let _ = xattr::set(path, XATTR_HASH_KEY, hash.as_bytes());
+    
+    Some(hash)
 }
 
 pub fn scan_directory(

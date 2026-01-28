@@ -23,6 +23,7 @@ interface UIState {
   scanZips: boolean;
   scanPhase: 'idle' | 'metadata' | 'partial' | 'full';
   scanTimestamp: number;
+  isOnboarded: boolean;
   setScanning: (isScanning: boolean) => void;
   setScanPhase: (phase: 'idle' | 'metadata' | 'partial' | 'full') => void;
   setScanHidden: (scanHidden: boolean) => void;
@@ -30,6 +31,7 @@ interface UIState {
   setScanVideos: (scanVideos: boolean) => void;
   setScanZips: (scanZips: boolean) => void;
   setScanTimestamp: (ts: number) => void;
+  setOnboarded: (val: boolean) => void;
   addToQueue: (path: string) => void;
   removeFromQueue: (path: string) => void;
   clearQueue: () => void;
@@ -51,6 +53,7 @@ export const useStore = create<UIState>((set) => ({
   scanZips: true,
   scanPhase: 'idle',
   scanTimestamp: 0,
+  isOnboarded: localStorage.getItem('dedupe-algo-onboarded') === 'true',
   setScanning: (isScanning) => set({ isScanning }),
   setScanPhase: (scanPhase) => set({ scanPhase }),
   setScanHidden: (scanHidden) => set({ scanHidden }),
@@ -58,6 +61,10 @@ export const useStore = create<UIState>((set) => ({
   setScanVideos: (scanVideos) => set({ scanVideos }),
   setScanZips: (scanZips) => set({ scanZips }),
   setScanTimestamp: (ts) => set({ scanTimestamp: ts }),
+  setOnboarded: (val: boolean) => {
+    localStorage.setItem('dedupe-algo-onboarded', val.toString());
+    set({ isOnboarded: val });
+  },
   addToQueue: (path) => set((state) => ({
     scanQueue: state.scanQueue.includes(path) ? state.scanQueue : [...state.scanQueue, path]
   })),

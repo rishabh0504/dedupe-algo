@@ -310,6 +310,14 @@ pub fn run() {
             app.manage(AppState {
                 cache: Mutex::new(Some(cache_manager)),
             });
+
+            // Pre-authorize standard system nodes in asset protocol scope for "Installer" feel
+            for dir in [tauri::path::BaseDirectory::Desktop, tauri::path::BaseDirectory::Document, tauri::path::BaseDirectory::Download] {
+                if let Ok(path) = app.path().resolve("", dir) {
+                    let _ = app.asset_protocol_scope().allow_directory(&path, true);
+                }
+            }
+
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
