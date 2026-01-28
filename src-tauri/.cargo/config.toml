@@ -1,5 +1,5 @@
 [build]
-rustc-wrapper = "sccache"
+# Optimization: Enable sccache via RUSTC_WRAPPER environment variable in CI if available.
 
 [profile.release]
 codegen-units = 16
