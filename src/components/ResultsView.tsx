@@ -16,7 +16,8 @@ import {
     Search,
     LayoutGrid,
     Binary,
-    Folders
+    Folders,
+    Loader2
 } from "lucide-react";
 import { DeleteConfirmation } from "./DeleteConfirmation";
 import { Button } from "@/components/ui/button";
@@ -26,6 +27,7 @@ import { invoke, convertFileSrc } from "@tauri-apps/api/core";
 import { ClusterResultsView } from "./views/ClusterResultsView";
 import { FolderResultsView } from "./views/FolderResultsView";
 import { CategoryResultsView } from "./views/CategoryResultsView";
+import { transformToCategories, transformToFolders } from "../lib/dataTransform";
 
 interface ResultsViewProps {
     onRescan: () => void;
@@ -37,7 +39,15 @@ export function ResultsView({ onRescan }: ResultsViewProps) {
     const [previewFile, setPreviewFile] = useState<FileMetadata | null>(null);
     const [previewError, setPreviewError] = useState(false);
     const [viewMode, setViewMode] = useState<'cluster' | 'folder' | 'category'>('cluster');
+    const [isSwitching, setIsSwitching] = useState(false);
     const [searchQuery, setSearchQuery] = useState("");
+
+    const handleViewChange = (mode: 'cluster' | 'folder' | 'category') => {
+        if (mode === viewMode) return;
+        setIsSwitching(true);
+        setViewMode(mode);
+        setTimeout(() => setIsSwitching(false), 300);
+    };
 
     const filteredResults = React.useMemo(() => {
         if (!scanResults) return null;
@@ -50,6 +60,16 @@ export function ResultsView({ onRescan }: ResultsViewProps) {
 
         return { groups: filtered };
     }, [scanResults, searchQuery]);
+
+    const categoryData = React.useMemo(() => {
+        if (!filteredResults) return [];
+        return transformToCategories(filteredResults.groups);
+    }, [filteredResults]);
+
+    const folderData = React.useMemo(() => {
+        if (!filteredResults) return [];
+        return transformToFolders(filteredResults.groups);
+    }, [filteredResults]);
 
     if (!scanResults || scanResults.groups.length === 0) {
         return (
@@ -161,7 +181,7 @@ export function ResultsView({ onRescan }: ResultsViewProps) {
                                 variant="outline"
                                 size="icon"
                                 onClick={onRescan}
-                                className="h-9 w-9 text-slate-400 hover:text-primary hover:bg-primary/5 border-slate-200 rounded-xl"
+                                className="h-9 w-9 text-slate-400 hover:text-primary hover:bg-primary/5 border-slate-200 rounded-xl cursor-pointer"
                                 title="Rescan Folder"
                             >
                                 <RotateCcw className="w-4 h-4" />
@@ -177,9 +197,9 @@ export function ResultsView({ onRescan }: ResultsViewProps) {
                                 ].map((tab) => (
                                     <button
                                         key={tab.id}
-                                        onClick={() => setViewMode(tab.id as any)}
+                                        onClick={() => handleViewChange(tab.id as any)}
                                         className={cn(
-                                            "flex items-center gap-2 px-3 py-1.5 rounded-xl text-[9px] font-black uppercase tracking-widest transition-all",
+                                            "flex items-center gap-2 px-3 py-1.5 rounded-xl text-[9px] font-black uppercase tracking-widest transition-all cursor-pointer",
                                             viewMode === tab.id
                                                 ? "bg-white/10 text-white shadow-sm border border-white/10"
                                                 : "text-white/40 hover:text-white/60"
@@ -208,7 +228,7 @@ export function ResultsView({ onRescan }: ResultsViewProps) {
                             {searchQuery && (
                                 <button
                                     onClick={() => setSearchQuery("")}
-                                    className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
+                                    className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 cursor-pointer"
                                 >
                                     <X className="w-3.5 h-3.5" />
                                 </button>
@@ -231,6 +251,17 @@ export function ResultsView({ onRescan }: ResultsViewProps) {
 
                 {/* Vertical Scroll Container */}
                 <div className="flex-1 relative overflow-hidden">
+                    {isSwitching && (
+                        <div className="absolute inset-0 z-30 bg-[#0c0c0c]/40 backdrop-blur-sm flex items-center justify-center animate-in fade-in duration-200">
+                            <div className="flex flex-col items-center gap-4">
+                                <div className="relative">
+                                    <div className="absolute -inset-4 bg-primary/20 rounded-full blur-xl animate-pulse" />
+                                    <Loader2 className="w-8 h-8 text-primary animate-spin relative z-10" />
+                                </div>
+                                <span className="text-[10px] font-black text-white/40 uppercase tracking-[0.3em] ml-1">Re-Mapping Audit Matrix</span>
+                            </div>
+                        </div>
+                    )}
                     <ScrollArea className="h-full w-full">
                         <div className="p-6">
                             {viewMode === 'cluster' && filteredResults && (
@@ -244,7 +275,7 @@ export function ResultsView({ onRescan }: ResultsViewProps) {
                             )}
                             {viewMode === 'folder' && filteredResults && (
                                 <FolderResultsView
-                                    scanResults={filteredResults}
+                                    folderData={folderData}
                                     selectedSet={selectedSet}
                                     toggleSelection={toggleSelection}
                                     handlePreview={handlePreview}
@@ -253,7 +284,7 @@ export function ResultsView({ onRescan }: ResultsViewProps) {
                             )}
                             {viewMode === 'category' && filteredResults && (
                                 <CategoryResultsView
-                                    scanResults={filteredResults}
+                                    categoryData={categoryData}
                                     selectedSet={selectedSet}
                                     toggleSelection={toggleSelection}
                                     handlePreview={handlePreview}

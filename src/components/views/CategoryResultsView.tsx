@@ -1,4 +1,4 @@
-import React, { useMemo } from "react";
+import React from "react";
 import { FileMetadata } from "../../store/useStore";
 import { formatSize, cn } from "../../lib/utils";
 import {
@@ -13,19 +13,19 @@ import {
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { invoke } from "@tauri-apps/api/core";
+import { CategoryData, CategoryType } from "../../lib/dataTransform";
 
 interface CategoryResultsViewProps {
-    scanResults: { groups: FileMetadata[][] };
+    categoryData: CategoryData[];
     selectedSet: Set<string>;
     toggleSelection: (path: string) => void;
     handlePreview: (e: React.MouseEvent, file: FileMetadata) => void;
     isMedia: (path: string) => boolean;
 }
 
-type CategoryType = 'Images' | 'Videos' | 'Documents' | 'Archives' | 'Others';
 
 export const CategoryResultsView: React.FC<CategoryResultsViewProps> = React.memo(({
-    scanResults,
+    categoryData,
     selectedSet,
     toggleSelection,
     handlePreview,
@@ -38,58 +38,9 @@ export const CategoryResultsView: React.FC<CategoryResultsViewProps> = React.mem
         await invoke("reveal_in_finder", { path });
     };
 
-    /**
-     * Grouping Logic:
-     * Flatten all clusters, then categorize by extension.
-     */
-    const categoryGroups = useMemo(() => {
-        if (!scanResults) return [];
-
-        const groups: Record<CategoryType, { files: FileMetadata[], totalSize: number, count: number }> = {
-            Images: { files: [], totalSize: 0, count: 0 },
-            Videos: { files: [], totalSize: 0, count: 0 },
-            Documents: { files: [], totalSize: 0, count: 0 },
-            Archives: { files: [], totalSize: 0, count: 0 },
-            Others: { files: [], totalSize: 0, count: 0 },
-        };
-
-        const imageExts = ['jpg', 'jpeg', 'png', 'gif', 'webp', 'bmp', 'svg', 'tiff'];
-        const videoExts = ['mp4', 'mov', 'avi', 'mkv', 'webm', 'flv', 'wmv'];
-        const docExts = ['pdf', 'doc', 'docx', 'txt', 'md', 'rtf', 'xls', 'xlsx', 'ppt', 'pptx'];
-        const archiveExts = ['zip', 'rar', '7z', 'tar', 'gz', 'iso', 'dmg'];
-
-        scanResults.groups.forEach(cluster => {
-            cluster.forEach(file => {
-                const ext = file.path.split('.').pop()?.toLowerCase() || "";
-                let category: CategoryType = 'Others';
-
-                if (imageExts.includes(ext)) category = 'Images';
-                else if (videoExts.includes(ext)) category = 'Videos';
-                else if (docExts.includes(ext)) category = 'Documents';
-                else if (archiveExts.includes(ext)) category = 'Archives';
-
-                groups[category].files.push(file);
-                groups[category].totalSize += file.size;
-                groups[category].count++;
-            });
-        });
-
-        // Filter out empty categories
-        return Object.entries(groups)
-            .filter(([_, data]) => data.count > 0)
-            .map(([name, data]) => ({
-                name: name as CategoryType,
-                ...data,
-                // Sort files by size descending
-                files: data.files.sort((a, b) => b.size - a.size)
-            }))
-            .sort((a, b) => b.totalSize - a.totalSize);
-
-    }, [scanResults]);
-
     const allFiles = React.useMemo(() => {
-        return categoryGroups.flatMap(category => category.files);
-    }, [categoryGroups]);
+        return categoryData.flatMap(category => category.files);
+    }, [categoryData]);
 
     React.useEffect(() => {
         const handleKeyDown = (e: KeyboardEvent) => {
@@ -131,7 +82,7 @@ export const CategoryResultsView: React.FC<CategoryResultsViewProps> = React.mem
 
     return (
         <div className="space-y-6">
-            {categoryGroups.map((category) => (
+            {categoryData.map((category) => (
                 <div key={category.name} className="bg-[#0c0c0c] rounded-2xl border border-white/5 overflow-hidden shadow-2xl">
                     <div className="bg-zinc-900 px-5 py-4 border-b border-white/5 flex items-center justify-between">
                         <div className="flex items-center gap-4">
@@ -219,7 +170,7 @@ export const CategoryResultsView: React.FC<CategoryResultsViewProps> = React.mem
                                             {isMedia(file.path) && (
                                                 <button
                                                     onClick={(e) => handlePreview(e, file)}
-                                                    className="w-6 h-6 rounded-md flex items-center justify-center transition-all hover:bg-emerald-500/10 text-emerald-600/60 hover:text-emerald-600"
+                                                    className="w-6 h-6 rounded-md flex items-center justify-center transition-all hover:bg-emerald-500/10 text-emerald-600/60 hover:text-emerald-600 cursor-pointer"
                                                     title="Preview File"
                                                 >
                                                     <Eye className="w-3.5 h-3.5" />
@@ -227,7 +178,7 @@ export const CategoryResultsView: React.FC<CategoryResultsViewProps> = React.mem
                                             )}
                                             <button
                                                 onClick={(e) => handleReveal(e, file.path)}
-                                                className="w-6 h-6 rounded-md flex items-center justify-center transition-all hover:bg-emerald-500/10 text-emerald-600/60 hover:text-emerald-600"
+                                                className="w-6 h-6 rounded-md flex items-center justify-center transition-all hover:bg-emerald-500/10 text-emerald-600/60 hover:text-emerald-600 cursor-pointer"
                                                 title="Reveal in Finder"
                                             >
                                                 <ExternalLink className="w-3.5 h-3.5" />

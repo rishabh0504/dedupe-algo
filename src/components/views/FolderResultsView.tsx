@@ -1,4 +1,4 @@
-import React, { useMemo } from "react";
+import React from "react";
 import { FileMetadata } from "../../store/useStore";
 import { formatSize, cn } from "../../lib/utils";
 import { CheckCircle2, Eye, ExternalLink, Folder, Trash2, X } from "lucide-react";
@@ -11,26 +11,19 @@ import {
     AccordionTrigger,
 } from "@/components/ui/accordion";
 import { invoke } from "@tauri-apps/api/core";
+import { FolderData } from "../../lib/dataTransform";
 
 interface FolderResultsViewProps {
-    scanResults: { groups: FileMetadata[][] };
+    folderData: FolderData[];
     selectedSet: Set<string>;
     toggleSelection: (path: string) => void;
     handlePreview: (e: React.MouseEvent, file: FileMetadata) => void;
     isMedia: (path: string) => boolean;
 }
 
-interface NestedFolderGroup {
-    folderPath: string;
-    totalSize: number;
-    duplicateSets: {
-        hash: string;
-        files: FileMetadata[];
-    }[];
-}
 
 export const FolderResultsView: React.FC<FolderResultsViewProps> = React.memo(({
-    scanResults,
+    folderData,
     selectedSet,
     toggleSelection,
     handlePreview,
@@ -44,48 +37,9 @@ export const FolderResultsView: React.FC<FolderResultsViewProps> = React.memo(({
         await invoke("reveal_in_finder", { path });
     };
 
-    const resultGroups = useMemo(() => {
-        if (!scanResults) return [];
-
-        const folderMap = new Map<string, NestedFolderGroup>();
-
-        scanResults.groups.forEach((group, groupIndex) => {
-            const clusterId = `cluster-${groupIndex}`;
-            group.forEach(file => {
-                const parentDir = file.path.split('/').slice(0, -1).join('/') || "/";
-                if (!folderMap.has(parentDir)) {
-                    folderMap.set(parentDir, {
-                        folderPath: parentDir,
-                        totalSize: 0,
-                        duplicateSets: []
-                    });
-                }
-                const folderEntry = folderMap.get(parentDir)!;
-                let setEntry = folderEntry.duplicateSets.find(s => s.hash === clusterId);
-                if (!setEntry) {
-                    setEntry = { hash: clusterId, files: [] };
-                    folderEntry.duplicateSets.push(setEntry);
-                }
-                if (!setEntry.files.some(f => f.path === file.path)) {
-                    setEntry.files.push(file);
-                    folderEntry.totalSize += file.size;
-                }
-            });
-        });
-
-        return Array.from(folderMap.values())
-            .map(folder => ({
-                ...folder,
-                duplicateSets: folder.duplicateSets.filter(set => set.files.length > 1)
-            }))
-            .filter(folder => folder.duplicateSets.length > 0)
-            .sort((a, b) => b.totalSize - a.totalSize);
-
-    }, [scanResults]);
-
     const allFiles = React.useMemo(() => {
-        return resultGroups.flatMap(folder => folder.duplicateSets.flatMap(set => set.files));
-    }, [resultGroups]);
+        return folderData.flatMap(folder => folder.duplicateSets.flatMap(set => set.files));
+    }, [folderData]);
 
     React.useEffect(() => {
         const handleKeyDown = (e: KeyboardEvent) => {
@@ -110,7 +64,7 @@ export const FolderResultsView: React.FC<FolderResultsViewProps> = React.memo(({
         if (focusedIndex >= 0 && allFiles[focusedIndex]) {
             const focusedFile = allFiles[focusedIndex];
             const parentDir = focusedFile.path.split('/').slice(0, -1).join('/') || "/";
-            const folderIdx = resultGroups.findIndex(g => g.folderPath === parentDir);
+            const folderIdx = folderData.findIndex(g => g.folderPath === parentDir);
 
             if (folderIdx !== -1) {
                 const folderId = `folder-${folderIdx}`;
@@ -122,7 +76,7 @@ export const FolderResultsView: React.FC<FolderResultsViewProps> = React.memo(({
             const element = document.getElementById(`folder-file-${focusedFile.path}`);
             element?.scrollIntoView({ block: "nearest", behavior: "smooth" });
         }
-    }, [focusedIndex, allFiles, resultGroups]);
+    }, [focusedIndex, allFiles, folderData]);
 
     let globalFileCounter = 0;
 
@@ -134,7 +88,7 @@ export const FolderResultsView: React.FC<FolderResultsViewProps> = React.memo(({
                 value={expandedFolders}
                 onValueChange={setExpandedFolders}
             >
-                {resultGroups.map((folder, idx) => {
+                {folderData.map((folder, idx) => {
                     const folderId = `folder-${idx}`;
                     const hasSelection = folder.duplicateSets.some(set =>
                         set.files.some(f => selectedSet.has(f.path))
@@ -297,7 +251,7 @@ export const FolderResultsView: React.FC<FolderResultsViewProps> = React.memo(({
                                                             {isMedia(file.path) && (
                                                                 <button
                                                                     onClick={(e) => handlePreview(e, file)}
-                                                                    className="w-7 h-7 rounded-lg flex items-center justify-center transition-all hover:bg-emerald-500/10 text-emerald-600/60 hover:text-emerald-600"
+                                                                    className="w-7 h-7 rounded-lg flex items-center justify-center transition-all hover:bg-emerald-500/10 text-emerald-600/60 hover:text-emerald-600 cursor-pointer"
                                                                     title="Preview File"
                                                                 >
                                                                     <Eye className="w-3.5 h-3.5" />
@@ -305,7 +259,7 @@ export const FolderResultsView: React.FC<FolderResultsViewProps> = React.memo(({
                                                             )}
                                                             <button
                                                                 onClick={(e) => handleReveal(e, file.path)}
-                                                                className="w-7 h-7 rounded-lg flex items-center justify-center transition-all hover:bg-emerald-500/10 text-emerald-600/60 hover:text-emerald-600"
+                                                                className="w-7 h-7 rounded-lg flex items-center justify-center transition-all hover:bg-emerald-500/10 text-emerald-600/60 hover:text-emerald-600 cursor-pointer"
                                                                 title="Reveal in Finder"
                                                             >
                                                                 <ExternalLink className="w-3.5 h-3.5" />

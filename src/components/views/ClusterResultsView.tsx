@@ -166,14 +166,14 @@ export const ClusterResultsView: React.FC<ClusterResultsViewProps> = React.memo(
                                                 {isMedia(file.path) && (
                                                     <button
                                                         onClick={(e) => handlePreview(e, file)}
-                                                        className="w-6 h-6 rounded-md flex items-center justify-center transition-all hover:bg-emerald-500/10 text-emerald-600/60 hover:text-emerald-600"
+                                                        className="w-6 h-6 rounded-md flex items-center justify-center transition-all hover:bg-emerald-500/10 text-emerald-600/60 hover:text-emerald-600 cursor-pointer"
                                                     >
                                                         <Eye className="w-3.5 h-3.5" />
                                                     </button>
                                                 )}
                                                 <button
                                                     onClick={(e) => handleReveal(e, file.path)}
-                                                    className="w-6 h-6 rounded-md hover:bg-emerald-500/10 flex items-center justify-center text-emerald-600/60 hover:text-emerald-600 transition-all"
+                                                    className="w-6 h-6 rounded-md hover:bg-emerald-500/10 flex items-center justify-center text-emerald-600/60 hover:text-emerald-600 transition-all cursor-pointer"
                                                 >
                                                     <ExternalLink className="w-3.5 h-3.5" />
                                                 </button>

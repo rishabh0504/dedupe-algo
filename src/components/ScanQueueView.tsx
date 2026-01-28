@@ -132,7 +132,7 @@ export function ScanQueueView({ onStartScan }: { onStartScan: () => void }) {
                 <Button
                     onClick={onStartScan}
                     disabled={isScanning || isIndexing}
-                    className="rounded-2xl px-8 h-12 text-[11px] font-black shadow-2xl shadow-primary/20 bg-primary hover:bg-primary/90 text-primary-foreground group transition-all disabled:opacity-50 disabled:grayscale relative overflow-hidden active:scale-95"
+                    className="rounded-2xl px-8 h-12 text-[11px] font-black shadow-2xl shadow-primary/20 bg-primary hover:bg-primary/90 text-primary-foreground group transition-all disabled:opacity-50 disabled:grayscale relative overflow-hidden active:scale-95 cursor-pointer"
                 >
                     <div className="absolute inset-0 bg-white/10 translate-y-full group-hover:translate-y-0 transition-transform duration-300" />
                     <div className="relative flex items-center">
@@ -214,7 +214,7 @@ function TargetCard({ drive, onRemove, isScanning }: { drive: Drive, onRemove: (
                     size="icon"
                     onClick={onRemove}
                     disabled={isScanning}
-                    className="w-7 h-7 rounded-lg opacity-30 hover:opacity-100 hover:bg-destructive/10 hover:text-destructive transition-all shrink-0"
+                    className="w-7 h-7 rounded-lg opacity-30 hover:opacity-100 hover:bg-destructive/10 hover:text-destructive transition-all shrink-0 cursor-pointer"
                 >
                     <X className="w-3.5 h-3.5" />
                 </Button>

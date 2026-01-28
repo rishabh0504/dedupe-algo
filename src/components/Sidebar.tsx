@@ -3,12 +3,9 @@ import { useStore } from "../store/useStore";
 import {
     HardDrive,
     Loader2,
-    Activity,
     Plus,
     Minus,
-    Database,
     ExternalLink,
-    ChevronRight,
     Monitor,
     FileText,
     Download,
@@ -33,7 +30,6 @@ import {
     SidebarGroupLabel,
     SidebarGroupContent,
 } from "@/components/ui/sidebar";
-import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
 
 export function AppSidebar() {
@@ -80,7 +76,7 @@ export function AppSidebar() {
                     onClick={() => isQueued ? removeFromQueue(node.mount_point) : addToQueue(node.mount_point)}
                     disabled={isScanning}
                     className={cn(
-                        "group h-auto py-3 px-3 rounded-xl transition-all duration-200",
+                        "group h-auto py-3 px-3 rounded-xl transition-all duration-200 cursor-pointer",
                         isQueued ? "bg-primary/10 hover:bg-primary/15" : "hover:bg-muted/50"
                     )}
                 >
@@ -178,25 +174,7 @@ export function AppSidebar() {
                     </SidebarGroupContent>
                 </SidebarGroup>
 
-                <SidebarGroup className="mt-6">
-                    <SidebarGroupLabel className="text-[10px] uppercase tracking-[0.2em] font-black opacity-30 px-3 mb-4 text-left block w-full">Telemetry Hub</SidebarGroupLabel>
-                    <div className="px-3 space-y-2">
-                        <div className="flex items-center justify-between p-2.5 rounded-xl bg-secondary/10 border border-border/20 group hover:border-primary/20 transition-colors cursor-default">
-                            <div className="flex items-center gap-2">
-                                <Activity className="w-3.5 h-3.5 text-primary opacity-50" />
-                                <span className="text-[10px] font-bold uppercase tracking-wider opacity-40">Load Priority</span>
-                            </div>
-                            <Badge variant="outline" className="text-[9px] font-black h-4 px-1 border-primary/20 text-primary">HIGH</Badge>
-                        </div>
-                        <div className="flex items-center justify-between p-2.5 rounded-xl bg-secondary/10 border border-border/20 group hover:border-primary/20 transition-colors cursor-default">
-                            <div className="flex items-center gap-2">
-                                <Database className="w-3.5 h-3.5 text-primary opacity-50" />
-                                <span className="text-[10px] font-bold uppercase tracking-wider opacity-40">IO Stack</span>
-                            </div>
-                            <ChevronRight className="w-3.5 h-3.5 opacity-20" />
-                        </div>
-                    </div>
-                </SidebarGroup>
+
             </SidebarContent>
 
             <SidebarFooter className="p-4 border-t border-border/40">
