@@ -22,7 +22,7 @@ const XATTR_HASH_KEY: &str = "user.dedupe.hash";
 pub fn get_partial_hash(path: &str) -> Option<String> {
     // 1. Try to read from xattr first for instant "verification"
     if let Ok(Some(cached_hash)) = xattr::get(path, XATTR_HASH_KEY) {
-        if let Ok(hash_str) = String::from_utf8(cached_hash) {
+        if let Ok(_hash_str) = String::from_utf8(cached_hash) {
             // Optimization: If we have ANY hash stored, we can potentially use it 
             // but for partial we usually want fresh check or specific partial key.
             // For now, let's just proceed to compute to be safe, or we can use a different key.

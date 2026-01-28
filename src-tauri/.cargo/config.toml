@@ -1,0 +1,9 @@
+[build]
+rustc-wrapper = "sccache"
+
+[profile.release]
+codegen-units = 16
+lto = "thin"
+debug = false
+panic = "abort"
+incremental = true
