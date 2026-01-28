@@ -97,7 +97,7 @@ export function AppSidebar() {
                                     {node.name || "Unknown"}
                                 </span>
                                 {isQueued && (
-                                    <div className="w-1.5 h-1.5 rounded-full bg-primary shadow-[0_0_8px_rgba(var(--primary),0.5)] animate-pulse shrink-0" />
+                                    <div className="w-1.5 h-1.5 rounded-full bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.5)] animate-pulse shrink-0" />
                                 )}
                             </div>
                             <span className="text-[10px] text-muted-foreground font-medium opacity-50 truncate">

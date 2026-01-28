@@ -17,8 +17,8 @@
   --card-foreground: oklch(0.98 0 0);
   --popover: oklch(0.16 0 0);
   --popover-foreground: oklch(0.98 0 0);
-  --primary: oklch(0.6 0.2 260);
-  /* Vibrant Violet */
+  --primary: oklch(0.7 0.2 163);
+  /* Vibrant Emerald */
   --primary-foreground: oklch(0.98 0 0);
   --secondary: oklch(0.25 0 0);
   --secondary-foreground: oklch(0.98 0 0);
@@ -30,16 +30,16 @@
   --destructive-foreground: oklch(0.98 0 0);
   --border: oklch(1 0 0 / 12%);
   --input: oklch(1 0 0 / 15%);
-  --ring: oklch(0.6 0.2 260);
+  --ring: oklch(0.7 0.2 163);
   --radius: 0.75rem;
   --sidebar: oklch(0.14 0 0);
   --sidebar-foreground: oklch(0.98 0 0);
-  --sidebar-primary: oklch(0.6 0.2 260);
+  --sidebar-primary: oklch(0.7 0.2 163);
   --sidebar-primary-foreground: oklch(0.98 0 0);
   --sidebar-accent: oklch(0.25 0 0);
   --sidebar-accent-foreground: oklch(0.98 0 0);
   --sidebar-border: oklch(1 0 0 / 8%);
-  --sidebar-ring: oklch(0.6 0.2 260);
+  --sidebar-ring: oklch(0.7 0.2 163);
 }
 
 @theme inline {
