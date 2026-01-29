@@ -485,10 +485,17 @@ fn read_directory(path: String) -> Vec<FileEntry> {
     entries_vec
 }
 
+#[tauri::command]
+fn get_model_path(_app: tauri::AppHandle) -> String {
+    // In dev mode, return the absolute source path to avoid copying issues
+    "/Users/rishabh/Desktop/reusable projects/dedupe-algo/models/ggml-base.en.bin".to_string()
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
         .plugin(tauri_plugin_opener::init())
+        .plugin(tauri_plugin_shell::init())
         .setup(|app| {
             let app_data_dir = app.path().app_data_dir().expect("Failed to get app data dir");
             std::fs::create_dir_all(&app_data_dir).expect("Failed to create app data dir");
@@ -524,7 +531,8 @@ pub fn run() {
             get_folder_size,
             reset_cache,
             get_subdirectories,
-            read_directory
+            read_directory,
+            get_model_path
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

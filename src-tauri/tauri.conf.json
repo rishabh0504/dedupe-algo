@@ -42,6 +42,12 @@
     ],
     "macOS": {
       "infoPlist": "Info.plist"
-    }
+    },
+    "externalBin": [
+      "binaries/jarvis"
+    ],
+    "resources": [
+      "../models/*"
+    ]
   }
 }

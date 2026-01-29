@@ -48,6 +48,8 @@ interface UIState {
   setActiveView: (view: 'explorer' | 'results' | 'jarvis' | 'queue') => void;
   setExplorerPath: (path: string | null) => void;
   removeDeletedFromResults: (paths: string[]) => void;
+  isVoiceEnabled: boolean;
+  setVoiceEnabled: (enabled: boolean) => void;
 }
 
 export const useStore = create<UIState>((set) => ({
@@ -66,7 +68,12 @@ export const useStore = create<UIState>((set) => ({
   isOnboarded: localStorage.getItem('dedupe-algo-onboarded') === 'true',
   activeView: 'jarvis',
   explorerPath: null,
+  isVoiceEnabled: localStorage.getItem('dedupe-algo-voice-enabled') !== 'false', // Default true
   setScanning: (isScanning) => set({ isScanning }),
+  setVoiceEnabled: (enabled) => {
+    localStorage.setItem('dedupe-algo-voice-enabled', enabled.toString());
+    set({ isVoiceEnabled: enabled });
+  },
   setScanPhase: (scanPhase) => set({ scanPhase }),
   setScanHidden: (scanHidden) => set({ scanHidden }),
   setScanImages: (scanImages) => set({ scanImages }),

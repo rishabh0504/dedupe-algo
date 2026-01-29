@@ -8,5 +8,7 @@
 	<string>Dedupe-Algo needs access to your Documents to find and remove duplicate files.</string>
 	<key>NSDownloadsFolderUsageDescription</key>
 	<string>Dedupe-Algo needs access to your Downloads to find and remove duplicate files.</string>
+	<key>NSMicrophoneUsageDescription</key>
+	<string>Jarvis needs access to your microphone to listen for voice commands.</string>
 </dict>
 </plist>
