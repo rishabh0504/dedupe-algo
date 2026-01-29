@@ -4,6 +4,7 @@ import { ResultsView } from "./components/ResultsView";
 import { ScanQueueView } from "./components/ScanQueueView";
 import { useStore, ScanResult } from "./store/useStore";
 import { invoke } from "@tauri-apps/api/core";
+import { listen } from "@tauri-apps/api/event";
 import { OnboardingWizard } from "./components/OnboardingWizard";
 import { Zap, RotateCcw, Search, ListTodo } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -12,8 +13,10 @@ import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useState, useEffect } from "react";
 
+import { Toaster } from "@/components/ui/sonner";
+
 function App() {
-  const { isScanning, scanQueue, scanResults, setResults, isOnboarded } = useStore();
+  const { isScanning, scanQueue, scanResults, setResults, isOnboarded, setScanProgress } = useStore();
   const [activeTab, setActiveTab] = useState("queue");
 
   // Auto-switch to results tab when scan completes
@@ -23,13 +26,38 @@ function App() {
     }
   }, [scanResults, isScanning]);
 
+  // Listen for scan progress
+  useEffect(() => {
+    const unlistenPromise = listen<{ current: number; total: number; file: string; }>("scan-progress", (event) => {
+      setScanProgress(event.payload);
+    });
+
+    return () => {
+      unlistenPromise.then(unlisten => unlisten());
+    };
+  }, [setScanProgress]);
+
+  /* import { listen } from "@tauri-apps/api/event"; */
+  /* Note: Assuming listen is available or we need to import it. Let's start with logic structure */
+
   const handleStartScan = async () => {
     if (scanQueue.length === 0) return;
-    const { setScanPhase, setScanning, setResults, scanHidden, scanImages, scanVideos, scanZips, setScanTimestamp } = useStore.getState();
+    const { setScanPhase, setScanning, setResults, scanHidden, scanImages, scanVideos, scanZips, minFileSize, setScanTimestamp, setScanProgress } = useStore.getState();
 
     setResults(null);
     setScanning(true);
     setScanPhase('metadata');
+    setScanProgress(null);
+
+    // Setup listener
+    // Note: We need to import 'listen' from '@tauri-apps/api/event'
+    // But since I can't easily add imports in this chunk without being precise, I will assume the imports need adjustment.
+    // For now, let's just send the command.
+    // I will add the import in a separate call if needed or include it here if the import block is nearby.
+    // Wait, the import block is at the top. I should verify if 'listen' is imported.
+    // It's not. I will do this in two steps or try to just focus on the invoke for now.
+
+    // Changing approach: I will modify the start_scan call first.
 
     try {
       // Small artificial delays to let the "logical" phases breathe in the UI
@@ -41,7 +69,8 @@ function App() {
         scanHidden,
         scanImages,
         scanVideos,
-        scanZips
+        scanZips,
+        minFileSize
       });
 
       setScanPhase('full');
@@ -54,6 +83,7 @@ function App() {
     } finally {
       setScanning(false);
       setScanPhase('idle');
+      setScanProgress(null);
     }
   };
 
@@ -130,9 +160,25 @@ function App() {
                       <Zap className="w-10 h-10 text-primary animate-pulse blur-[1px]" />
                     </div>
                   </div>
-                  <div className="text-center space-y-2">
+                  <div className="text-center space-y-2 max-w-lg">
                     <h3 className="text-2xl font-black tracking-tight text-white uppercase italic">System Extraction Active</h3>
-                    <p className="text-muted-foreground text-sm font-medium">Analyzing file trees across {scanQueue.length} virtual targets...</p>
+                    {useStore.getState().scanProgress ? (
+                      <div className="space-y-1">
+                        <div className="flex justify-between text-[10px] font-bold uppercase tracking-widest text-muted-foreground/80">
+                          <span>Processing Files</span>
+                          <span>{Math.round((useStore.getState().scanProgress!.current / useStore.getState().scanProgress!.total) * 100)}%</span>
+                        </div>
+                        <div className="h-1.5 w-full bg-white/5 rounded-full overflow-hidden">
+                          <div
+                            className="h-full bg-primary transition-all duration-300"
+                            style={{ width: `${(useStore.getState().scanProgress!.current / useStore.getState().scanProgress!.total) * 100}%` }}
+                          />
+                        </div>
+                        <p className="text-[10px] font-mono opacity-50 truncate pt-1">{useStore.getState().scanProgress!.file}</p>
+                      </div>
+                    ) : (
+                      <p className="text-muted-foreground text-sm font-medium">Analyzing file trees across {scanQueue.length} virtual targets...</p>
+                    )}
                   </div>
                 </div>
               </div>
@@ -149,6 +195,7 @@ function App() {
           </div>
         </SidebarInset>
       </div>
+      <Toaster />
     </SidebarProvider>
   );
 }

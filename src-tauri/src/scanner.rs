@@ -17,17 +17,11 @@ pub struct FileMetadata {
     pub full_hash: Option<String>,
 }
 
-const XATTR_HASH_KEY: &str = "user.dedupe.hash";
 
 pub fn get_partial_hash(path: &str) -> Option<String> {
-    // 1. Try to read from xattr first for instant "verification"
-    if let Ok(Some(cached_hash)) = xattr::get(path, XATTR_HASH_KEY) {
-        if let Ok(_hash_str) = String::from_utf8(cached_hash) {
-            // Optimization: If we have ANY hash stored, we can potentially use it 
-            // but for partial we usually want fresh check or specific partial key.
-            // For now, let's just proceed to compute to be safe, or we can use a different key.
-        }
-    }
+    // xattr caching removed for reliability. 
+    // Moving files does not update xattr, leading to stale hashes.
+    // We strictly use the SQLite DB for caching now.
 
     let mut file = File::open(path).ok()?;
     let metadata = file.metadata().ok()?;
@@ -54,17 +48,12 @@ pub fn get_partial_hash(path: &str) -> Option<String> {
 }
 
 pub fn get_full_hash(path: &str) -> Option<String> {
-    // 1. Check xattr for existing hash
-    if let Ok(Some(cached_hash)) = xattr::get(path, XATTR_HASH_KEY) {
-        if let Ok(hash_str) = String::from_utf8(cached_hash) {
-            return Some(hash_str);
-        }
-    }
+    // xattr caching removed for reliability.
 
     let file = File::open(path).ok()?;
     let mut reader = BufReader::new(file);
     let mut hasher = Hasher::new();
-    let mut buffer = [0u8; 131072]; // 128KB buffer for NVMe optimization
+    let mut buffer = [0u8; 1048576]; // 1MB buffer for NVMe/SSD optimization
     
     while let Ok(n) = reader.read(&mut buffer) {
         if n == 0 { break; }
@@ -73,8 +62,7 @@ pub fn get_full_hash(path: &str) -> Option<String> {
     
     let hash = hasher.finalize().to_hex().to_string();
     
-    // 2. Persist hash to xattr for "Automatic Verification" in future runs
-    let _ = xattr::set(path, XATTR_HASH_KEY, hash.as_bytes());
+    // Cache update disabled to prevent stale data on move.
     
     Some(hash)
 }
@@ -84,7 +72,8 @@ pub fn scan_directory(
     scan_hidden: bool,
     scan_images: bool,
     scan_videos: bool,
-    scan_zips: bool
+    scan_zips: bool,
+    min_file_size: u64
 ) -> Vec<FileMetadata> {
 
 
@@ -105,13 +94,13 @@ pub fn scan_directory(
     let mut whitelist_exts = HashSet::new();
     
     if scan_images {
-        for ext in ["jpg", "jpeg", "png", "gif", "webp", "heic", "tiff", "bmp"] {
+        for ext in ["jpg", "jpeg", "png", "gif", "webp", "heic", "tiff", "bmp", "arw", "cr2", "nef", "dng", "orf", "rw2", "svg", "psd", "ai", "ico"] {
             whitelist_exts.insert(ext.to_string());
         }
     }
     
     if scan_videos {
-        for ext in ["mp4", "mov", "avi", "mkv", "wmv", "flv", "webm"] {
+        for ext in ["mp4", "mov", "avi", "mkv", "wmv", "flv", "webm", "m4v", "ts", "mts", "m2ts", "3gp", "divx", "vob"] {
             whitelist_exts.insert(ext.to_string());
         }
     }
@@ -134,10 +123,28 @@ pub fn scan_directory(
         .follow_links(false) // Core protection: never follow symlinks to avoid recursion or duplication
         .parallelism(jwalk::Parallelism::RayonNewPool(0))
         .into_iter()
-        .filter_map(|e| e.ok())
+        .filter_map(|e| {
+            match e {
+                Ok(entry) => Some(entry),
+                Err(err) => {
+                    eprintln!("Scan error (permission/access): {}", err);
+                    None
+                }
+            }
+        })
         .filter_map(|entry| {
             let path_buf = entry.path();
             let path_str = path_buf.to_string_lossy();
+            
+            // Dot-folder explicit exclusion
+            if !scan_hidden {
+                if let Some(name) = path_buf.file_name() {
+                    let name_str = name.to_string_lossy();
+                    if name_str.starts_with('.') {
+                        return None;
+                    }
+                }
+            }
 
             // 1. Absolute Path Blacklist Check
             if blacklist.iter().any(|b| path_str.starts_with(b)) {
@@ -176,6 +183,11 @@ pub fn scan_directory(
                 }
 
                 if let Ok(metadata) = entry.metadata() {
+                    // Min File Size Filter
+                    if metadata.len() < min_file_size {
+                        return None;
+                    }
+
                     return Some(FileMetadata {
                         path: path_str.into_owned(),
                         size: metadata.len(),

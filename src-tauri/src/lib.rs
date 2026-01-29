@@ -20,20 +20,31 @@ struct ScanResult {
     groups: Vec<Vec<FileMetadata>>,
 }
 
+#[derive(Serialize, Clone)]
+struct ProgressPayload {
+    current: usize,
+    total: usize,
+    file: String,
+}
+
 #[tauri::command]
 fn start_scan(
+    app: tauri::AppHandle,
     paths: Vec<String>, 
     scan_hidden: bool, 
     scan_images: bool,
     scan_videos: bool,
     scan_zips: bool,
+    min_file_size: u64,
     state: State<AppState>
 ) -> ScanResult {
+    use tauri::Emitter;
+
     // Phase 1: Traversal (Parallel across root paths)
     println!("Starting scan for paths: {:?}", paths);
     let all_files: Vec<FileMetadata> = paths.par_iter()
         .flat_map(|path| {
-            let found = scan_directory(path, scan_hidden, scan_images, scan_videos, scan_zips);
+            let found = scan_directory(path, scan_hidden, scan_images, scan_videos, scan_zips, min_file_size);
             println!("Scanned path: {}. Found {} files.", path, found.len());
             found
         })
@@ -62,9 +73,26 @@ fn start_scan(
         cache_lock.as_ref().and_then(|c| c.get_all_cached_hashes().ok()).unwrap_or_default()
     };
 
+    let total_files = potential_dupes.len();
+    let processed_count = std::sync::atomic::AtomicUsize::new(0);
+
     // Pass 2: Partial Hash (Parallel)
+    // To emit events from parallel iterators, we can use map_with or inspect, but emitting from threads requires thread-safe app handle.
+    // AppHandle is Clone + Send + Sync? Yes.
+    
     let hashed_files_p2: Vec<FileMetadata> = potential_dupes.into_par_iter()
         .map(|mut f| {
+            // Emit progress (throttled to avoid IPC flood, e.g. every 10 files or simply always if low count)
+            // Ideally we'd optimize this, but for now simple emission:
+            let current = processed_count.fetch_add(1, std::sync::atomic::Ordering::Relaxed) + 1;
+            if current % 5 == 0 { // Emit every 5 files to reduce overhead
+                 let _ = app.emit("scan-progress", ProgressPayload {
+                    current,
+                    total: total_files,
+                    file: f.path.clone(),
+                });
+            }
+
             // Check in-memory cache first
             if let Some((size, mod_time, Some(ph), _)) = cached_hashes.get(&f.path) {
                 if *size == f.size && *mod_time == f.modified {
@@ -94,8 +122,22 @@ fn start_scan(
 
     if potential_dupes_p3.is_empty() { return ScanResult { groups: Vec::new() }; }
 
+    // Reset progress for full hash phase? Or continue? Let's just treat it as a second stage.
+    // Ideally we update "total" but for simplicity let's just create a new counter.
+    let total_full = potential_dupes_p3.len();
+    let processed_count_full = std::sync::atomic::AtomicUsize::new(0);
+
     let hashed_files_p3: Vec<FileMetadata> = potential_dupes_p3.into_par_iter()
         .map(|mut f| {
+             let current = processed_count_full.fetch_add(1, std::sync::atomic::Ordering::Relaxed) + 1;
+             if current % 1 == 0 { // Emit every file for full hash as it's slower
+                 let _ = app.emit("scan-progress", ProgressPayload {
+                    current,
+                    total: total_full,
+                    file: f.path.clone(),
+                });
+            }
+
             // Check in-memory cache first
             if let Some((size, mod_time, _, Some(fh))) = cached_hashes.get(&f.path) {
                 if *size == f.size && *mod_time == f.modified {
@@ -291,6 +333,16 @@ fn allow_folder_access(app: tauri::AppHandle, path: String) {
     }
 }
 
+#[tauri::command]
+fn reset_cache(state: State<AppState>) -> Result<(), String> {
+    let match_res = state.cache.lock().map_err(|_| "Failed to lock cache mutex".to_string())?;
+    
+    if let Some(cache) = match_res.as_ref() {
+        cache.clear_cache().map_err(|e| e.to_string())?;
+    }
+    Ok(())
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
@@ -327,7 +379,8 @@ pub fn run() {
             delete_selections,
             reveal_in_finder,
             allow_folder_access,
-            get_folder_size
+            get_folder_size,
+            reset_cache
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

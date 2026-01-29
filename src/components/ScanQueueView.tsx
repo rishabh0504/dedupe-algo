@@ -181,24 +181,12 @@ function TargetCard({ drive, onRemove, isScanning }: { drive: Drive, onRemove: (
     const used = drive.total_space - drive.available_space;
     const usagePercent = drive.total_space > 0 ? Math.round((used / drive.total_space) * 100) : 0;
 
-    const { data: folderSize, isFetching: isFetchingSize } = useQuery({
-        queryKey: ["folderSize", drive.mount_point],
-        queryFn: () => invoke<number>("get_folder_size", { path: drive.mount_point }),
-        staleTime: 60000 // Cache for 1 minute
-    });
-
     return (
-        <Card className={cn(
-            "bg-[#0d1512] backdrop-blur-xl border-emerald-500/20 rounded-3xl overflow-hidden group hover:border-emerald-500/50 transition-all shadow-sm hover:shadow-[0_0_20px_rgba(16,185,129,0.1)]",
-            isFetchingSize && "opacity-80"
-        )}>
+        <Card className="bg-[#0d1512] backdrop-blur-xl border-emerald-500/20 rounded-3xl overflow-hidden group hover:border-emerald-500/50 transition-all shadow-sm hover:shadow-[0_0_20px_rgba(16,185,129,0.1)]">
             <CardHeader className="p-4 flex flex-row items-start justify-between space-y-0">
                 <div className="flex gap-3 min-w-0">
-                    <div className={cn(
-                        "w-8 h-8 rounded-lg flex items-center justify-center border shrink-0 transition-all",
-                        isFetchingSize ? "bg-primary/5 border-primary/10 animate-pulse" : "bg-primary/10 border-primary/20 group-hover:scale-105"
-                    )}>
-                        <HardDrive className={cn("w-4 h-4 text-primary", isFetchingSize && "animate-bounce")} />
+                    <div className="w-8 h-8 rounded-lg flex items-center justify-center border shrink-0 transition-all bg-primary/10 border-primary/20 group-hover:scale-105">
+                        <HardDrive className="w-4 h-4 text-primary" />
                     </div>
                     <div className="flex flex-col min-w-0">
                         <CardTitle className="text-sm font-black tracking-tight group-hover:text-primary transition-colors truncate">
@@ -240,35 +228,19 @@ function TargetCard({ drive, onRemove, isScanning }: { drive: Drive, onRemove: (
                     </div>
                 </div>
 
-                <div className={cn(
-                    "p-2.5 rounded-xl border flex items-center justify-between transition-all",
-                    isFetchingSize ? "bg-emerald-500/10 border-emerald-500/30" : "bg-emerald-500/5 border-emerald-500/10 group-hover:bg-emerald-500/10"
-                )}>
+                <div className="p-2.5 rounded-xl border flex items-center justify-between transition-all bg-emerald-500/5 border-emerald-500/10 group-hover:bg-emerald-500/10">
                     <div className="flex flex-col">
                         <span className="text-[9px] font-black uppercase tracking-widest opacity-30 italic">IO Intensity</span>
                         <div className="flex items-center gap-2 mt-0.5">
-                            {isFetchingSize ? (
-                                <div className="flex items-center gap-2">
-                                    <Loader2 className="w-3 h-3 animate-spin text-primary" />
-                                    <span className="text-[10px] font-black text-primary/60 animate-pulse uppercase tracking-[0.1em]">Indexing...</span>
-                                </div>
-                            ) : (
-                                <span className="text-[13px] font-black text-white tracking-tight">
-                                    {formatSize(folderSize || 0)}
-                                </span>
-                            )}
+                            <span className="text-[13px] font-black text-white tracking-tight">
+                                Ready
+                            </span>
                         </div>
                     </div>
                     <div className="flex items-center gap-1.5">
-                        <div className={cn(
-                            "w-1.5 h-1.5 rounded-full transform transition-all",
-                            isFetchingSize ? "bg-primary animate-ping" : "bg-emerald-500 animate-pulse shadow-[0_0_8px_rgba(16,185,129,0.5)]"
-                        )} />
-                        <span className={cn(
-                            "text-[8px] font-black uppercase tracking-[0.2em]",
-                            isFetchingSize ? "text-primary/60" : "text-emerald-500/70"
-                        )}>
-                            {isFetchingSize ? "Active" : "Online"}
+                        <div className="w-1.5 h-1.5 rounded-full transform transition-all bg-emerald-500 animate-pulse shadow-[0_0_8px_rgba(16,185,129,0.5)]" />
+                        <span className="text-[8px] font-black uppercase tracking-[0.2em] text-emerald-500/70">
+                            Online
                         </span>
                     </div>
                 </div>

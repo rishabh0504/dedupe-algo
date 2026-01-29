@@ -21,8 +21,10 @@ interface UIState {
   scanImages: boolean;
   scanVideos: boolean;
   scanZips: boolean;
+  minFileSize: number; // in bytes
   scanPhase: 'idle' | 'metadata' | 'partial' | 'full';
   scanTimestamp: number;
+  scanProgress: { current: number; total: number; file: string; } | null;
   isOnboarded: boolean;
   setScanning: (isScanning: boolean) => void;
   setScanPhase: (phase: 'idle' | 'metadata' | 'partial' | 'full') => void;
@@ -30,7 +32,9 @@ interface UIState {
   setScanImages: (scanImages: boolean) => void;
   setScanVideos: (scanVideos: boolean) => void;
   setScanZips: (scanZips: boolean) => void;
+  setMinFileSize: (size: number) => void;
   setScanTimestamp: (ts: number) => void;
+  setScanProgress: (progress: { current: number; total: number; file: string; } | null) => void;
   setOnboarded: (val: boolean) => void;
   addToQueue: (path: string) => void;
   removeFromQueue: (path: string) => void;
@@ -51,8 +55,10 @@ export const useStore = create<UIState>((set) => ({
   scanImages: true,
   scanVideos: true,
   scanZips: true,
+  minFileSize: 51200, // 50KB Default
   scanPhase: 'idle',
   scanTimestamp: 0,
+  scanProgress: null,
   isOnboarded: localStorage.getItem('dedupe-algo-onboarded') === 'true',
   setScanning: (isScanning) => set({ isScanning }),
   setScanPhase: (scanPhase) => set({ scanPhase }),
@@ -60,7 +66,9 @@ export const useStore = create<UIState>((set) => ({
   setScanImages: (scanImages) => set({ scanImages }),
   setScanVideos: (scanVideos) => set({ scanVideos }),
   setScanZips: (scanZips) => set({ scanZips }),
+  setMinFileSize: (minFileSize) => set({ minFileSize }),
   setScanTimestamp: (ts) => set({ scanTimestamp: ts }),
+  setScanProgress: (scanProgress) => set({ scanProgress }),
   setOnboarded: (val: boolean) => {
     localStorage.setItem('dedupe-algo-onboarded', val.toString());
     set({ isOnboarded: val });

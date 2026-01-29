@@ -75,4 +75,11 @@ impl CacheManager {
         }
         tx.commit()
     }
+
+    pub fn clear_cache(&self) -> Result<()> {
+        self.conn.execute("DELETE FROM scan_cache", [])?;
+        // Optional: VACUUM to reclaim space, though WAL mode usually handles it well enough.
+        // self.conn.execute("VACUUM", [])?; 
+        Ok(())
+    }
 }

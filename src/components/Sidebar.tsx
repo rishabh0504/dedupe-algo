@@ -13,11 +13,18 @@ import {
     EyeOff,
     Image,
     Video,
-    FileArchive
+    FileArchive,
+    RotateCcw,
+    AlertTriangle,
+    Database
 } from "lucide-react";
+import { Button } from "@/components/ui/button";
 import { useQuery } from "@tanstack/react-query";
 import { invoke } from "@tauri-apps/api/core";
 import { Switch } from "@/components/ui/switch";
+import { Slider } from "@/components/ui/slider";
+import { toast } from "sonner";
+import { useState } from "react";
 import {
     Sidebar,
     SidebarContent,
@@ -31,9 +38,22 @@ import {
     SidebarGroupContent,
 } from "@/components/ui/sidebar";
 import { cn } from "@/lib/utils";
+import {
+    AlertDialog,
+    AlertDialogContent,
+    AlertDialogHeader,
+    AlertDialogTitle,
+    AlertDialogDescription,
+    AlertDialogFooter,
+    AlertDialogCancel,
+    AlertDialogAction,
+    AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
 
 export function AppSidebar() {
     const { data: drives, isLoading: isLoadingDrives } = useDrives();
+    const [isResetting, setIsResetting] = useState(false);
+    const [isResetOpen, setIsResetOpen] = useState(false);
     const {
         scanQueue,
         addToQueue,
@@ -46,7 +66,9 @@ export function AppSidebar() {
         scanVideos,
         setScanVideos,
         scanZips,
-        setScanZips
+        setScanZips,
+        minFileSize,
+        setMinFileSize
     } = useStore();
 
     const { data: systemNodes, isLoading: isLoadingNodes } = useQuery({
@@ -179,6 +201,22 @@ export function AppSidebar() {
 
             <SidebarFooter className="p-4 border-t border-border/40">
                 <div className="space-y-4">
+                    <div className="px-3 py-2 space-y-3 bg-muted/20 rounded-xl mb-4 border border-white/5">
+                        <div className="flex items-center justify-between">
+                            <span className="text-[10px] font-black uppercase tracking-widest opacity-60">Min File Size</span>
+                            <span className="text-[10px] font-bold tabular-nums opacity-80">{Math.round(minFileSize / 1024)} KB</span>
+                        </div>
+                        <Slider
+                            value={[minFileSize]}
+                            max={5242880} // 5MB Max for slider
+                            min={1024} // 1KB Min
+                            step={1024}
+                            onValueChange={(val) => setMinFileSize(val[0])}
+                            disabled={isScanning}
+                            className="[&>span:first-child]:h-1 [&>span:first-child]:bg-white/10"
+                        />
+                    </div>
+
                     <div className="flex items-center justify-between px-2 py-1 hover:bg-muted/30 rounded-lg transition-colors group">
                         <div className="flex items-center gap-2">
                             {scanHidden ? <Eye className="w-3.5 h-3.5 text-primary" /> : <EyeOff className="w-3.5 h-3.5 text-muted-foreground opacity-40 shrink-0" />}
@@ -230,10 +268,121 @@ export function AppSidebar() {
                             className="scale-75"
                         />
                     </div>
-                    <div className="flex items-center gap-3 px-2">
-                        <div className="w-2 h-2 rounded-full bg-primary/40" />
-                        <span className="text-[9px] font-black uppercase tracking-widest text-muted-foreground opacity-30">V0.1.0 Build Stable</span>
-                    </div>
+
+
+                    <AlertDialog open={isResetOpen} onOpenChange={setIsResetOpen}>
+                        <AlertDialogTrigger asChild>
+                            <Button
+                                variant="ghost"
+                                size="sm"
+                                disabled={isScanning || isResetting}
+                                className="w-full justify-start gap-2 text-destructive/50 hover:text-destructive hover:bg-destructive/10 h-8 px-2"
+                            >
+                                {isResetting ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <RotateCcw className="w-3.5 h-3.5" />}
+                                <span className="text-[10px] font-black uppercase tracking-widest">
+                                    {isResetting ? "Resetting..." : "Reset Database"}
+                                </span>
+                            </Button>
+                        </AlertDialogTrigger>
+                        <AlertDialogContent className="border-emerald-500/40 bg-[#0a0a0a] !p-0 overflow-hidden !max-w-[720px] !gap-0 !flex !flex-row items-stretch h-[360px]">
+                            {/* Left Column: Scope List */}
+                            <div className="bg-muted/10 border-r border-white/5 flex flex-col w-[260px] shrink-0 h-full">
+                                <div className="p-4 border-b border-white/5 bg-white/[0.02]">
+                                    <span className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">Target Scope</span>
+                                </div>
+                                <div className="flex-1 overflow-y-auto p-2 space-y-1 scrollbar-none">
+                                    {drives?.filter(d => d.is_removable).map(drive => (
+                                        <div key={drive.mount_point} className="px-3 py-2 rounded-lg bg-white/[0.02] border border-white/5">
+                                            <div className="flex items-center gap-2 mb-0.5">
+                                                <HardDrive className="w-3 h-3 text-primary/70" />
+                                                <span className="text-xs font-bold text-foreground/90 truncate">{drive.name}</span>
+                                            </div>
+                                            <div className="text-[9px] font-mono text-muted-foreground truncate pl-5">
+                                                {drive.mount_point}
+                                            </div>
+                                        </div>
+                                    ))}
+                                    {systemNodes?.map(node => (
+                                        <div key={node.mount_point} className="px-3 py-2 rounded-lg bg-white/[0.02] border border-white/5">
+                                            <div className="flex items-center gap-2 mb-0.5">
+                                                <FileText className="w-3 h-3 text-blue-400/70" />
+                                                <span className="text-xs font-bold text-foreground/90 truncate">{node.name}</span>
+                                            </div>
+                                            <div className="text-[9px] font-mono text-muted-foreground truncate pl-5">
+                                                {node.mount_point}
+                                            </div>
+                                        </div>
+                                    ))}
+                                    {(!drives?.length && !systemNodes?.length) && (
+                                        <div className="p-4 text-center text-muted-foreground text-xs opacity-50">
+                                            No active drives found.
+                                        </div>
+                                    )}
+                                </div>
+                                <div className="p-3 border-t border-white/5 bg-white/[0.02]">
+                                    <div className="flex items-center gap-2 opacity-50">
+                                        <Database className="w-3 h-3" />
+                                        <span className="text-[9px] font-medium">PURGE PROTOCOL</span>
+                                    </div>
+                                </div>
+                            </div>
+
+                            {/* Right Column: Warning & Actions */}
+                            <div className="flex flex-col p-6 flex-1 h-full justify-between relative overflow-hidden">
+                                <div className="absolute top-0 right-0 p-32 bg-destructive/5 blur-3xl rounded-full pointer-events-none -mr-16 -mt-16" />
+
+                                <div className="relative z-10">
+                                    <AlertDialogHeader className="items-start text-left mb-6">
+                                        <div className="w-10 h-10 rounded-xl bg-destructive/10 flex items-center justify-center mb-4 border border-destructive/20 shadow-[0_0_15px_-3px_rgba(239,68,68,0.2)]">
+                                            <AlertTriangle className="w-5 h-5 text-destructive" />
+                                        </div>
+                                        <AlertDialogTitle className="text-xl font-black tracking-tight text-white mb-2">
+                                            INITIATE PURGE?
+                                        </AlertDialogTitle>
+                                        <AlertDialogDescription className="text-muted-foreground text-xs leading-relaxed">
+                                            This will permanently delete the fingerprint cache for all drives listed on the left.
+                                            <br /><br />
+                                            <span className="text-destructive/80 font-bold bg-destructive/10 px-1 rounded">Action Irreversible:</span> System will require a full file-by-file re-scan to identify duplicates again.
+                                        </AlertDialogDescription>
+                                    </AlertDialogHeader>
+                                </div>
+
+                                <AlertDialogFooter className="flex-col gap-2 relative z-10 sm:flex-col sm:space-x-0">
+                                    <AlertDialogAction
+                                        disabled={isResetting}
+                                        onClick={async (e) => {
+                                            e.preventDefault();
+                                            setIsResetting(true);
+                                            try {
+                                                await new Promise(resolve => setTimeout(resolve, 800));
+                                                await invoke("reset_cache");
+                                                setIsResetOpen(false);
+                                                setTimeout(() => {
+                                                    toast.success("Purge Complete", {
+                                                        description: "Database cleared successfully. Ready for new scan.",
+                                                    });
+                                                }, 200);
+                                            } catch (error) {
+                                                console.error("Failed to reset cache", error);
+                                                toast.error("Reset Failed", {
+                                                    description: "Check console for details.",
+                                                });
+                                            } finally {
+                                                setIsResetting(false);
+                                            }
+                                        }}
+                                        className="w-full bg-destructive text-destructive-foreground hover:bg-destructive/90 h-9 text-xs font-black uppercase tracking-wider shadow-lg shadow-destructive/20"
+                                    >
+                                        {isResetting ? <Loader2 className="w-3 h-3 animate-spin mr-2" /> : "EXECUTE PURGE"}
+                                    </AlertDialogAction>
+                                    <AlertDialogCancel disabled={isResetting} className="w-full h-8 text-xs font-bold uppercase tracking-wider border-white/5 hover:bg-white/5 hover:text-white bg-transparent">
+                                        ABORT
+                                    </AlertDialogCancel>
+                                </AlertDialogFooter>
+                            </div>
+                        </AlertDialogContent>
+                    </AlertDialog>
+
                 </div>
             </SidebarFooter>
         </Sidebar>
