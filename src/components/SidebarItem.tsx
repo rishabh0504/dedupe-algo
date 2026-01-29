@@ -70,6 +70,7 @@ export function SidebarItem({ node, level = 0 }: SidebarItemProps) {
             removeFromQueue(node.mount_point);
         } else {
             addToQueue(node.mount_point);
+            setActiveView('queue');
         }
     };
 

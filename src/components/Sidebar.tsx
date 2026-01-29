@@ -13,7 +13,8 @@ import {
     Database,
     HardDrive,
     FileText,
-    ChevronRight
+    ChevronRight,
+    Mic
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useQuery } from "@tanstack/react-query";
@@ -61,7 +62,8 @@ export function AppSidebar() {
         scanZips,
         setScanZips,
         minFileSize,
-        setMinFileSize
+        setMinFileSize,
+        setActiveView
     } = useStore();
 
     const { data: systemNodes, isLoading: isLoadingNodes } = useQuery({
@@ -94,7 +96,6 @@ export function AppSidebar() {
 
             <SidebarContent className="px-3">
                 <SidebarGroup>
-                    <SidebarGroupLabel className="text-[10px] uppercase tracking-[0.2em] font-black opacity-30 px-3 mb-2">Workspace Nodes</SidebarGroupLabel>
                     <SidebarGroupContent>
                         {isLoading ? (
                             <div className="flex items-center gap-3 px-3 py-4 opacity-50">
@@ -135,8 +136,22 @@ export function AppSidebar() {
 
 
 
-            <SidebarFooter className="p-4 border-t border-border/40">
-                <div className="space-y-4">
+            <SidebarFooter className="px-4 py-1 border-t border-border/40">
+                <div className="space-y-0.5">
+
+                    <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => setActiveView('jarvis')}
+                        className="w-full justify-start gap-2 text-primary hover:text-primary hover:bg-primary/10 h-9 px-2 mb-2 group"
+                    >
+                        <div className="p-1 rounded bg-primary/20 group-hover:bg-primary/30 transition-colors">
+                            <Mic className="w-3.5 h-3.5" />
+                        </div>
+                        <span className="text-[10px] font-black uppercase tracking-widest">Speak To Jarvis</span>
+                    </Button>
+
+                    <div className="h-px bg-border/40 my-1" />
 
                     {/* Collapsible Header */}
                     <Button
@@ -155,7 +170,7 @@ export function AppSidebar() {
 
                     {/* Collapsible Content */}
                     <div className={cn(
-                        "space-y-4 overflow-hidden transition-all duration-300 ease-in-out",
+                        "space-y-2 overflow-hidden transition-all duration-300 ease-in-out",
                         isSettingsOpen ? "max-h-[500px] opacity-100" : "max-h-0 opacity-0"
                     )}>
                         <div className="px-3 py-2 space-y-3 bg-muted/20 rounded-xl mb-4 border border-white/5">
