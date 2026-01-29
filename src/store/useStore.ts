@@ -43,9 +43,9 @@ interface UIState {
   toggleSelection: (path: string) => void;
   smartSelect: (criteria: "newest" | "oldest") => void;
   clearSelection: () => void;
-  activeView: 'explorer' | 'results';
+  activeView: 'explorer' | 'results' | 'jarvis' | 'queue';
   explorerPath: string | null;
-  setActiveView: (view: 'explorer' | 'results') => void;
+  setActiveView: (view: 'explorer' | 'results' | 'jarvis' | 'queue') => void;
   setExplorerPath: (path: string | null) => void;
   removeDeletedFromResults: (paths: string[]) => void;
 }
@@ -64,7 +64,7 @@ export const useStore = create<UIState>((set) => ({
   scanTimestamp: 0,
   scanProgress: null,
   isOnboarded: localStorage.getItem('dedupe-algo-onboarded') === 'true',
-  activeView: 'explorer',
+  activeView: 'jarvis',
   explorerPath: null,
   setScanning: (isScanning) => set({ isScanning }),
   setScanPhase: (scanPhase) => set({ scanPhase }),
