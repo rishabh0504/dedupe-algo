@@ -21,13 +21,15 @@ import {
     X,
     ExternalLink,
     VideoOff,
-    ImageOff
+    ImageOff,
+    Trash2
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Badge } from "@/components/ui/badge";
 import { cn, formatSize } from "@/lib/utils";
+import { toast } from "sonner";
 
 interface FileEntry {
     name: string;
@@ -38,15 +40,24 @@ interface FileEntry {
     modified: number;
 }
 
+// Context Menu Setup
+interface ContextMenuState {
+    x: number;
+    y: number;
+    entry: FileEntry;
+}
+
 const FileGridItem = ({
     entry,
     onClick,
+    onContextMenu,
     scanQueue,
     addToQueue,
     removeFromQueue
 }: {
     entry: FileEntry;
     onClick: (entry: FileEntry) => void;
+    onContextMenu: (e: React.MouseEvent, entry: FileEntry) => void;
     scanQueue: string[];
     addToQueue: (path: string) => void;
     removeFromQueue: (path: string) => void;
@@ -124,6 +135,7 @@ const FileGridItem = ({
         <div
             className="group relative flex flex-col items-center gap-3 p-3 rounded-2xl hover:bg-white/5 transition-all duration-300 cursor-pointer border border-transparent hover:border-white/5"
             onClick={() => onClick(entry)}
+            onContextMenu={(e) => onContextMenu(e, entry)}
             onMouseEnter={() => setIsHovering(true)}
             onMouseLeave={() => setIsHovering(false)}
         >
@@ -174,20 +186,34 @@ export function FileExplorerView() {
     const [previewFile, setPreviewFile] = useState<FileEntry | null>(null);
     const [previewError, setPreviewError] = useState(false);
 
+    // Context Menu State
+    const [contextMenu, setContextMenu] = useState<ContextMenuState | null>(null);
+
     useEffect(() => {
         if (explorerPath) {
             loadDirectory(explorerPath);
             setPreviewFile(null); // Clear preview on nav
+            setContextMenu(null); // Clear menu
         }
     }, [explorerPath]);
+
+    // Close context menu on click elsewhere
+    useEffect(() => {
+        const handleClick = () => setContextMenu(null);
+        document.addEventListener("click", handleClick);
+        return () => document.removeEventListener("click", handleClick);
+    }, []);
 
     const loadDirectory = async (path: string) => {
         setIsLoading(true);
         try {
+            // Optimistic error handling (if path deleted)
             const data = await invoke<FileEntry[]>("read_directory", { path });
             setEntries(data);
         } catch (error) {
             console.error("Failed to read directory:", error);
+            // If current dir invalid, go up
+            handleUp();
         } finally {
             setIsLoading(false);
         }
@@ -197,7 +223,6 @@ export function FileExplorerView() {
         if (entry.is_dir) {
             if (entry.path === explorerPath) return;
 
-            // Add to history
             const newHistory = history.slice(0, historyIndex + 1);
             newHistory.push(entry.path);
             setHistory(newHistory);
@@ -205,9 +230,7 @@ export function FileExplorerView() {
 
             setExplorerPath(entry.path);
         } else {
-            // Handle File Preview
             try {
-                // Security Handshake
                 const folderPath = entry.path.split('/').slice(0, -1).join('/');
                 await invoke("allow_folder_access", { path: folderPath });
             } catch (err) {
@@ -215,6 +238,44 @@ export function FileExplorerView() {
             }
             setPreviewError(false);
             setPreviewFile(entry);
+        }
+    };
+
+    const handleContextMenu = (e: React.MouseEvent, entry: FileEntry) => {
+        e.preventDefault();
+        e.stopPropagation();
+        setContextMenu({
+            x: e.clientX,
+            y: e.clientY,
+            entry
+        });
+    };
+
+    const handleDelete = async (entry: FileEntry) => {
+        setContextMenu(null);
+        const toastId = toast.loading(`Deleting ${entry.name}...`);
+
+        try {
+            const report = await invoke<{ success_count: number; fail_count: number; errors: string[] }>("delete_selections", {
+                paths: [entry.path]
+            });
+
+            if (report.success_count > 0) {
+                toast.success("Item deleted", { id: toastId });
+                // If we deleted the currently previewed file, close preview
+                if (previewFile?.path === entry.path) {
+                    setPreviewFile(null);
+                }
+                // Refresh directory
+                if (explorerPath) loadDirectory(explorerPath);
+            } else {
+                // Show specific error if available
+                const msg = report.errors && report.errors.length > 0 ? report.errors[0] : "Failed to delete item";
+                toast.error(msg, { id: toastId, duration: 4000 });
+            }
+        } catch (error) {
+            console.error(error);
+            toast.error("Error during deletion", { id: toastId });
         }
     };
 
@@ -240,9 +301,6 @@ export function FileExplorerView() {
         parts.pop();
         const parentPath = parts.join("/");
         if (parts.length > 0) {
-            // We just set path directly, avoiding creating a history entry for "Up" to keep it cleaner, 
-            // or we could use handleEntryClick logic if we had an entry object.
-            // Let's manually do the history update to stay consistent.
             const target = parentPath || "/";
             if (target === explorerPath) return;
             const newHistory = history.slice(0, historyIndex + 1);
@@ -271,11 +329,9 @@ export function FileExplorerView() {
 
     const safeConvertFileSrc = (path: string) => {
         if (!path) return "";
-        // Basic normalization if needed, mostly Tauri handles this
         return convertFileSrc(path);
     };
 
-    // List view icon helper
     const getListIcon = (entry: FileEntry) => {
         if (entry.is_dir) return <Folder className="w-5 h-5 text-blue-400" />;
         const ext = entry.name.split('.').pop()?.toLowerCase();
@@ -296,7 +352,7 @@ export function FileExplorerView() {
     }
 
     return (
-        <div className="flex-1 flex flex-row h-full overflow-hidden bg-[#0c0c0c] text-white">
+        <div className="flex-1 flex flex-row h-full overflow-hidden bg-[#0c0c0c] text-white relative">
             <div className="flex-1 flex flex-col h-full overflow-hidden border-r border-white/5">
                 {/* Toolbar */}
                 <div className="flex items-center gap-2 p-3 border-b border-white/5 bg-white/[0.02]">
@@ -355,7 +411,7 @@ export function FileExplorerView() {
 
                 {/* Content */}
                 <ScrollArea className="flex-1" type="always">
-                    <div className="p-4">
+                    <div className="p-4" onContextMenu={(e) => e.preventDefault()}>
                         {isLoading ? (
                             <div className="flex justify-center py-20">
                                 <Loader2 className="w-8 h-8 animate-spin text-primary" />
@@ -371,6 +427,7 @@ export function FileExplorerView() {
                                         key={entry.path}
                                         entry={entry}
                                         onClick={handleEntryClick}
+                                        onContextMenu={handleContextMenu}
                                         scanQueue={scanQueue}
                                         addToQueue={addToQueue}
                                         removeFromQueue={removeFromQueue}
@@ -384,6 +441,7 @@ export function FileExplorerView() {
                                         key={entry.path}
                                         className="group flex items-center gap-3 p-2 rounded-lg hover:bg-white/5 transition-colors cursor-pointer border border-transparent hover:border-white/5"
                                         onClick={() => handleEntryClick(entry)}
+                                        onContextMenu={(e) => handleContextMenu(e, entry)}
                                     >
                                         {getListIcon(entry)}
                                         <span className="text-xs flex-1 truncate">{entry.name}</span>
@@ -475,15 +533,25 @@ export function FileExplorerView() {
                                 </div>
 
                                 <div className="mt-4 flex flex-col gap-2">
-                                    <Button
-                                        variant="secondary"
-                                        size="sm"
-                                        onClick={() => invoke("reveal_in_finder", { path: previewFile.path })}
-                                        className="flex-1 bg-white/5 hover:bg-white/10 text-white border border-white/10 rounded-xl h-9 text-[10px] font-black uppercase tracking-widest"
-                                    >
-                                        <ExternalLink className="w-3.5 h-3.5 mr-2" />
-                                        Locate System File
-                                    </Button>
+                                    <div className="flex gap-2">
+                                        <Button
+                                            variant="secondary"
+                                            size="sm"
+                                            onClick={() => invoke("reveal_in_finder", { path: previewFile.path })}
+                                            className="flex-1 bg-white/5 hover:bg-white/10 text-white border border-white/10 rounded-xl h-9 text-[10px] font-black uppercase tracking-widest"
+                                        >
+                                            <ExternalLink className="w-3.5 h-3.5 mr-2" />
+                                            Reveal
+                                        </Button>
+                                        <Button
+                                            variant="destructive"
+                                            size="sm"
+                                            onClick={() => handleDelete(previewFile)}
+                                            className="bg-red-500/10 hover:bg-red-500/20 text-red-400 border border-red-500/20 rounded-xl h-9 w-9 p-0"
+                                        >
+                                            <Trash2 className="w-4 h-4" />
+                                        </Button>
+                                    </div>
                                     <Button
                                         variant="ghost"
                                         size="sm"
@@ -496,6 +564,47 @@ export function FileExplorerView() {
                             </div>
                         </div>
                     </div>
+                </div>
+            )}
+
+            {/* Context Menu Portal/Overlay */}
+            {contextMenu && (
+                <div
+                    className="fixed z-50 min-w-[160px] bg-[#0c0c0c] border border-white/10 rounded-xl shadow-2xl p-1 animate-in fade-in zoom-in-95 duration-100"
+                    style={{ top: contextMenu.y, left: contextMenu.x }}
+                    onClick={(e) => e.stopPropagation()}
+                >
+                    <div className="px-2 py-1.5 text-[10px] font-black text-muted-foreground uppercase tracking-wider border-b border-white/5 mb-1 truncate max-w-[200px]">
+                        {contextMenu.entry.name}
+                    </div>
+                    <button
+                        onClick={() => {
+                            invoke("reveal_in_finder", { path: contextMenu.entry.path });
+                            setContextMenu(null);
+                        }}
+                        className="w-full text-left flex items-center gap-2 px-2 py-1.5 rounded-lg hover:bg-white/10 text-xs text-white transition-colors"
+                    >
+                        <ExternalLink className="w-3.5 h-3.5" />
+                        Reveal in Finder
+                    </button>
+                    <button
+                        onClick={() => {
+                            navigator.clipboard.writeText(contextMenu.entry.path);
+                            setContextMenu(null);
+                        }}
+                        className="w-full text-left flex items-center gap-2 px-2 py-1.5 rounded-lg hover:bg-white/10 text-xs text-white transition-colors"
+                    >
+                        <FileText className="w-3.5 h-3.5" />
+                        Copy Path
+                    </button>
+                    <div className="h-px bg-white/5 my-1" />
+                    <button
+                        onClick={() => handleDelete(contextMenu.entry)}
+                        className="w-full text-left flex items-center gap-2 px-2 py-1.5 rounded-lg hover:bg-red-500/10 text-xs text-red-400 hover:text-red-300 transition-colors"
+                    >
+                        <Trash2 className="w-3.5 h-3.5" />
+                        Delete
+                    </button>
                 </div>
             )}
         </div>

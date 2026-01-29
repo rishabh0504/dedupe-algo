@@ -194,34 +194,67 @@ pub struct DriveInfo {
 struct DeletionReport {
     success_count: usize,
     fail_count: usize,
+    errors: Vec<String>,
 }
 
 #[tauri::command]
 fn delete_selections(paths: Vec<String>) -> DeletionReport {
-    // OPTIMIZATION: Try batch delete first (Atomic OS Operation)
-    // This sends all files to trash in one go, which is much faster/cleaner for the OS
-    if trash::delete_all(&paths).is_ok() {
-         return DeletionReport {
-            success_count: paths.len(),
-            fail_count: 0,
-        };
-    }
-
-    // FALLBACK: If batch fails (e.g. one file locked), try to delete individually
-    // so we can at least clean up what is possible.
     let mut success_count = 0;
     let mut fail_count = 0;
+    let mut errors = Vec::new();
 
     for path in paths {
-        match trash::delete(&path) {
-            Ok(_) => success_count += 1,
-            Err(_) => fail_count += 1,
+        // DETECT EXTERNAL VOLUME:
+        let is_external = path.starts_with("/Volumes/");
+
+        if is_external {
+            // Force Delete Strategy (External/NTFS)
+            let path_obj = std::path::Path::new(&path);
+            let force_result = if path_obj.is_dir() {
+                std::fs::remove_dir_all(&path)
+            } else {
+                std::fs::remove_file(&path)
+            };
+
+            match force_result {
+                Ok(_) => success_count += 1,
+                Err(e) => {
+                    let err_msg = format!("Failed to delete {}: {}", path, e);
+                    eprintln!("{}", err_msg);
+                    errors.push(e.to_string());
+                    fail_count += 1;
+                }
+            }
+        } else {
+            // Standard Trash Strategy (Internal/System)
+            if trash::delete(&path).is_ok() {
+                success_count += 1;
+            } else {
+                // Fallback to force delete
+                let path_obj = std::path::Path::new(&path);
+                let force_result = if path_obj.is_dir() {
+                    std::fs::remove_dir_all(&path)
+                } else {
+                    std::fs::remove_file(&path)
+                };
+
+                match force_result {
+                    Ok(_) => success_count += 1,
+                    Err(e) => {
+                         let err_msg = format!("Failed to delete {}: {}", path, e);
+                         eprintln!("{}", err_msg);
+                         errors.push(e.to_string());
+                         fail_count += 1;
+                    }
+                }
+            }
         }
     }
 
     DeletionReport {
         success_count,
         fail_count,
+        errors,
     }
 }
 
