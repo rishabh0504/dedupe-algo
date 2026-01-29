@@ -13,35 +13,19 @@ import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { useState, useEffect } from "react";
+import { useEffect } from "react";
 
 import { Toaster } from "@/components/ui/sonner";
 
 function App() {
   const { isScanning, scanQueue, scanResults, setResults, isOnboarded, setScanProgress, activeView, setActiveView } = useStore();
 
-  const [activeTab, setActiveTab] = useState("explorer");
-
-  // Sync from Store -> UI (e.g. Sidebar click)
-  useEffect(() => {
-    if (activeView === 'explorer') setActiveTab('explorer');
-    if (activeView === 'results') setActiveTab('results');
-    if (activeView === 'jarvis') setActiveTab('jarvis');
-  }, [activeView]);
-
-  // Sync from UI -> Store (Tab click)
-  useEffect(() => {
-    if (activeTab === 'explorer') setActiveView('explorer');
-    if (activeTab === 'results') setActiveView('results');
-    if (activeTab === 'jarvis') setActiveView('jarvis');
-  }, [activeTab, setActiveView]);
-
   // Auto-switch to results tab when scan completes
   useEffect(() => {
     if (scanResults && !isScanning) {
-      setActiveTab("results");
+      setActiveView("results");
     }
-  }, [scanResults, isScanning]);
+  }, [scanResults, isScanning, setActiveView]);
 
   // Listen for scan progress
   useEffect(() => {
@@ -94,7 +78,7 @@ function App() {
 
   const clearResults = () => {
     setResults(null);
-    setActiveTab("queue");
+    setActiveView("queue");
   };
 
   return (
@@ -121,25 +105,41 @@ function App() {
             </div>
 
             <div className="flex items-center gap-4">
-              <Tabs value={activeTab} onValueChange={setActiveTab} className="bg-muted/50 p-1 rounded-xl">
+              <Tabs value={activeView} onValueChange={(val) => setActiveView(val as any)} className="bg-muted/50 p-1 rounded-xl">
                 <TabsList className="bg-transparent h-9 gap-1">
-                  <TabsTrigger value="explorer" className="rounded-lg px-4 font-bold text-xs data-[state=active]:bg-background data-[state=active]:shadow-sm">
-                    <FolderOpen className="w-3.5 h-3.5 mr-2 opacity-50" />
-                    Explorer
+
+                  {/* EXPLORER TAB: Only show if activeView is explorer. Hide if in Queue or Results mode. */}
+                  {(activeView === 'explorer' || (!scanResults && activeView !== 'queue' && activeView !== 'jarvis')) && (
+                    <TabsTrigger value="explorer" className="rounded-lg px-4 font-bold text-xs data-[state=active]:bg-background data-[state=active]:shadow-sm">
+                      <FolderOpen className="w-3.5 h-3.5 mr-2 opacity-50" />
+                      Explorer
+                    </TabsTrigger>
+                  )}
+
+                  {/* QUEUE TAB: Show if in Queue mode or if there are items. Hide if in Explorer mode (unless manually switched?) - User requested strictness "no explorer view" when in queue. */}
+                  {(activeView === 'queue' || scanQueue.length > 0 || activeView === 'results') && (
+                    <TabsTrigger value="queue" className="rounded-lg px-4 font-bold text-xs data-[state=active]:bg-background data-[state=active]:shadow-sm">
+                      <ListTodo className="w-3.5 h-3.5 mr-2 opacity-50" />
+                      Queue
+                    </TabsTrigger>
+                  )}
+
+                  {/* RESULTS TAB: Only show if results exist. */}
+                  {(scanResults || activeView === 'results') && (
+                    <TabsTrigger
+                      value="results"
+                      disabled={!scanResults && !isScanning}
+                      className="rounded-lg px-4 font-bold text-xs data-[state=active]:bg-background data-[state=active]:shadow-sm"
+                    >
+                      <Search className="w-3.5 h-3.5 mr-2 opacity-50" />
+                      Results
+                    </TabsTrigger>
+                  )}
+
+                  {/* JARVIS TAB: Hidden but accessible via state */}
+                  <TabsTrigger value="jarvis" className={activeView === 'jarvis' ? "rounded-lg px-4 font-bold text-xs data-[state=active]:bg-background data-[state=active]:shadow-sm" : "hidden"}>
+                    Jarvis
                   </TabsTrigger>
-                  <TabsTrigger value="queue" className="rounded-lg px-4 font-bold text-xs data-[state=active]:bg-background data-[state=active]:shadow-sm">
-                    <ListTodo className="w-3.5 h-3.5 mr-2 opacity-50" />
-                    Queue
-                  </TabsTrigger>
-                  <TabsTrigger
-                    value="results"
-                    disabled={!scanResults && !isScanning}
-                    className="rounded-lg px-4 font-bold text-xs data-[state=active]:bg-background data-[state=active]:shadow-sm"
-                  >
-                    <Search className="w-3.5 h-3.5 mr-2 opacity-50" />
-                    Results
-                  </TabsTrigger>
-                  <TabsTrigger value="jarvis" className="hidden">Jarvis</TabsTrigger>
                 </TabsList>
               </Tabs>
 
@@ -194,7 +194,7 @@ function App() {
               </div>
             )}
 
-            <Tabs value={activeTab} onValueChange={setActiveTab} className="flex-1 flex flex-col overflow-hidden">
+            <Tabs value={activeView} onValueChange={(val) => setActiveView(val as any)} className="flex-1 flex flex-col overflow-hidden">
               <TabsContent value="explorer" className="flex-1 flex flex-col overflow-hidden mt-0">
                 <FileExplorerView />
               </TabsContent>
