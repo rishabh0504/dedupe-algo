@@ -409,65 +409,67 @@ export function FileExplorerView() {
                     </div>
                 </div>
 
-                {/* Content */}
-                <ScrollArea className="flex-1" type="always">
-                    <div className="p-4" onContextMenu={(e) => e.preventDefault()}>
-                        {isLoading ? (
-                            <div className="flex justify-center py-20">
-                                <Loader2 className="w-8 h-8 animate-spin text-primary" />
-                            </div>
-                        ) : filteredEntries.length === 0 ? (
-                            <div className="text-center py-20 text-muted-foreground/50">
-                                <p>Empty folder</p>
-                            </div>
-                        ) : viewMode === 'grid' ? (
-                            <div className="grid grid-cols-[repeat(auto-fill,minmax(140px,1fr))] gap-4">
-                                {filteredEntries.map((entry) => (
-                                    <FileGridItem
-                                        key={entry.path}
-                                        entry={entry}
-                                        onClick={handleEntryClick}
-                                        onContextMenu={handleContextMenu}
-                                        scanQueue={scanQueue}
-                                        addToQueue={addToQueue}
-                                        removeFromQueue={removeFromQueue}
-                                    />
-                                ))}
-                            </div>
-                        ) : (
-                            <div className="space-y-1">
-                                {filteredEntries.map((entry) => (
-                                    <div
-                                        key={entry.path}
-                                        className="group flex items-center gap-3 p-2 rounded-lg hover:bg-white/5 transition-colors cursor-pointer border border-transparent hover:border-white/5"
-                                        onClick={() => handleEntryClick(entry)}
-                                        onContextMenu={(e) => handleContextMenu(e, entry)}
-                                    >
-                                        {getListIcon(entry)}
-                                        <span className="text-xs flex-1 truncate">{entry.name}</span>
-                                        {!entry.is_dir && <span className="text-[10px] text-muted-foreground w-16 text-right">{formatSize(entry.size)}</span>}
+                {/* Vertical Scroll Container */}
+                <div className="flex-1 relative overflow-hidden">
+                    <ScrollArea className="h-full w-full" type="always">
+                        <div className="p-4" onContextMenu={(e) => e.preventDefault()}>
+                            {isLoading ? (
+                                <div className="flex justify-center py-20">
+                                    <Loader2 className="w-8 h-8 animate-spin text-primary" />
+                                </div>
+                            ) : filteredEntries.length === 0 ? (
+                                <div className="text-center py-20 text-muted-foreground/50">
+                                    <p>Empty folder</p>
+                                </div>
+                            ) : viewMode === 'grid' ? (
+                                <div className="grid grid-cols-[repeat(auto-fill,minmax(140px,1fr))] gap-4">
+                                    {filteredEntries.map((entry) => (
+                                        <FileGridItem
+                                            key={entry.path}
+                                            entry={entry}
+                                            onClick={handleEntryClick}
+                                            onContextMenu={handleContextMenu}
+                                            scanQueue={scanQueue}
+                                            addToQueue={addToQueue}
+                                            removeFromQueue={removeFromQueue}
+                                        />
+                                    ))}
+                                </div>
+                            ) : (
+                                <div className="space-y-1">
+                                    {filteredEntries.map((entry) => (
+                                        <div
+                                            key={entry.path}
+                                            className="group flex items-center gap-3 p-2 rounded-lg hover:bg-white/5 transition-colors cursor-pointer border border-transparent hover:border-white/5"
+                                            onClick={() => handleEntryClick(entry)}
+                                            onContextMenu={(e) => handleContextMenu(e, entry)}
+                                        >
+                                            {getListIcon(entry)}
+                                            <span className="text-xs flex-1 truncate">{entry.name}</span>
+                                            {!entry.is_dir && <span className="text-[10px] text-muted-foreground w-16 text-right">{formatSize(entry.size)}</span>}
 
-                                        {entry.is_dir && (
-                                            <button
-                                                onClick={(e) => {
-                                                    e.stopPropagation();
-                                                    if (scanQueue.includes(entry.path)) removeFromQueue(entry.path);
-                                                    else addToQueue(entry.path);
-                                                }}
-                                                className={cn(
-                                                    "w-6 h-6 rounded flex items-center justify-center transition-opacity opacity-0 group-hover:opacity-100",
-                                                    scanQueue.includes(entry.path) ? "opacity-100 text-primary" : "text-muted-foreground hover:text-primary"
-                                                )}
-                                            >
-                                                {scanQueue.includes(entry.path) ? <Minus className="w-3.5 h-3.5" /> : <Plus className="w-3.5 h-3.5" />}
-                                            </button>
-                                        )}
-                                    </div>
-                                ))}
-                            </div>
-                        )}
-                    </div>
-                </ScrollArea>
+                                            {entry.is_dir && (
+                                                <button
+                                                    onClick={(e) => {
+                                                        e.stopPropagation();
+                                                        if (scanQueue.includes(entry.path)) removeFromQueue(entry.path);
+                                                        else addToQueue(entry.path);
+                                                    }}
+                                                    className={cn(
+                                                        "w-6 h-6 rounded flex items-center justify-center transition-opacity opacity-0 group-hover:opacity-100",
+                                                        scanQueue.includes(entry.path) ? "opacity-100 text-primary" : "text-muted-foreground hover:text-primary"
+                                                    )}
+                                                >
+                                                    {scanQueue.includes(entry.path) ? <Minus className="w-3.5 h-3.5" /> : <Plus className="w-3.5 h-3.5" />}
+                                                </button>
+                                            )}
+                                        </div>
+                                    ))}
+                                </div>
+                            )}
+                        </div>
+                    </ScrollArea>
+                </div>
             </div>
 
             {/* RIGHT COLUMN: PREVIEW PANEL */}
