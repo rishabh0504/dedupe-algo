@@ -343,6 +343,48 @@ fn reset_cache(state: State<AppState>) -> Result<(), String> {
     Ok(())
 }
 
+#[tauri::command]
+fn get_subdirectories(path: String) -> Vec<DriveInfo> {
+    let mut folders = Vec::new();
+    // Common system folders to ignore
+    let ignored_names = [
+        "$RECYCLE.BIN", "System Volume Information", "Recovery", 
+        "Config.Msi", "$WinREAgent", ".Trashes", ".fseventsd", 
+        ".Spotlight-V100", ".DocumentRevisions-V100", ".TemporaryItems"
+    ];
+
+    if let Ok(entries) = std::fs::read_dir(&path) {
+        for entry in entries.filter_map(|e| e.ok()) {
+            if let Ok(metadata) = entry.metadata() {
+                if metadata.is_dir() {
+                    let path_buf = entry.path();
+                    let name = entry.file_name().to_string_lossy().to_string();
+                    
+                    // Basic hidden filter
+                    if name.starts_with('.') { continue; }
+                    
+                    // Specific system folder filter
+                    if ignored_names.iter().any(|&n| name.eq_ignore_ascii_case(n)) { continue; }
+
+                    // Pattern matching for "found.000", "found.001" etc.
+                    if name.starts_with("found.") && name[6..].chars().all(char::is_numeric) { continue; }
+
+                    folders.push(DriveInfo {
+                        name,
+                        mount_point: path_buf.to_string_lossy().to_string(),
+                        total_space: 0, // Not applicable for folders
+                        available_space: 0,
+                        is_removable: false,
+                    });
+                }
+            }
+        }
+    }
+    // Sort alphabetically
+    folders.sort_by(|a, b| a.name.to_lowercase().cmp(&b.name.to_lowercase()));
+    folders
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
@@ -380,7 +422,8 @@ pub fn run() {
             reveal_in_finder,
             allow_folder_access,
             get_folder_size,
-            reset_cache
+            reset_cache,
+            get_subdirectories
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

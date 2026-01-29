@@ -73,14 +73,27 @@ export function ResultsView({ onRescan }: ResultsViewProps) {
 
     if (!scanResults || scanResults.groups.length === 0) {
         return (
-            <div className="flex-1 flex flex-col items-center justify-center p-12 text-center animate-in fade-in zoom-in-95 duration-500 bg-[#f9fafb]">
-                <div className="w-16 h-16 bg-muted/30 rounded-2xl flex items-center justify-center mb-4 border border-border/50">
-                    <AlertCircle className="w-8 h-8 text-muted-foreground opacity-20" />
+            <div className="flex-1 flex flex-col items-center justify-center p-12 text-center animate-in fade-in zoom-in-95 duration-500 bg-[#0c0c0c]">
+                <div className="w-24 h-24 bg-white/[0.02] rounded-3xl flex items-center justify-center mb-6 border border-white/5 shadow-2xl relative overflow-hidden group">
+                    <div className="absolute inset-0 bg-gradient-to-tr from-primary/10 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-1000" />
+                    <AlertCircle className="w-10 h-10 text-white/20 group-hover:text-primary/50 transition-colors duration-500" />
+                    <div className="absolute inset-0 border-2 border-white/5 rounded-3xl" />
                 </div>
-                <h3 className="text-xl font-black tracking-tight text-slate-900 uppercase italic">Noise Floor Detected</h3>
-                <p className="max-w-[240px] mt-2 text-[11px] text-slate-400 leading-relaxed font-medium">
-                    The scanning engine found no redundant file structures in the prioritized volumes.
+
+                <h3 className="text-2xl font-black tracking-tighter text-transparent bg-clip-text bg-gradient-to-b from-white to-white/40 uppercase italic">
+                    Noise Floor Detected
+                </h3>
+
+                <div className="w-12 h-0.5 bg-gradient-to-r from-transparent via-primary/50 to-transparent my-4 opacity-50" />
+
+                <p className="max-w-[320px] text-xs text-slate-500 leading-relaxed font-medium">
+                    The scanning engine found <span className="text-white/60 font-bold">no redundant file structures</span> in the prioritized volumes.
                 </p>
+
+                <div className="mt-8 flex items-center gap-2 px-4 py-2 bg-white/[0.03] rounded-full border border-white/5">
+                    <div className="w-1.5 h-1.5 rounded-full bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.5)] animate-pulse" />
+                    <span className="text-[9px] font-black uppercase tracking-widest text-emerald-500/80">System Optimal</span>
+                </div>
             </div>
         );
     }
