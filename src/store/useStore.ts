@@ -43,7 +43,10 @@ interface UIState {
   toggleSelection: (path: string) => void;
   smartSelect: (criteria: "newest" | "oldest") => void;
   clearSelection: () => void;
-  removeDeletedFromResults: (paths: string[]) => void;
+  activeView: 'explorer' | 'results';
+  explorerPath: string | null;
+  setActiveView: (view: 'explorer' | 'results') => void;
+  setExplorerPath: (path: string | null) => void;
 }
 
 export const useStore = create<UIState>((set) => ({
@@ -60,6 +63,8 @@ export const useStore = create<UIState>((set) => ({
   scanTimestamp: 0,
   scanProgress: null,
   isOnboarded: localStorage.getItem('dedupe-algo-onboarded') === 'true',
+  activeView: 'explorer',
+  explorerPath: null,
   setScanning: (isScanning) => set({ isScanning }),
   setScanPhase: (scanPhase) => set({ scanPhase }),
   setScanHidden: (scanHidden) => set({ scanHidden }),
@@ -69,6 +74,8 @@ export const useStore = create<UIState>((set) => ({
   setMinFileSize: (minFileSize) => set({ minFileSize }),
   setScanTimestamp: (ts) => set({ scanTimestamp: ts }),
   setScanProgress: (scanProgress) => set({ scanProgress }),
+  setActiveView: (activeView) => set({ activeView }),
+  setExplorerPath: (explorerPath) => set({ explorerPath }),
   setOnboarded: (val: boolean) => {
     localStorage.setItem('dedupe-algo-onboarded', val.toString());
     set({ isOnboarded: val });

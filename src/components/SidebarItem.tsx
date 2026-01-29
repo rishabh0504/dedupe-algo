@@ -28,7 +28,7 @@ export function SidebarItem({ node, level = 0 }: SidebarItemProps) {
     const [isLoading, setIsLoading] = useState(false);
     const [children, setChildren] = useState<Drive[]>([]);
     const [hasLoaded, setHasLoaded] = useState(false);
-    const { scanQueue, addToQueue, removeFromQueue, isScanning } = useStore();
+    const { scanQueue, addToQueue, removeFromQueue, isScanning, setExplorerPath, setActiveView } = useStore();
 
     const isQueued = scanQueue.includes(node.mount_point);
 
@@ -54,6 +54,12 @@ export function SidebarItem({ node, level = 0 }: SidebarItemProps) {
                 setIsLoading(false);
             }
         }
+    };
+
+    const handleOpenExplorer = (e: React.MouseEvent) => {
+        e.stopPropagation();
+        setExplorerPath(node.mount_point);
+        setActiveView('explorer');
     };
 
     const handleToggleQueue = (e: React.MouseEvent) => {
@@ -83,7 +89,7 @@ export function SidebarItem({ node, level = 0 }: SidebarItemProps) {
         <div className="flex flex-col select-none">
             <SidebarMenuItem>
                 <SidebarMenuButton
-                    onClick={handleExpand}
+                    onClick={handleOpenExplorer}
                     className={cn(
                         "group h-auto py-2 pr-2 pl-0 rounded-lg transition-all duration-200 cursor-pointer hover:bg-muted/50",
                         isQueued && "bg-primary/5 hover:bg-primary/10"
@@ -92,8 +98,9 @@ export function SidebarItem({ node, level = 0 }: SidebarItemProps) {
                     <div className="flex items-center w-full gap-2" style={{ paddingLeft: `${level * 12 + 8}px` }}>
                         {/* Expand Chevron */}
                         <div
+                            onClick={handleExpand}
                             className={cn(
-                                "p-0.5 rounded-md hover:bg-muted/50 text-muted-foreground transition-colors",
+                                "p-0.5 rounded-md hover:bg-muted/50 text-muted-foreground transition-colors cursor-pointer",
                                 isLoading && "animate-spin"
                             )}
                         >

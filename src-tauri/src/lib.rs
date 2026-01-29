@@ -385,6 +385,73 @@ fn get_subdirectories(path: String) -> Vec<DriveInfo> {
     folders
 }
 
+#[derive(Serialize)]
+struct FileEntry {
+    name: String,
+    path: String,
+    is_dir: bool,
+    size: u64,
+    created: u64,
+    modified: u64,
+}
+
+#[tauri::command]
+fn read_directory(path: String) -> Vec<FileEntry> {
+    let mut entries_vec = Vec::new();
+    // Common system folders to ignore
+    let ignored_names = [
+        "$RECYCLE.BIN", "System Volume Information", "Recovery", 
+        "Config.Msi", "$WinREAgent", ".Trashes", ".fseventsd", 
+        ".Spotlight-V100", ".DocumentRevisions-V100", ".TemporaryItems"
+    ];
+
+    if let Ok(entries) = std::fs::read_dir(&path) {
+        for entry in entries.filter_map(|e| e.ok()) {
+            if let Ok(metadata) = entry.metadata() {
+                let path_buf = entry.path();
+                let name = entry.file_name().to_string_lossy().to_string();
+                
+                // Basic hidden filter
+                if name.starts_with('.') { continue; }
+                
+                // Specific system folder filter
+                if ignored_names.iter().any(|&n| name.eq_ignore_ascii_case(n)) { continue; }
+                if name.starts_with("found.") && name[6..].chars().all(char::is_numeric) { continue; }
+
+                let created = metadata.created().ok()
+                    .and_then(|t| t.duration_since(std::time::UNIX_EPOCH).ok())
+                    .map(|d| d.as_secs())
+                    .unwrap_or(0);
+                
+                let modified = metadata.modified().ok()
+                    .and_then(|t| t.duration_since(std::time::UNIX_EPOCH).ok())
+                    .map(|d| d.as_secs())
+                    .unwrap_or(0);
+
+                entries_vec.push(FileEntry {
+                    name,
+                    path: path_buf.to_string_lossy().to_string(),
+                    is_dir: metadata.is_dir(),
+                    size: metadata.len(),
+                    created,
+                    modified,
+                });
+            }
+        }
+    }
+    
+    // Sort: Directories first, then files. Both alphabetical.
+    entries_vec.sort_by(|a, b| {
+        if a.is_dir == b.is_dir {
+            a.name.to_lowercase().cmp(&b.name.to_lowercase())
+        } else {
+            b.is_dir.cmp(&a.is_dir) // true (is_dir) comes before false
+        }
+    });
+
+    entries_vec
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
@@ -423,7 +490,8 @@ pub fn run() {
             allow_folder_access,
             get_folder_size,
             reset_cache,
-            get_subdirectories
+            get_subdirectories,
+            read_directory
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

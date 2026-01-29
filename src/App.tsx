@@ -6,7 +6,8 @@ import { useStore, ScanResult } from "./store/useStore";
 import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
 import { OnboardingWizard } from "./components/OnboardingWizard";
-import { Zap, RotateCcw, Search, ListTodo } from "lucide-react";
+import { FileExplorerView } from "./components/FileExplorerView";
+import { Zap, RotateCcw, Search, ListTodo, FolderOpen } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
 import { Badge } from "@/components/ui/badge";
@@ -16,8 +17,23 @@ import { useState, useEffect } from "react";
 import { Toaster } from "@/components/ui/sonner";
 
 function App() {
-  const { isScanning, scanQueue, scanResults, setResults, isOnboarded, setScanProgress } = useStore();
-  const [activeTab, setActiveTab] = useState("queue");
+  const { isScanning, scanQueue, scanResults, setResults, isOnboarded, setScanProgress, activeView, setActiveView } = useStore();
+
+
+
+  const [activeTab, setActiveTab] = useState("explorer");
+
+  // Sync from Store -> UI (e.g. Sidebar click)
+  useEffect(() => {
+    if (activeView === 'explorer') setActiveTab('explorer');
+    if (activeView === 'results') setActiveTab('results');
+  }, [activeView]);
+
+  // Sync from UI -> Store (Tab click)
+  useEffect(() => {
+    if (activeTab === 'explorer') setActiveView('explorer');
+    if (activeTab === 'results') setActiveView('results');
+  }, [activeTab, setActiveView]);
 
   // Auto-switch to results tab when scan completes
   useEffect(() => {
@@ -37,8 +53,6 @@ function App() {
     };
   }, [setScanProgress]);
 
-  /* import { listen } from "@tauri-apps/api/event"; */
-  /* Note: Assuming listen is available or we need to import it. Let's start with logic structure */
 
   const handleStartScan = async () => {
     if (scanQueue.length === 0) return;
@@ -48,16 +62,6 @@ function App() {
     setScanning(true);
     setScanPhase('metadata');
     setScanProgress(null);
-
-    // Setup listener
-    // Note: We need to import 'listen' from '@tauri-apps/api/event'
-    // But since I can't easily add imports in this chunk without being precise, I will assume the imports need adjustment.
-    // For now, let's just send the command.
-    // I will add the import in a separate call if needed or include it here if the import block is nearby.
-    // Wait, the import block is at the top. I should verify if 'listen' is imported.
-    // It's not. I will do this in two steps or try to just focus on the invoke for now.
-
-    // Changing approach: I will modify the start_scan call first.
 
     try {
       // Small artificial delays to let the "logical" phases breathe in the UI
@@ -118,9 +122,13 @@ function App() {
             <div className="flex items-center gap-4">
               <Tabs value={activeTab} onValueChange={setActiveTab} className="bg-muted/50 p-1 rounded-xl">
                 <TabsList className="bg-transparent h-9 gap-1">
+                  <TabsTrigger value="explorer" className="rounded-lg px-4 font-bold text-xs data-[state=active]:bg-background data-[state=active]:shadow-sm">
+                    <FolderOpen className="w-3.5 h-3.5 mr-2 opacity-50" />
+                    Explorer
+                  </TabsTrigger>
                   <TabsTrigger value="queue" className="rounded-lg px-4 font-bold text-xs data-[state=active]:bg-background data-[state=active]:shadow-sm">
                     <ListTodo className="w-3.5 h-3.5 mr-2 opacity-50" />
-                    Target Queue
+                    Queue
                   </TabsTrigger>
                   <TabsTrigger
                     value="results"
@@ -128,7 +136,7 @@ function App() {
                     className="rounded-lg px-4 font-bold text-xs data-[state=active]:bg-background data-[state=active]:shadow-sm"
                   >
                     <Search className="w-3.5 h-3.5 mr-2 opacity-50" />
-                    Audit Matrix
+                    Results
                   </TabsTrigger>
                 </TabsList>
               </Tabs>
@@ -185,6 +193,9 @@ function App() {
             )}
 
             <Tabs value={activeTab} onValueChange={setActiveTab} className="flex-1 flex flex-col overflow-hidden">
+              <TabsContent value="explorer" className="flex-1 flex flex-col overflow-hidden mt-0">
+                <FileExplorerView />
+              </TabsContent>
               <TabsContent value="queue" className="flex-1 flex flex-col overflow-hidden mt-0">
                 <ScanQueueView onStartScan={handleStartScan} />
               </TabsContent>
