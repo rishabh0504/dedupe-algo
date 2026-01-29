@@ -10,7 +10,8 @@ export type JarvisEvent =
     | { event: 'wake_word_detected', text?: string, state: string }
     | { event: 'audio_device', device?: string, state?: string }
     | { event: 'voice_activity', text?: string, state?: string }
-    | { event: 'timeout', state: string };
+    | { event: 'timeout', state: string }
+    | { event: 'speech_end', state?: string };
 
 class JarvisService {
     private process: Child | null = null;

@@ -4,7 +4,7 @@ use ringbuf::{HeapRb, Producer};
 use std::sync::Arc;
 
 pub struct AudioEngine {
-    stream: Stream,
+    _stream: Stream,
 }
 
 impl AudioEngine {
@@ -70,7 +70,7 @@ impl AudioEngine {
         stream.play()?;
 
         Ok(AudioEngine {
-            stream,
+            _stream: stream,
         })
     }
 }

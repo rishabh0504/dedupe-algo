@@ -15,11 +15,11 @@ export class TTSService {
 
     private loadVoice() {
         const voices = this.synthesis.getVoices();
-        // Prefer "Samantha" (standard Mac) or "Daniel" (British nice) or "Ava" (Premium)
-        // Or just the first English voice that sounds good.
-        this.voice = voices.find(v => v.name === 'Samantha') ||
-            voices.find(v => v.name === 'Daniel') ||
-            voices.find(v => v.name === 'Google US English') ||
+        // User requested "Denial" (Daniel) British male voice
+        this.voice = voices.find(v => v.name === 'Daniel') ||
+            voices.find(v => v.name === 'Samantha') ||
+            voices.find(v => v.name === 'Google UK English Male') ||
+            voices.find(v => v.lang === 'en-GB') ||
             voices.find(v => v.lang.startsWith('en-')) ||
             null;
 
@@ -27,11 +27,17 @@ export class TTSService {
     }
 
     speak(text: string): Promise<void> {
-        return new Promise((resolve, reject) => {
+        return new Promise((resolve) => {
             if (!this.voice) this.loadVoice();
 
             // Cancel previous speech
             this.synthesis.cancel();
+
+            // Safety Timeout (e.g. if browser doesn't fire onend)
+            const timeout = setTimeout(() => {
+                console.warn("TTS Timeout - Force Resolving");
+                resolve();
+            }, 10000 + (text.length * 100)); // Dynamic timeout based on length
 
             const utterance = new SpeechSynthesisUtterance(text);
             if (this.voice) {
@@ -43,12 +49,15 @@ export class TTSService {
             utterance.pitch = 1.0;
 
             utterance.onend = () => {
+                clearTimeout(timeout);
                 resolve();
             };
 
             utterance.onerror = (e) => {
+                clearTimeout(timeout);
                 console.error("TTS Error:", e);
-                reject(e);
+                // Don't reject, just resolve so we don't block the app
+                resolve();
             };
 
             this.synthesis.speak(utterance);

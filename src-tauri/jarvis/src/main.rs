@@ -3,7 +3,7 @@ mod transcript;
 mod state_machine;
 
 use audio::AudioEngine;
-use state_machine::{StateMachine, JarvisState};
+use state_machine::StateMachine;
 use clap::Parser;
 use ringbuf::HeapRb;
 use std::time::Duration;
@@ -45,7 +45,7 @@ async fn main() -> Result<(), anyhow::Error> {
 
     // Initialize State Machine
     // This will fail if model is not found, which is expected
-    let mut jarvis = match StateMachine::new(&args.model, &args.wake_word) {
+    let mut jarvis = match StateMachine::new(&args.model) {
         Ok(vm) => vm,
         Err(e) => {
              eprintln!("{{ \"error\": \"Failed to load model: {}\" }}", e);
