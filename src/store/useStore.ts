@@ -47,6 +47,7 @@ interface UIState {
   explorerPath: string | null;
   setActiveView: (view: 'explorer' | 'results') => void;
   setExplorerPath: (path: string | null) => void;
+  removeDeletedFromResults: (paths: string[]) => void;
 }
 
 export const useStore = create<UIState>((set) => ({
