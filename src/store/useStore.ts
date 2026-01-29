@@ -43,9 +43,9 @@ interface UIState {
   toggleSelection: (path: string) => void;
   smartSelect: (criteria: "newest" | "oldest") => void;
   clearSelection: () => void;
-  activeView: 'explorer' | 'results';
+  activeView: 'explorer' | 'results' | 'jarvis';
   explorerPath: string | null;
-  setActiveView: (view: 'explorer' | 'results') => void;
+  setActiveView: (view: 'explorer' | 'results' | 'jarvis') => void;
   setExplorerPath: (path: string | null) => void;
   removeDeletedFromResults: (paths: string[]) => void;
 }

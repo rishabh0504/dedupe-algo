@@ -7,6 +7,7 @@ import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
 import { OnboardingWizard } from "./components/OnboardingWizard";
 import { FileExplorerView } from "./components/FileExplorerView";
+import { SpeakToJarvisView } from "./components/SpeakToJarvisView";
 import { Zap, RotateCcw, Search, ListTodo, FolderOpen } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
@@ -19,20 +20,20 @@ import { Toaster } from "@/components/ui/sonner";
 function App() {
   const { isScanning, scanQueue, scanResults, setResults, isOnboarded, setScanProgress, activeView, setActiveView } = useStore();
 
-
-
   const [activeTab, setActiveTab] = useState("explorer");
 
   // Sync from Store -> UI (e.g. Sidebar click)
   useEffect(() => {
     if (activeView === 'explorer') setActiveTab('explorer');
     if (activeView === 'results') setActiveTab('results');
+    if (activeView === 'jarvis') setActiveTab('jarvis');
   }, [activeView]);
 
   // Sync from UI -> Store (Tab click)
   useEffect(() => {
     if (activeTab === 'explorer') setActiveView('explorer');
     if (activeTab === 'results') setActiveView('results');
+    if (activeTab === 'jarvis') setActiveView('jarvis');
   }, [activeTab, setActiveView]);
 
   // Auto-switch to results tab when scan completes
@@ -138,6 +139,7 @@ function App() {
                     <Search className="w-3.5 h-3.5 mr-2 opacity-50" />
                     Results
                   </TabsTrigger>
+                  <TabsTrigger value="jarvis" className="hidden">Jarvis</TabsTrigger>
                 </TabsList>
               </Tabs>
 
@@ -201,6 +203,9 @@ function App() {
               </TabsContent>
               <TabsContent value="results" className="flex-1 flex flex-col overflow-hidden mt-0">
                 {scanResults && <ResultsView key={useStore.getState().scanTimestamp} onRescan={handleStartScan} />}
+              </TabsContent>
+              <TabsContent value="jarvis" className="flex-1 flex flex-col overflow-hidden mt-0">
+                <SpeakToJarvisView />
               </TabsContent>
             </Tabs>
           </div>
