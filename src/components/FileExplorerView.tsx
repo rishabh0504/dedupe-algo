@@ -443,7 +443,7 @@ export function FileExplorerView() {
                                     <video
                                         src={safeConvertFileSrc(previewFile.path)}
                                         controls
-                                        autoPlay
+                                        muted
                                         className="max-w-full max-h-full"
                                         onError={() => setPreviewError(true)}
                                     />
