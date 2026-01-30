@@ -32,7 +32,9 @@ function App() {
     messages: jarvisMessages,
     handleVoiceEvent,
     handleManualSend,
-    resetToListening
+    resetToListening,
+    stopListening,
+    status: jarvisStatus
   } = useAgentConversation(isVoiceEnabled);
 
   // Optimized Sidecar Initialization
@@ -188,7 +190,7 @@ function App() {
                                 ${jarvisState === 'Thinking' ? 'text-blue-400' :
                         jarvisState === 'Speaking' ? 'text-green-400' :
                           jarvisState === 'Listening' ? 'text-emerald-400' : 'text-muted-foreground'}`}>
-                      {jarvisState === 'Idle' ? 'System Ready' : jarvisState}
+                      {jarvisStatus}
                     </span>
                     {audioDevice && (
                       <span className="text-[9px] text-muted-foreground/40 font-mono hidden sm:inline-block">
@@ -335,6 +337,7 @@ function App() {
                   messages={jarvisMessages}
                   onSend={handleManualSend}
                   resetToListening={resetToListening}
+                  stopListening={stopListening}
                 />
               </TabsContent>
             </Tabs>

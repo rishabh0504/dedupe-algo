@@ -8,9 +8,10 @@ interface SpeakToJarvisViewProps {
     messages: Message[];
     onSend: (text: string) => void;
     resetToListening: () => void;
+    stopListening: () => void;
 }
 
-export function SpeakToJarvisView({ state, messages, onSend, resetToListening }: SpeakToJarvisViewProps) {
+export function SpeakToJarvisView({ state, messages, onSend, resetToListening, stopListening }: SpeakToJarvisViewProps) {
     const [inputText, setInputText] = useState("");
     const chatContainerRef = useRef<HTMLDivElement>(null);
 
@@ -28,6 +29,8 @@ export function SpeakToJarvisView({ state, messages, onSend, resetToListening }:
         setInputText("");
         onSend(text);
     };
+
+    const isIdle = state === 'Idle';
 
     return (
         <div className="flex flex-col h-full w-full relative overflow-hidden bg-background/95 backdrop-blur-sm">
@@ -48,13 +51,7 @@ export function SpeakToJarvisView({ state, messages, onSend, resetToListening }:
                         <span className="text-xs font-mono text-primary/60 uppercase tracking-widest">Awaiting Command</span>
                     </div>
                 ) : (
-                    messages.map((msg, idx) => msg.content?.startsWith('[SYSTEM]') ? (
-                        <div key={idx} className="w-full flex justify-center query-event my-6">
-                            <span className="text-[10px] font-mono text-white/40 italic px-3 py-1 bg-white/5 rounded-full border border-white/5">
-                                {msg.content.replace('[SYSTEM]: ', '')}
-                            </span>
-                        </div>
-                    ) : (
+                    messages.map((msg, idx) => (
                         <motion.div
                             key={idx}
                             initial={{ opacity: 0, y: 10 }}
@@ -88,29 +85,38 @@ export function SpeakToJarvisView({ state, messages, onSend, resetToListening }:
                 <form onSubmit={handleFormSubmit} className="relative flex items-center gap-4 w-full">
                     <input
                         autoFocus
+                        disabled={!isIdle}
                         value={inputText}
                         onChange={(e) => setInputText(e.target.value)}
-                        placeholder={state === 'Listening' ? "Listening..." : "Type a command..."}
-                        className={`flex-1 bg-black/40 border border-primary/10 rounded-xl px-6 py-4 text-sm font-mono focus:outline-none focus:border-primary/40 transition-colors 
-                            ${state === 'Listening' ? 'placeholder-emerald-500/50 shadow-[0_0_30px_rgba(16,185,129,0.05)]' : 'placeholder-white/20'}`}
+                        placeholder={!isIdle ? "Audio Channel Active..." : "Type a command..."}
+                        className={`flex-1 bg-black/40 border border-primary/10 rounded-xl px-6 py-4 text-sm font-mono focus:outline-none focus:border-primary/40 transition-all 
+                            ${!isIdle ? 'opacity-50 cursor-not-allowed placeholder-white/10' : 'placeholder-white/20'}
+                            ${state === 'Listening' ? 'border-emerald-500/20 shadow-[0_0_30px_rgba(16,185,129,0.05)]' : ''}`}
                     />
                     <div className="flex items-center gap-2">
                         <button
                             type="button"
                             onClick={() => {
-                                if (state === 'Idle') resetToListening();
+                                if (isIdle) {
+                                    resetToListening();
+                                } else {
+                                    stopListening();
+                                }
                             }}
-                            className={`p-4 rounded-xl border border-primary/10 transition-all ${state === 'Listening' ? 'bg-emerald-500/10 text-emerald-500 animate-pulse border-emerald-500/30' :
+                            className={`p-4 rounded-xl border transition-all duration-300 ${state === 'Listening' ? 'bg-emerald-500/20 text-emerald-500 border-emerald-500/50 hover:bg-red-500/20 hover:text-red-500 hover:border-red-500/50' :
                                 state === 'Thinking' ? 'bg-blue-500/10 text-blue-500 border-blue-500/30' :
                                     state === 'Speaking' ? 'bg-green-500/10 text-green-500 border-green-500/30' :
-                                        'bg-white/5 text-primary hover:bg-primary/10 hover:scale-105 active:scale-95'}`}
+                                        'bg-white/5 text-primary border-primary/10 hover:bg-primary/10 hover:scale-105 active:scale-95'}`}
+                            title={isIdle ? "Start Voice Mode" : "Stop Voice Mode"}
                         >
-                            <Mic className="w-5 h-5" />
+                            {state === 'Listening' ? <Mic className="w-5 h-5 animate-pulse" /> : <Mic className="w-5 h-5" />}
                         </button>
                         <button
-                            type="button" // Changed to button type to avoid double submit if needed, or submit if that was intent. Keeping type='button' for send unless form submit is desired. Actually form has onsubmit.
+                            type="button"
+                            disabled={!isIdle}
                             onClick={handleFormSubmit}
-                            className="p-4 rounded-xl bg-primary/10 border border-primary/20 text-primary hover:bg-primary/20 transition-all hover:scale-105 active:scale-95"
+                            className={`p-4 rounded-xl bg-primary/10 border border-primary/20 text-primary transition-all ${!isIdle ? 'opacity-30 cursor-not-allowed' : 'hover:bg-primary/20 hover:scale-105 active:scale-95'
+                                }`}
                         >
                             <Send className="w-5 h-5" />
                         </button>

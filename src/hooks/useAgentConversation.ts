@@ -34,8 +34,9 @@ export function useAgentConversation(_isVoiceEnabled: boolean) {
     }, []);
 
     const addSystemMessage = useCallback((content: string) => {
-        addMessage('assistant', `[SYSTEM]: ${content}`);
-    }, [addMessage]);
+        setStatus(content);
+        // Removed: addMessage('assistant', `[SYSTEM]: ${content}`);
+    }, []);
 
     const updateLastMessage = useCallback((content: string) => {
         setMessages(prev => {
@@ -142,7 +143,7 @@ export function useAgentConversation(_isVoiceEnabled: boolean) {
         }
 
         // 2. MUTEX: Only process transcription if we are in Step 1 (Listen)
-        if (isBusyRef.current) return;
+        if (isBusyRef.current || stateRef.current === 'Idle') return;
 
         if (event.event === "voice_start") {
             addSystemMessage("Voice Detected...");
@@ -200,6 +201,25 @@ export function useAgentConversation(_isVoiceEnabled: boolean) {
         }
     }, [addMessage, updateLastMessage, processCommand, resetToListening, updateState]);
 
+    const stopListening = useCallback(async () => {
+        if (silenceTimeoutRef.current) clearTimeout(silenceTimeoutRef.current);
+        silenceTimeoutRef.current = null;
+        commandBufferRef.current = "";
+
+        // Lock mutex to prevent incoming events during shutdown
+        isBusyRef.current = true;
+        updateState("Idle", "Standby");
+
+        try {
+            console.log("🔒 Requesting Sidecar MUTE (Stop Listening)...");
+            await jarvisService.setMuted(true);
+        } catch (error) {
+            console.error("Failed to mute sidecar on stop:", error);
+        } finally {
+            isBusyRef.current = false; // State is Idle, so gate check will block events
+        }
+    }, [updateState]);
+
     const handleManualSend = useCallback(async (text: string) => {
         if (!text.trim() || isBusyRef.current) return;
         addMessage('user', text);
@@ -212,6 +232,7 @@ export function useAgentConversation(_isVoiceEnabled: boolean) {
         messages,
         handleVoiceEvent,
         handleManualSend,
-        resetToListening
+        resetToListening,
+        stopListening
     };
 }
