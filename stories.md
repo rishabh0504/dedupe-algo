@@ -1,4 +1,4 @@
-# DedupePro User Stories & Development Plan
+# Aether Desktop AI User Stories & Development Plan
 
 ## Phase 1: Project Initialization & Architecture
 - [x] **Initialize Tauri Workspace**

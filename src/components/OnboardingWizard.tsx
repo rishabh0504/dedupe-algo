@@ -46,7 +46,7 @@ export function OnboardingWizard() {
                         <div className="p-2 rounded-xl bg-emerald-500/10 border border-emerald-500/20">
                             <img src="/src/assets/logo.png" alt="Logo" className="w-6 h-6 object-contain" />
                         </div>
-                        <h2 className="text-lg font-black tracking-tight text-white uppercase italic">Dedupe-Algo</h2>
+                        <h2 className="text-lg font-black tracking-tight text-white uppercase italic">Aether Desktop AI</h2>
                     </div>
                     <div className="flex gap-1.5">
                         {[1, 2, 3, 4].map((i) => (
@@ -68,24 +68,24 @@ export function OnboardingWizard() {
                     {step === 1 && (
                         <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
                             <div className="space-y-2 text-center">
-                                <h3 className="text-3xl font-black text-white leading-tight uppercase italic">Welcome to the Matrix</h3>
-                                <p className="text-emerald-500/60 font-medium text-sm">Initializing High-Performance Deduplication Engine...</p>
+                                <h3 className="text-3xl font-black text-white leading-tight uppercase italic">Welcome to Aether</h3>
+                                <p className="text-emerald-500/60 font-medium text-sm">Initializing Smart Desktop Neural Interface...</p>
                             </div>
                             <div className="grid grid-cols-2 gap-4">
                                 <div className="p-4 rounded-2xl bg-white/[0.02] border border-white/5 space-y-2">
                                     <Zap className="w-5 h-5 text-emerald-500" />
-                                    <p className="text-[11px] text-white/40 leading-relaxed">Extreme speed traversal utilizing Rayon-powered parallel processing.</p>
+                                    <p className="text-[11px] text-white/40 leading-relaxed">High-velocity file system analysis powered by advanced intelligent traversal.</p>
                                 </div>
                                 <div className="p-4 rounded-2xl bg-white/[0.02] border border-white/5 space-y-2">
                                     <Shield className="w-5 h-5 text-emerald-500" />
-                                    <p className="text-[11px] text-white/40 leading-relaxed">Non-destructive purge protocols with automatic extended attribute verification.</p>
+                                    <p className="text-[11px] text-white/40 leading-relaxed">Secure local-only processing. Your data never leaves your machine.</p>
                                 </div>
                             </div>
                             <Button
                                 onClick={nextStep}
                                 className="w-full h-14 rounded-2xl bg-emerald-500 hover:bg-emerald-400 text-[#0c0c0c] font-black uppercase tracking-widest text-xs"
                             >
-                                Begin Installation <ArrowRight className="ml-2 w-4 h-4" />
+                                Initialize System <ArrowRight className="ml-2 w-4 h-4" />
                             </Button>
                         </div>
                     )}
@@ -97,10 +97,10 @@ export function OnboardingWizard() {
                                 <p className="text-white/40 text-xs">Please review our operational protocols and safety standards.</p>
                             </div>
                             <div className="h-48 overflow-y-auto p-4 rounded-xl bg-black/40 border border-white/5 text-[10px] text-white/30 space-y-4 leading-relaxed font-medium custom-scrollbar">
-                                <p>By proceeding with Dedupe-Algo, you acknowledge that this tool is designed for high-performance file management. You are responsible for ensuring backups exist for all critical data.</p>
-                                <p>1. Operational Scope: Dedupe-Algo traverses file systems at the lowest possible layer to ensure 100% collision detection.</p>
+                                <p>By proceeding with Aether, you acknowledge that this tool is designed for high-performance file management. You are responsible for ensuring backups exist for all critical data.</p>
+                                <p>1. Operational Scope: Aether traverses file systems at the lowest possible layer to ensure 100% collision detection.</p>
                                 <p>2. Data Privacy: All analysis is performed locally on your machine. No file metadata or hashes are ever transmitted outside your local environment.</p>
-                                <p>3. Liability: The developers of Dedupe-Algo are not liable for data loss resulting from user-triggered purge operations.</p>
+                                <p>3. Liability: The developers of Aether are not liable for data loss resulting from user-triggered purge operations.</p>
                             </div>
                             <div className="flex items-center space-x-3 p-4 bg-emerald-500/5 rounded-2xl border border-emerald-500/10">
                                 <Checkbox
@@ -132,7 +132,7 @@ export function OnboardingWizard() {
                                 <FolderKey className="w-12 h-12 text-emerald-500 mx-auto mb-2 opacity-50" />
                                 <h3 className="text-xl font-black text-white uppercase italic">Privilege Elevation</h3>
                                 <p className="text-white/40 text-[11px] leading-relaxed max-w-[280px] mx-auto">
-                                    To provide a seamless experience, Dedupe-Algo requires persistent access to your primary system nodes.
+                                    To provide a seamless experience, Aether requires persistent access to your primary system nodes.
                                 </p>
                             </div>
 
@@ -184,7 +184,7 @@ export function OnboardingWizard() {
                             </div>
 
                             <p className="text-white/30 text-[11px] leading-relaxed max-w-[320px] mx-auto font-medium">
-                                Dedupe-Algo is now ready to audit your file system. Extended attribute verification will automatically track changes.
+                                Aether is now ready to audit your file system. Extended attribute verification will automatically track changes.
                             </p>
 
                             <Button
@@ -199,7 +199,7 @@ export function OnboardingWizard() {
 
                 {/* Footer hint */}
                 <div className="p-6 bg-black/40 text-center border-t border-white/5">
-                    <p className="text-[9px] font-black text-white/20 uppercase tracking-[0.3em]">Operational Unit: Dedupe-Algo Build 0.1.1</p>
+                    <p className="text-[9px] font-black text-white/20 uppercase tracking-[0.3em]">System Status: Online | Aether Build 0.1.1</p>
                 </div>
             </div>
         </div>

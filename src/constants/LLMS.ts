@@ -1,0 +1,3 @@
+export const LLMS = {
+    OLLAMA_ENDPOINT: "http://localhost:11434",
+}

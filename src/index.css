@@ -10,36 +10,47 @@
 }
 
 :root {
-  --background: oklch(0.12 0 0);
-  /* Very deep dark */
-  --foreground: oklch(0.98 0 0);
-  --card: oklch(0.16 0 0);
-  --card-foreground: oklch(0.98 0 0);
-  --popover: oklch(0.16 0 0);
-  --popover-foreground: oklch(0.98 0 0);
-  --primary: oklch(0.7 0.2 163);
-  /* Vibrant Emerald */
-  --primary-foreground: oklch(0.98 0 0);
-  --secondary: oklch(0.25 0 0);
-  --secondary-foreground: oklch(0.98 0 0);
-  --muted: oklch(0.25 0 0);
-  --muted-foreground: oklch(0.65 0 0);
-  --accent: oklch(0.25 0 0);
-  --accent-foreground: oklch(0.98 0 0);
-  --destructive: oklch(0.6 0.2 20);
-  --destructive-foreground: oklch(0.98 0 0);
-  --border: oklch(1 0 0 / 12%);
-  --input: oklch(1 0 0 / 15%);
-  --ring: oklch(0.7 0.2 163);
+  /* Restored Deep Navy Base */
+  --background: #0a1428;
+  --foreground: #ffffff;
+
+  /* Deep Navy Components */
+  --card: #111b2e;
+  --card-foreground: #ffffff;
+  --popover: #111b2e;
+  --popover-foreground: #ffffff;
+
+  /* Requested Gradient Colors (Cyan/Purple) */
+  --primary: #4adedc;
+  --primary-foreground: #000000;
+
+  --secondary: #14203a;
+  --secondary-foreground: #ffffff;
+
+  --muted: #14203a;
+  --muted-foreground: #a0aec0;
+
+  --accent: #9758e3;
+  --accent-foreground: #ffffff;
+
+  --destructive: #ef4444;
+  --destructive-foreground: #ffffff;
+
+  --border: rgba(255, 255, 255, 0.1);
+  --input: rgba(255, 255, 255, 0.15);
+  --ring: #4adedc;
+
   --radius: 0.75rem;
-  --sidebar: oklch(0.14 0 0);
-  --sidebar-foreground: oklch(0.98 0 0);
-  --sidebar-primary: oklch(0.7 0.2 163);
-  --sidebar-primary-foreground: oklch(0.98 0 0);
-  --sidebar-accent: oklch(0.25 0 0);
-  --sidebar-accent-foreground: oklch(0.98 0 0);
-  --sidebar-border: oklch(1 0 0 / 8%);
-  --sidebar-ring: oklch(0.7 0.2 163);
+
+  /* Sidebar Specifics */
+  --sidebar: #111b2e;
+  --sidebar-foreground: #ffffff;
+  --sidebar-primary: #4adedc;
+  --sidebar-primary-foreground: #000000;
+  --sidebar-accent: #14203a;
+  --sidebar-accent-foreground: #ffffff;
+  --sidebar-border: rgba(255, 255, 255, 0.05);
+  --sidebar-ring: #4adedc;
 }
 
 @theme inline {
@@ -90,6 +101,11 @@
   }
 
   body {
+    /* Deep Navy Base with User's Gradient Overlay */
+    background-color: var(--background);
+    background-image: linear-gradient(66deg, rgba(74, 222, 220, 0.15), rgba(151, 88, 227, 0.25));
+    background-attachment: fixed;
+    background-size: cover;
     font-family: 'Inter', system-ui, -apple-system, sans-serif;
     -webkit-font-smoothing: antialiased;
   }

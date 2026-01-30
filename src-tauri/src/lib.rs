@@ -485,10 +485,39 @@ fn read_directory(path: String) -> Vec<FileEntry> {
     entries_vec
 }
 
+#[tauri::command]
+fn get_model_path(_app: tauri::AppHandle) -> String {
+    // In dev mode, return the absolute source path to avoid copying issues
+    "/Users/rishabh/Desktop/reusable projects/dedupe-algo/models/ggml-base.en.bin".to_string()
+}
+
+#[tauri::command]
+fn speak_native_macos(text: String, voice: Option<String>) -> Result<(), String> {
+    // SECURITY: Use 'say' command to access Premium System Voices
+    let mut cmd = Command::new("say");
+    
+    // Voice selection
+    if let Some(v_name) = voice {
+        cmd.arg("-v").arg(v_name);
+    }
+    
+    // The text to speak
+    cmd.arg(text);
+
+    // Spawn and block until finished so the frontend knows when to unmute
+    let status = cmd.status().map_err(|e| format!("Failed to execute say: {}", e))?;
+    
+    if !status.success() {
+        return Err(format!("say command failed with status: {}", status));
+    }
+    Ok(())
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
         .plugin(tauri_plugin_opener::init())
+        .plugin(tauri_plugin_shell::init())
         .setup(|app| {
             let app_data_dir = app.path().app_data_dir().expect("Failed to get app data dir");
             std::fs::create_dir_all(&app_data_dir).expect("Failed to create app data dir");
@@ -524,7 +553,9 @@ pub fn run() {
             get_folder_size,
             reset_cache,
             get_subdirectories,
-            read_directory
+            read_directory,
+            get_model_path,
+            speak_native_macos
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

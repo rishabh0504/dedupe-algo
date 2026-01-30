@@ -1,8 +1,8 @@
 {
   "$schema": "https://schema.tauri.app/config/2",
-  "productName": "Dedupe-Algo",
+  "productName": "Aether Desktop AI",
   "version": "0.1.1",
-  "identifier": "com.dedupealgo.app",
+  "identifier": "com.aether.desktop",
   "build": {
     "beforeDevCommand": "npm run dev",
     "devUrl": "http://localhost:1420",
@@ -12,7 +12,7 @@
   "app": {
     "windows": [
       {
-        "title": "Dedupe-Algo | Universal Media Deduplication",
+        "title": "Aether | Intelligent Desktop Agent",
         "width": 1280,
         "height": 850,
         "resizable": true,
@@ -42,6 +42,12 @@
     ],
     "macOS": {
       "infoPlist": "Info.plist"
-    }
+    },
+    "externalBin": [
+      "binaries/jarvis"
+    ],
+    "resources": [
+      "../models/*"
+    ]
   }
 }

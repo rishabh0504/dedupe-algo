@@ -30,7 +30,6 @@ import {
     SidebarHeader,
     SidebarMenu,
     SidebarGroup,
-    SidebarGroupLabel,
     SidebarGroupContent,
 } from "@/components/ui/sidebar";
 import { cn } from "@/lib/utils";
@@ -88,7 +87,7 @@ export function AppSidebar() {
                         <img src="/src/assets/logo.png" alt="Logo" className="w-7 h-7 object-contain" />
                     </div>
                     <div className="flex flex-col">
-                        <h2 className="text-xl font-black tracking-tighter uppercase italic leading-none text-white">Dedupe-Algo</h2>
+                        <h2 className="text-xl font-black tracking-tighter uppercase italic leading-none text-white">Aether</h2>
                         <span className="text-[9px] font-black text-primary uppercase tracking-[0.2em] mt-1 opacity-60">High Performance Audit</span>
                     </div>
                 </div>
@@ -148,7 +147,7 @@ export function AppSidebar() {
                         <div className="p-1 rounded bg-primary/20 group-hover:bg-primary/30 transition-colors">
                             <Mic className="w-3.5 h-3.5" />
                         </div>
-                        <span className="text-[10px] font-black uppercase tracking-widest">Speak To Jarvis</span>
+                        <span className="text-[10px] font-black uppercase tracking-widest">Connect to Aether</span>
                     </Button>
 
                     <div className="h-px bg-border/40 my-1" />
@@ -171,8 +170,9 @@ export function AppSidebar() {
                     {/* Collapsible Content */}
                     <div className={cn(
                         "space-y-2 overflow-hidden transition-all duration-300 ease-in-out",
-                        isSettingsOpen ? "max-h-[500px] opacity-100" : "max-h-0 opacity-0"
+                        isSettingsOpen ? "max-h-[600px] opacity-100" : "max-h-0 opacity-0"
                     )}>
+                        {/* Scanner Config */}
                         <div className="px-3 py-2 space-y-3 bg-muted/20 rounded-xl mb-4 border border-white/5">
                             <div className="flex items-center justify-between">
                                 <span className="text-[10px] font-black uppercase tracking-widest opacity-60">Min File Size</span>
