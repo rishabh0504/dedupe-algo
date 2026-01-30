@@ -3,6 +3,7 @@ import { JARVIS_CONFIG } from "../config/jarvisConfig";
 import { JarvisEvent, jarvisService } from "../services/jarvisService";
 import { llmService } from "../services/llmService";
 import { ttsService } from "../services/ttsService";
+import { agentOrchestrator } from "../services/agent/AgentOrchestrator";
 
 export type ConversationState = "Idle" | "Listening" | "Thinking" | "Speaking";
 
@@ -72,6 +73,10 @@ export function useVoiceConversationAgent() {
         }
     }, [updateState]);
 
+    // ... (This will be empty, I will use separate replace for top of file)
+
+    // ...
+
     const processCommand = useCallback(async (text: string, shouldSpeak: boolean = true) => {
         if (!text.trim()) {
             await resetToListening();
@@ -79,26 +84,69 @@ export function useVoiceConversationAgent() {
         }
 
         isBusyRef.current = true;
+        console.log("[VoiceAgent] Processing:", text);
 
-        // 1. LOCK MIC
-        updateState("Thinking", "Locking...");
-        await jarvisService.setMuted(true);
+        // 1. LOCK MIC (If speaking)
+        if (shouldSpeak) {
+            updateState("Thinking", "Locking...");
+            await jarvisService.setMuted(true);
+        } else {
+            updateState("Thinking", "Thinking...");
+        }
 
         // 2. THINKING
-        updateState("Thinking", "Thinking...");
         addMessage('assistant', "");
 
         try {
-            let fullReply = "";
-            await llmService.chat(text, (token) => {
-                fullReply += token;
-                updateLastMessage(fullReply);
-            });
+            // ROUTER LOGIC
+            let route = "CHAT";
+            const routerPrompt = `Is this a request to perform a system task (file op, command, search) or just a chat?
+                 Input: "${text}"
+                 Return EXACTLY 'TASK' or 'CHAT'. Do not add punctuation.`;
 
-            // 3. SPEAKING (Only if requested)
-            if (shouldSpeak) {
-                updateState("Speaking", "Speaking...");
-                await ttsService.speak(fullReply);
+            if (text.startsWith("/")) {
+                route = "TASK";
+            } else {
+                route = await llmService.generate(routerPrompt, {
+                    model: "gemma3:1b",
+                    system: "You are a rigid Classifier."
+                });
+            }
+
+            console.log("[VoiceAgent] Route:", route);
+
+            if (route.includes("TASK")) {
+                let agentLog = "🧠 Agent Activated...";
+                // Update UI once
+                updateLastMessage(agentLog);
+
+                const result = await agentOrchestrator.execute(text, (step: any) => {
+                    const icon = step.type === 'thought' ? '🤔' : step.type === 'action' ? '⚡' : step.type === 'error' ? '❌' : '✅';
+                    agentLog += `\n${icon} ${step.content}`;
+                    updateLastMessage(agentLog);
+                });
+
+                // Update with Final Answer
+                if (shouldSpeak) {
+                    updateState("Speaking", "Speaking...");
+                    await ttsService.speak(result);
+                }
+                updateLastMessage(result); // Final result replaces log or appends? usually separate. 
+                // Actually the orchestrator loop updates log. The result is the final text.
+                // Let's append if it's text.
+
+            } else {
+                // CHAT
+                let fullReply = "";
+                await llmService.chat(text, (token) => {
+                    fullReply += token;
+                    updateLastMessage(fullReply);
+                });
+
+                if (shouldSpeak) {
+                    updateState("Speaking", "Speaking...");
+                    await ttsService.speak(fullReply);
+                }
             }
 
         } catch (error) {
@@ -108,11 +156,12 @@ export function useVoiceConversationAgent() {
         } finally {
             // 4. RESET STATE
             if (shouldSpeak) {
-                // Voice Mode: Continue conversation
+                // Return to listening
                 await resetToListening();
             } else {
-                // Text Mode: Return to Standby (Mic Off)
-                await stopListening();
+                // Text mode, just unlock
+                isBusyRef.current = false;
+                updateState("Idle", "Standby");
             }
         }
     }, [addMessage, updateLastMessage, resetToListening, updateState]);

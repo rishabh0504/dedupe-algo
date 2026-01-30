@@ -1,35 +1,23 @@
 {
   "$schema": "../gen/schemas/desktop-schema.json",
-  "identifier": "default",
+  "identifier": "default-capabilities",
   "description": "Capability for the main window",
   "windows": [
     "main"
   ],
   "permissions": [
     "core:default",
-    "opener:default",
-    "shell:default",
-    "core:path:default",
-    "core:resources:default",
+    "shell:allow-open",
+    "shell:allow-execute",
     {
-      "identifier": "shell:allow-spawn",
+      "identifier": "shell:allow-execute",
       "allow": [
         {
-          "name": "binaries/jarvis",
-          "sidecar": true,
+          "name": "/bin/zsh",
+          "cmd": "/bin/zsh",
           "args": true
         }
       ]
-    },
-    {
-      "identifier": "shell:allow-stdin-write",
-      "allow": [
-        {
-          "name": "binaries/jarvis",
-          "sidecar": true
-        }
-      ]
-    },
-    "shell:allow-kill"
+    }
   ]
 }

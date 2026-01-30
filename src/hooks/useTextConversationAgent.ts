@@ -1,5 +1,6 @@
 import { useCallback, useState } from "react";
 import { llmService } from "../services/llmService";
+import { agentOrchestrator } from "../services/agent/AgentOrchestrator";
 
 export type ConversationState = "Idle" | "Thinking";
 
@@ -29,6 +30,7 @@ export function useTextConversationAgent() {
     }, []);
 
     const handleManualSend = useCallback(async (text: string) => {
+        console.log("[useTextConversationAgent] Received:", text);
         if (!text.trim() || state === 'Thinking') return;
 
         // 1. User Message
@@ -36,14 +38,60 @@ export function useTextConversationAgent() {
 
         // 2. Set State
         setState("Thinking");
-        addMessage('assistant', "");
+        // No provisional "assistant" message yet, waiting for router...
 
         try {
-            let fullReply = "";
-            await llmService.chat(text, (token) => {
-                fullReply += token;
-                updateLastMessage(fullReply);
-            });
+            // 3. ROUTER: Task vs Chat?
+            console.log("[AgentRouter] Analyzing intent for:", text);
+
+            let route = "CHAT";
+            if (text.startsWith("/")) {
+                console.log("[AgentRouter] Force-Task Triggered by '/'");
+                route = "TASK";
+            } else {
+                route = await llmService.generate(
+                    `Is this a request to perform a system task (file op, command, search) or just a chat?
+                     Input: "${text}"
+                     Return EXACTLY 'TASK' or 'CHAT'. Do not add punctuation.`,
+                    { model: "gemma3:1b", system: "You are a rigid Classifier." }
+                );
+            }
+
+            console.log("[AgentRouter] Decision:", route);
+
+            if (route.includes("TASK")) {
+                // --- AGENT EXECUTION ---
+                let agentLog = "🧠 Agent Activated...\n";
+                addMessage('assistant', agentLog); // Start the message
+
+                const result = await agentOrchestrator.execute(text, (step: any) => {
+                    // Stream steps to the UI
+                    const icon = step.type === 'thought' ? '🤔' : step.type === 'action' ? '⚡' : step.type === 'error' ? '❌' : '✅';
+                    agentLog += `\n${icon} ${step.content}`;
+                    updateLastMessage(agentLog);
+                });
+
+                if (result === "CHAT_DELEGATION") {
+                    // Fallback to chat
+                    let fullReply = "";
+                    await llmService.chat(text, (token) => {
+                        fullReply += token;
+                        updateLastMessage(fullReply);
+                    });
+                } else {
+                    updateLastMessage(result);
+                }
+
+            } else {
+                // --- STANDARD CHAT ---
+                addMessage('assistant', "");
+                let fullReply = "";
+                await llmService.chat(text, (token) => {
+                    fullReply += token;
+                    updateLastMessage(fullReply);
+                });
+            }
+
         } catch (error) {
             console.error("Agent Logic Failure:", error);
             updateLastMessage("I'm sorry Sir, I encountered an internal error.");

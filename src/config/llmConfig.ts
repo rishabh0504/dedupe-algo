@@ -24,11 +24,17 @@ export const AVAILABLE_MODELS: Record<string, LLMModel> = {
         description: 'High reasoning capabilities for its size.',
         bestFor: 'Complex Logic / Reasoning'
     },
-    'gemma3': {
+    'gemma3-1b': {
+        id: 'gemma3:1b',
+        name: 'Gemma 3 1B',
+        description: 'Ultra-fast nano model for high-speed routing.',
+        bestFor: 'Real-time Interaction'
+    },
+    'gemma3-4b': {
         id: 'gemma3:4b',
         name: 'Gemma 3 4B',
-        description: 'Ultra-fast and lightweight model.',
-        bestFor: 'Real-time Interaction'
+        description: 'Balanced small model. Smart enough for logic, fast enough for real-time.',
+        bestFor: 'Agent Routing / Reasoning'
     },
     'gemma2': {
         id: 'gemma2:2b',
@@ -38,8 +44,8 @@ export const AVAILABLE_MODELS: Record<string, LLMModel> = {
     }
 };
 
-export const DEFAULT_MODEL_ID = 'gemma2:2b';
+export const DEFAULT_MODEL_ID = 'gemma3:4b';
 
 export const LLMS = {
-    OLLAMA_ENDPOINT: "http://localhost:11434",
+    OLLAMA_ENDPOINT: "http://127.0.0.1:11434",
 }

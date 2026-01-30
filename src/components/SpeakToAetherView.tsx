@@ -1,7 +1,7 @@
 import { motion } from "framer-motion";
 import { Mic, Send } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
-import { Message } from "../hooks/useAgentConversation";
+import { Message } from "../hooks/useTextConversationAgent";
 
 interface SpeakToAetherViewProps {
     state: 'Idle' | 'Listening' | 'Thinking' | 'Speaking';
@@ -9,9 +9,11 @@ interface SpeakToAetherViewProps {
     onSend: (text: string) => void;
     resetToListening: () => void;
     stopListening: () => void;
+    isVoiceEnabled: boolean;
+    onToggleVoice: () => void;
 }
 
-export function SpeakToAetherView({ state, messages, onSend, resetToListening, stopListening }: SpeakToAetherViewProps) {
+export function SpeakToAetherView({ state, messages, onSend, resetToListening, stopListening, isVoiceEnabled, onToggleVoice }: SpeakToAetherViewProps) {
     const [inputText, setInputText] = useState("");
     const chatContainerRef = useRef<HTMLDivElement>(null);
 
@@ -24,6 +26,7 @@ export function SpeakToAetherView({ state, messages, onSend, resetToListening, s
 
     const handleFormSubmit = (e: React.FormEvent) => {
         e.preventDefault();
+        console.log("[SpeakToAetherView] Submitting:", inputText);
         const text = inputText.trim();
         if (!text) return;
         setInputText("");
@@ -38,6 +41,12 @@ export function SpeakToAetherView({ state, messages, onSend, resetToListening, s
             <div className="absolute inset-0 bg-[url('/src/assets/grid-pattern.svg')] opacity-[0.03] pointer-events-none" />
 
             {/* Chat Body - Edge to Edge - No Padding */}
+            <div className="absolute top-2 right-2 z-50 opacity-50 hover:opacity-100 transition-opacity cursor-pointer" onClick={onToggleVoice}>
+                <span className={`text-[9px] font-mono px-2 py-1 rounded border ${isVoiceEnabled ? 'bg-emerald-500/20 text-emerald-300 border-emerald-500/30' : 'bg-blue-500/20 text-blue-300 border-blue-500/30'}`}>
+                    {isVoiceEnabled ? 'VOICE: ON' : 'VOICE: OFF (TEXT ONLY)'}
+                </span>
+            </div>
+
             <div
                 className="flex-1 overflow-y-auto space-y-4 custom-scrollbar scroll-smooth w-full"
                 id="chat-scroller"
@@ -113,9 +122,8 @@ export function SpeakToAetherView({ state, messages, onSend, resetToListening, s
                             {state === 'Listening' ? <Mic className="w-5 h-5 animate-pulse" /> : <Mic className="w-5 h-5" />}
                         </button>
                         <button
-                            type="button"
+                            type="submit"
                             disabled={!isIdle}
-                            onClick={handleFormSubmit}
                             className={`p-3 rounded-xl bg-primary/10 border border-primary/20 text-primary transition-all ${!isIdle ? 'opacity-30 cursor-not-allowed' : 'hover:bg-primary/20 hover:scale-105 active:scale-95'
                                 }`}
                         >

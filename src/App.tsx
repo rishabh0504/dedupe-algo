@@ -343,6 +343,8 @@ function App() {
                     resetToListening();
                   }}
                   stopListening={stopListening}
+                  isVoiceEnabled={isVoiceEnabled}
+                  onToggleVoice={() => setVoiceEnabled(!isVoiceEnabled)}
                 />
               </TabsContent>
             </Tabs>

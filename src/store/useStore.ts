@@ -68,7 +68,7 @@ export const useStore = create<UIState>((set) => ({
   isOnboarded: localStorage.getItem('aether-onboarded') === 'true',
   activeView: 'explorer',
   explorerPath: null,
-  isVoiceEnabled: localStorage.getItem('aether-voice-enabled') === 'true', // Default false
+  isVoiceEnabled: false, // ALWAYS OFF by default (User must explicitly enable)
   setScanning: (isScanning) => set({ isScanning }),
   setVoiceEnabled: (enabled) => {
     localStorage.setItem('aether-voice-enabled', enabled.toString());

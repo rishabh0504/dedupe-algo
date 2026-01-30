@@ -87,6 +87,53 @@ export class LLMService {
     clearHistory() {
         this.history = [{ role: 'system', content: JARVIS_CONFIG.SYSTEM_PROMPT }];
     }
+
+    /**
+     * Stateless generation for Agentic tasks.
+     * Does not affect the main chat history.
+     */
+    async generate(prompt: string, options: {
+        model?: string,
+        system?: string,
+        json?: boolean
+    } = {}): Promise<string> {
+        console.log("[LLMService] Generating...", { prompt: prompt.slice(0, 50), options });
+        const messages: ChatMessage[] = [];
+        if (options.system) {
+            messages.push({ role: 'system', content: options.system });
+        }
+        messages.push({ role: 'user', content: prompt });
+
+        try {
+            const body: any = {
+                model: options.model || this.model,
+                messages: messages,
+                stream: false, // Agent needs full response
+                options: {
+                    temperature: 0.2, // Lower temp for precision
+                    num_predict: 1000
+                }
+            };
+
+            if (options.json) {
+                body.format = "json";
+            }
+
+            const response = await fetch(this.endpoint, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(body)
+            });
+
+            if (!response.ok) throw new Error(`Ollama Error: ${response.statusText}`);
+
+            const data = await response.json();
+            return data.message?.content || "";
+        } catch (e) {
+            console.error("Agent Generation Error:", e);
+            throw e;
+        }
+    }
 }
 
 export const llmService = new LLMService();
