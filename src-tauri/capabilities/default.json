@@ -21,6 +21,15 @@
         }
       ]
     },
+    {
+      "identifier": "shell:allow-stdin-write",
+      "allow": [
+        {
+          "name": "binaries/jarvis",
+          "sidecar": true
+        }
+      ]
+    },
     "shell:allow-kill"
   ]
 }

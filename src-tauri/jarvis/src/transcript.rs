@@ -57,5 +57,13 @@ impl Transcriber {
 pub fn is_voice_active(samples: &[f32], threshold: f32) -> bool {
     let sum_squares: f32 = samples.iter().map(|s| s * s).sum();
     let rms = (sum_squares / samples.len() as f32).sqrt();
+    
+    // Debug Log: Prove Mic is Working
+    if rms > 0.0001 {
+        use std::io::{Write, stdout};
+        println!("{{ \"event\": \"debug\", \"message\": \"Energy: {:.6}\" }}", rms);
+        stdout().flush().unwrap_or_default();
+    }
+    
     rms > threshold
 }

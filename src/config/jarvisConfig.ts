@@ -1,18 +1,15 @@
 export const JARVIS_CONFIG = {
-    // Phrases that trigger Jarvis to start a command session
-    WAKE_PHRASES: ["ok sam", "okay sam", "hey sam"],
-
     // How long to wait for silence before processing a command (ms)
-    COMMAND_SILENCE_TIMEOUT: 5000,
+    COMMAND_SILENCE_TIMEOUT: 1000,
 
-    // How long to wait for the user to start speaking before cancelling (ms)
-    SESSION_INACTIVITY_TIMEOUT: 10000,
-
-    // Text to acknowledge the wake word
-    ACKNOWLEDGMENT_TEXT: "yeah",
+    // Initial greeting for direct interaction
+    INITIAL_GREETING: "Welcome Rishi Sir, I am Jarvis, How May I help you",
 
     // Minimum text length to consider a valid command
-    MIN_COMMAND_LENGTH: 3,
+    MIN_COMMAND_LENGTH: 1,
 
-    SYSTEM_PROMPT: "You are Jarvis, a helpful and concise AI assistant. Answer briefly and clearly.",
+    // Whisper hallucinations to ignore
+
+
+    SYSTEM_PROMPT: `You are Jarvis, a conversational and efficient AI assistant for your Boss. Speak naturally and helpfuly. Keep responses to one or two sentences. Address your Boss as "Sir". Do not use special characters, asterisks, hashtags, or markdown formatting. Use only plain text.`
 };

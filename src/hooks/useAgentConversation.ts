@@ -1,202 +1,212 @@
-import { useRef, useState, useEffect, useCallback } from "react";
-import { JarvisEvent } from "../services/jarvisService";
+import { useCallback, useRef, useState } from "react";
+import { JARVIS_CONFIG } from "../config/jarvisConfig";
+import { JarvisEvent, jarvisService } from "../services/jarvisService";
 import { llmService } from "../services/llmService";
 import { ttsService } from "../services/ttsService";
-import { JARVIS_CONFIG } from "../config/jarvisConfig";
 
-export type ConversationState = "Idle" | "Acknowledging" | "Listening" | "Thinking" | "Speaking";
+export type ConversationState = "Idle" | "Listening" | "Thinking" | "Speaking";
+
+export type Message = {
+    role: 'user' | 'assistant';
+    content: string;
+};
 
 export function useAgentConversation(_isVoiceEnabled: boolean) {
     const [state, setState] = useState<ConversationState>("Idle");
     const [status, setStatus] = useState<string>("Ready");
-    const [transcript, setTranscript] = useState<string>("");
+    const [messages, setMessages] = useState<Message[]>([]);
 
-    // Refs for internal state tracking (synchronous)
     const stateRef = useRef<ConversationState>("Idle");
+    const isBusyRef = useRef(true); // Start locked for Step 0 (Startup)
     const commandBufferRef = useRef<string>("");
-    const inactivityTimeoutRef = useRef<NodeJS.Timeout | null>(null);
     const silenceTimeoutRef = useRef<NodeJS.Timeout | null>(null);
-    const hasGreetedRef = useRef(false);
+    const hasStartedRef = useRef(false);
 
-    // Sync helper to update state AND ref
     const updateState = useCallback((newState: ConversationState, newStatus?: string) => {
+        console.log(`[Mutex Step]: ${stateRef.current} -> ${newState} (${newStatus || ''})`);
         stateRef.current = newState;
         setState(newState);
         if (newStatus) setStatus(newStatus);
     }, []);
 
-    // Initial Greeting
-    useEffect(() => {
-        const greet = async () => {
-            if (!hasGreetedRef.current) {
-                hasGreetedRef.current = true;
-
-                // SYNCHRONOUS LOCK: Prevents transcription from processing while greeting starts
-                updateState("Speaking", "Greeting...");
-
-                await ttsService.speak("Welcome back, Rishi sir.");
-
-                // Ensure transcript is clean after greeting (just in case of echoes)
-                setTranscript("");
-
-                // COOL OFF: Small delay before returning to Idle to ignore echo artifacts
-                setTimeout(() => {
-                    updateState("Idle", "Ready");
-                }, 500);
-            }
-        };
-        greet();
-    }, [updateState]);
-
-    const stopInactivityTimer = useCallback(() => {
-        if (inactivityTimeoutRef.current) {
-            clearTimeout(inactivityTimeoutRef.current);
-            inactivityTimeoutRef.current = null;
-        }
+    const addMessage = useCallback((role: 'user' | 'assistant', content: string) => {
+        setMessages(prev => [...prev, { role, content }]);
     }, []);
 
-    const stopSilenceTimer = useCallback(() => {
-        if (silenceTimeoutRef.current) {
-            clearTimeout(silenceTimeoutRef.current);
-            silenceTimeoutRef.current = null;
-        }
+    const addSystemMessage = useCallback((content: string) => {
+        addMessage('assistant', `[SYSTEM]: ${content}`);
+    }, [addMessage]);
+
+    const updateLastMessage = useCallback((content: string) => {
+        setMessages(prev => {
+            if (prev.length === 0) return prev;
+            const newMessages = [...prev];
+            newMessages[newMessages.length - 1] = {
+                ...newMessages[newMessages.length - 1],
+                content
+            };
+            return newMessages;
+        });
     }, []);
 
-    const resetSession = useCallback(() => {
-        stopInactivityTimer();
-        stopSilenceTimer();
-        commandBufferRef.current = "";
-        updateState("Idle", "Ready");
-    }, [stopInactivityTimer, stopSilenceTimer, updateState]);
+    // Step 4: Reset -> Step 1: Listen
+    const resetToListening = useCallback(async () => {
+        addSystemMessage("Activating Microphone...");
+        updateState("Idle", "Resetting...");
+        isBusyRef.current = true;
 
-    const processCommand = useCallback(async (text: string) => {
-        if (!text.trim()) return;
-
-        updateState("Thinking", "Thinking...");
+        // Strict 500ms echo cooldown
+        await new Promise(r => setTimeout(r, 500));
 
         try {
-            // Add AI prefix to transcript
-            setTranscript(prev => `${prev}\n\n🤖 `);
+            console.log("🔓 Requesting Sidecar START_LISTENER...");
+            await jarvisService.setMuted(false);
+            console.log("🔓 Sidecar Unmuted. Enabling Listener...");
+            addSystemMessage("System Ready - I am Listening, Sir.");
+            commandBufferRef.current = "";
+            isBusyRef.current = false;
+            updateState("Listening", "Listening...");
+        } catch (error) {
+            console.error("Critical: Failed to open ear during Reset:", error);
+            isBusyRef.current = false;
+            updateState("Listening", "Listening (Safe)");
+        }
+    }, [updateState, addSystemMessage]);
 
-            const reply = await llmService.chat(text, (token) => {
-                setTranscript(prev => prev + token);
+    const processCommand = useCallback(async (text: string) => {
+        if (!text.trim()) {
+            await resetToListening();
+            return;
+        }
+
+        isBusyRef.current = true;
+
+        // 1. LOCK MIC
+        addSystemMessage("Requesting Mic Lock...");
+        updateState("Thinking", "Locking...");
+        await jarvisService.setMuted(true);
+        addSystemMessage("Mic Locked (Confirmed)");
+
+        // 2. THINKING
+        updateState("Thinking", "Thinking...");
+        addMessage('assistant', "");
+
+        try {
+            let fullReply = "";
+            await llmService.chat(text, (token) => {
+                fullReply += token;
+                updateLastMessage(fullReply);
             });
 
+            // 3. SPEAKING (MIC IS ALREADY LOCKED)
+            addSystemMessage("Jarvis Speaking...");
             updateState("Speaking", "Speaking...");
+            await ttsService.speak(fullReply);
 
-            await ttsService.speak(reply);
         } catch (error) {
-            console.error("Agent thought failure:", error);
-            setStatus("Brain Error");
+            console.error("Jarvis Logic Failure:", error);
+            setStatus("Error");
+            updateLastMessage("I'm sorry Sir, I encountered an internal error.");
         } finally {
-            // COOL OFF after processing to prevent hearing the end of the AI's own sentence
-            setTimeout(() => {
-                resetSession();
-            }, 800);
+            // 4. UNLOCK MIC
+            await resetToListening();
         }
-    }, [resetSession, updateState]);
+    }, [addMessage, updateLastMessage, resetToListening, updateState, addSystemMessage]);
 
-    const handleSilenceCompletion = useCallback(() => {
-        const fullCommand = commandBufferRef.current.trim();
-        if (fullCommand.length >= JARVIS_CONFIG.MIN_COMMAND_LENGTH) {
-            console.log("Silence window met. Sending to LLM:", fullCommand);
-            processCommand(fullCommand);
-        } else {
-            console.log("Silence met but text too short. Resetting.");
-            resetSession();
-        }
-    }, [processCommand, resetSession]);
-
-    const startSilenceTimer = useCallback(() => {
-        stopSilenceTimer();
-        silenceTimeoutRef.current = setTimeout(() => {
-            handleSilenceCompletion();
-        }, JARVIS_CONFIG.COMMAND_SILENCE_TIMEOUT);
-    }, [handleSilenceCompletion, stopSilenceTimer]);
-
-    const handleInactivityTimeout = useCallback(() => {
-        console.log("User did not speak for 10s. Shutting down session.");
-        resetSession();
-    }, [resetSession]);
-
-    const startInactivityTimer = useCallback(() => {
-        stopInactivityTimer();
-        inactivityTimeoutRef.current = setTimeout(() => {
-            handleInactivityTimeout();
-        }, JARVIS_CONFIG.SESSION_INACTIVITY_TIMEOUT);
-    }, [handleInactivityTimeout, stopInactivityTimer]);
-
+    // Handle incoming events from Jarvis Service
     const handleVoiceEvent = useCallback(async (event: JarvisEvent) => {
-        // MUTEX: Primary defense against self-listening
-        // If we are currently processing or speaking, discard all audio events
-        if (stateRef.current === "Thinking" || stateRef.current === "Speaking" || stateRef.current === "Acknowledging") {
+        // 1. Handle Startup/Ready Signal
+        if (event.event === "ready" && !hasStartedRef.current) {
+            hasStartedRef.current = true;
+            console.log("🚀 Jarvis Sidecar is READY. Starting greeting...");
+
+            isBusyRef.current = true;
+            updateState("Speaking", "Awaiting Mic Lock...");
+
+            // Initial Lock
+            addSystemMessage("Requesting Mic Lock...");
+            await jarvisService.setMuted(true);
+            addSystemMessage("Mic Locked (Startup)");
+
+            const greeting = JARVIS_CONFIG.INITIAL_GREETING;
+            addMessage('assistant', greeting);
+            addSystemMessage("Greeting Boss...");
+            await ttsService.speak(greeting);
+
+            await resetToListening();
+            return;
+        }
+
+        // 2. MUTEX: Only process transcription if we are in Step 1 (Listen)
+        if (isBusyRef.current) return;
+
+        if (event.event === "voice_start") {
+            addSystemMessage("Voice Detected...");
+            setStatus("I'm listening Sir...");
+            return;
+        }
+
+        if (event.event === "voice_end") {
+            // Only revert if we were in the listening status
+            if (status === "I'm listening Sir...") {
+                setStatus("Listening...");
+            }
+            return;
+        }
+
+        if (event.event === "processing") {
+            addSystemMessage("Thinking...");
+            setStatus("Thinking...");
             return;
         }
 
         if (event.event === "transcription") {
             const newText = (event.text || "").trim();
-            if (!newText) return;
+            console.log(`[Jarvis Event]: Transcription: "${newText}" (Busy: ${isBusyRef.current})`);
 
-            if (stateRef.current === "Idle") {
-                // Check for wake word
-                const normalized = newText.toLowerCase().replace(/[,\.\?!\-\:]/g, "").trim();
-                const foundWakePhrase = JARVIS_CONFIG.WAKE_PHRASES.find(phrase => normalized.startsWith(phrase));
-
-                if (foundWakePhrase) {
-                    console.log("Wake Word Detected:", foundWakePhrase);
-
-                    // FRESH START: Clear LLM history, visual transcript and buffer
-                    llmService.clearHistory();
-                    setTranscript("");
-                    commandBufferRef.current = "";
-
-                    updateState("Acknowledging", `Jarvis: ${JARVIS_CONFIG.ACKNOWLEDGMENT_TEXT}`);
-
-                    // Respond with acknowledgment
-                    await ttsService.speak(JARVIS_CONFIG.ACKNOWLEDGMENT_TEXT);
-
-                    // Transition to Listening
-                    updateState("Listening", "Listening... (waiting for command)");
-
-                    // Start inactivity window (10s)
-                    startInactivityTimer();
-
-                    // Seed command buffer
-                    const wakeWordRegex = new RegExp(`^${foundWakePhrase.split('').join('[\\s,\\.\\?!\\-:]*')}[\\s,\\.\\?!\\-:]*`, 'i');
-                    const seed = newText.replace(wakeWordRegex, "").trim();
-                    if (seed) {
-                        commandBufferRef.current = seed;
-                        setTranscript(`User: ${seed}`);
-                        stopInactivityTimer();
-                        startSilenceTimer();
-                    }
-                } else {
-                    // Just update visual transcript without starting session
-                    setTranscript(prev => prev ? `${prev} ${newText}` : newText);
-                }
-            } else if (stateRef.current === "Listening") {
-                // User is speaking! Stop the inactivity watchdog and reset silence debouncer
-                setTranscript(prev => prev ? `${prev} ${newText}` : newText);
-                stopInactivityTimer();
-                commandBufferRef.current += (" " + newText);
-                setStatus("Listening... (keep speaking)");
-                startSilenceTimer();
+            if (!newText) {
+                // optional: addSystemMessage("Discarded empty noise");
+                return;
             }
+
+            // Immediate capture
+            if (silenceTimeoutRef.current) clearTimeout(silenceTimeoutRef.current);
+
+            const isNewCommand = commandBufferRef.current === "";
+            commandBufferRef.current += (isNewCommand ? newText : " " + newText);
+
+            if (isNewCommand) {
+                addMessage('user', newText);
+                updateState("Listening", "Capturing...");
+            } else {
+                updateLastMessage(commandBufferRef.current);
+            }
+
+            // Step 1: Listen until 1s silence
+            silenceTimeoutRef.current = setTimeout(() => {
+                const finalCmd = commandBufferRef.current.trim();
+                if (finalCmd.length >= JARVIS_CONFIG.MIN_COMMAND_LENGTH) {
+                    processCommand(finalCmd);
+                } else {
+                    // Canceled/Empty fragments
+                    setMessages(prev => prev.slice(0, -1));
+                    resetToListening();
+                }
+            }, JARVIS_CONFIG.COMMAND_SILENCE_TIMEOUT);
         }
-    }, [startInactivityTimer, startSilenceTimer, stopInactivityTimer, updateState]);
+    }, [addMessage, updateLastMessage, processCommand, resetToListening, updateState]);
 
     const handleManualSend = useCallback(async (text: string) => {
-        if (!text.trim()) return;
-        setTranscript(prev => prev ? `${prev}\nUser: ${text}` : `User: ${text}`);
+        if (!text.trim() || isBusyRef.current) return;
+        addMessage('user', text);
         await processCommand(text);
-    }, [processCommand]);
+    }, [addMessage, processCommand]);
 
     return {
         state,
         status,
-        transcript,
+        messages,
         handleVoiceEvent,
-        handleManualSend,
-        setTranscript
+        handleManualSend
     };
 }

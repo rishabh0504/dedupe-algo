@@ -42,7 +42,7 @@ impl AudioEngine {
                              sum += data[frame_idx * channels + c];
                          }
                     }
-                    let mono_sample = sum / channels as f32;
+                    let mono_sample = if channels > 0 { sum / channels as f32 } else { sum };
 
                     // 3. Resample (Nearest Neighbor / Simple Decimation)
                     // We need to output at 16kHz. 

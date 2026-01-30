@@ -1,66 +1,98 @@
 export class TTSService {
     private synthesis: SpeechSynthesis;
     private voice: SpeechSynthesisVoice | null = null;
+    private isInitialized = false;
 
     constructor() {
         this.synthesis = window.speechSynthesis;
-        // Wait for voices to load
-        if (this.synthesis.onvoiceschanged !== undefined) {
+
+        // Browsers load voices asynchronously
+        if (typeof window !== 'undefined' && window.speechSynthesis) {
             this.synthesis.onvoiceschanged = () => {
                 this.loadVoice();
             };
+            // Initial attempt
+            this.loadVoice();
         }
-        this.loadVoice();
     }
 
     private loadVoice() {
         const voices = this.synthesis.getVoices();
-        // User requested "Denial" (Daniel) British male voice
-        this.voice = voices.find(v => v.name === 'Daniel') ||
-            voices.find(v => v.name === 'Samantha') ||
-            voices.find(v => v.name === 'Google UK English Male') ||
+        if (voices.length === 0) return;
+
+        // Optimized Voice Selection for macOS
+        // 1. 'Daniel' is the premium British Male voice on Mac
+        // 2. 'Samantha' is the standard female voice
+        // 3. Fallbacks for various browser engines
+        this.voice = voices.find(v => v.name.includes('Daniel')) ||
+            voices.find(v => v.name.includes('Samantha')) ||
+            voices.find(v => v.name.includes('Google UK English Male')) ||
             voices.find(v => v.lang === 'en-GB') ||
             voices.find(v => v.lang.startsWith('en-')) ||
-            null;
+            voices[0]; // Absolute fallback
 
-        console.log("TTS Voice Selected:", this.voice ? this.voice.name : "Default");
+        if (this.voice) {
+            this.isInitialized = true;
+            console.log("🔊 Jarvis Voice Ready:", this.voice.name);
+        }
     }
 
+    /**
+     * Converts text to speech and returns a promise that resolves when finished.
+     */
     speak(text: string): Promise<void> {
         return new Promise((resolve) => {
-            if (!this.voice) this.loadVoice();
+            // Ensure voices are loaded (Mac Chrome fix)
+            if (!this.isInitialized) {
+                this.loadVoice();
+            }
 
-            // Cancel previous speech
+            // Immediately stop any existing speech to prevent overlapping
             this.synthesis.cancel();
 
-            // Safety Timeout (e.g. if browser doesn't fire onend)
-            const timeout = setTimeout(() => {
-                console.warn("TTS Timeout - Force Resolving");
+            // Web Speech API can hang if text is empty
+            const cleanText = text.trim();
+            if (!cleanText) {
                 resolve();
-            }, 10000 + (text.length * 100)); // Dynamic timeout based on length
+                return;
+            }
 
-            const utterance = new SpeechSynthesisUtterance(text);
+            const utterance = new SpeechSynthesisUtterance(cleanText);
+
             if (this.voice) {
                 utterance.voice = this.voice;
             }
 
-            // Adjust to sound more natural?
-            utterance.rate = 1.0;
+            // --- Voice Tuning ---
+            utterance.rate = 1.05;  // Slightly faster for a "smart" feel
             utterance.pitch = 1.0;
+            utterance.volume = 1.0;
+
+            // Safety Watchdog
+            const timeoutDuration = Math.max(3000, 1000 + (cleanText.length * 80));
+            const timeout = setTimeout(() => {
+                console.warn("TTS Watchdog triggered (Internal Speech Engine timed out)");
+                this.synthesis.cancel();
+                resolve();
+            }, timeoutDuration);
 
             utterance.onend = () => {
                 clearTimeout(timeout);
                 resolve();
             };
 
-            utterance.onerror = (e) => {
+            utterance.onerror = (event) => {
                 clearTimeout(timeout);
-                console.error("TTS Error:", e);
-                // Don't reject, just resolve so we don't block the app
+                console.error("TTS Error Event:", event);
+                // Resolve anyway so the Jarvis state machine doesn't get stuck in "Speaking"
                 resolve();
             };
 
-            this.synthesis.speak(utterance);
+            // Critical fix: some browsers won't play speech unless we pause briefly 
+            // after a 'cancel()' call to clear the audio buffer.
+            setTimeout(() => {
+                this.synthesis.speak(utterance);
+            }, 50);
         });
     }
 
