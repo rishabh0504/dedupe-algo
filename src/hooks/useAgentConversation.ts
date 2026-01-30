@@ -211,6 +211,7 @@ export function useAgentConversation(_isVoiceEnabled: boolean) {
         status,
         messages,
         handleVoiceEvent,
-        handleManualSend
+        handleManualSend,
+        resetToListening
     };
 }

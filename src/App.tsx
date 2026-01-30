@@ -8,17 +8,81 @@ import { listen } from "@tauri-apps/api/event";
 import { OnboardingWizard } from "./components/OnboardingWizard";
 import { FileExplorerView } from "./components/FileExplorerView";
 import { SpeakToJarvisView } from "./components/SpeakToJarvisView";
-import { Zap, RotateCcw, Search, ListTodo, FolderOpen } from "lucide-react";
+import { Zap, RotateCcw, Search, ListTodo, FolderOpen, Mic, Volume2, Radio } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { useEffect } from "react";
-
+import { useEffect, useCallback, useRef, useState } from "react";
 import { Toaster } from "@/components/ui/sonner";
+import { JarvisEvent, jarvisService } from "./services/jarvisService";
+import { useAgentConversation } from "./hooks/useAgentConversation";
 
 function App() {
-  const { isScanning, scanQueue, scanResults, setResults, isOnboarded, setScanProgress, activeView, setActiveView } = useStore();
+  const { isScanning, scanQueue, scanResults, setResults, isOnboarded, setScanProgress, activeView, setActiveView, isVoiceEnabled } = useStore();
+
+  // Jarvis State Transformation
+  const [audioDevice, setAudioDevice] = useState<string | null>(null);
+  const [lastHeartbeat, setLastHeartbeat] = useState<number>(Date.now());
+  const isStartedRef = useRef(false);
+
+  // Lifted Jarvis Logic
+  const {
+    state: jarvisState,
+    messages: jarvisMessages,
+    handleVoiceEvent,
+    handleManualSend,
+    resetToListening
+  } = useAgentConversation(isVoiceEnabled);
+
+  // Optimized Sidecar Initialization
+  const initJarvis = useCallback(async () => {
+    if (isStartedRef.current) return;
+
+    try {
+      let modelPath = "models/ggml-base.en.bin";
+      try {
+        modelPath = await invoke('get_model_path');
+      } catch (e) {
+        console.warn("Using fallback model path...");
+      }
+
+      await jarvisService.start({
+        wakeWord: "Hello",
+        modelPath: modelPath
+      });
+
+      isStartedRef.current = true;
+    } catch (error) {
+      console.error("Critical Failure: Jarvis sidecar could not start:", error);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (!isVoiceEnabled) {
+      jarvisService.stop();
+      isStartedRef.current = false;
+      return;
+    }
+
+    const unsubscribe = jarvisService.onEvent((event: JarvisEvent) => {
+      if (event.event === 'audio_device') {
+        setAudioDevice(event.device || "Default Interface");
+      } else if (event.event === 'heartbeat') {
+        setLastHeartbeat(Date.now());
+      } else {
+        handleVoiceEvent(event);
+      }
+    });
+
+    initJarvis();
+
+    return () => {
+      unsubscribe();
+      jarvisService.stop();
+      isStartedRef.current = false;
+    };
+  }, [isVoiceEnabled, handleVoiceEvent, initJarvis]);
 
   // Auto-switch to results tab when scan completes
   useEffect(() => {
@@ -49,7 +113,6 @@ function App() {
     setScanProgress(null);
 
     try {
-      // Small artificial delays to let the "logical" phases breathe in the UI
       await new Promise(r => setTimeout(r, 600));
       setScanPhase('partial');
 
@@ -88,27 +151,75 @@ function App() {
         <AppSidebar />
 
         <SidebarInset className="flex flex-col relative overflow-hidden bg-background/50">
-          {/* Main Content Header */}
-          <header className="flex h-16 shrink-0 items-center justify-between gap-2 px-6 border-b border-border/50 backdrop-blur-xl sticky top-0 z-10">
-            <div className="flex items-center gap-3">
-              <div className="p-2 rounded-xl bg-primary/10 border border-primary/20">
-                <img src="/src/assets/logo.png" alt="Logo" className="w-5 h-5 object-contain" />
-              </div>
-              <div className="flex flex-col">
-                <h1 className="text-sm font-bold tracking-tight">Dedupe-Algo Workspace</h1>
-                <div className="flex items-center gap-2">
-                  <Badge variant="outline" className="text-[9px] px-1.5 py-0 font-bold uppercase tracking-wider opacity-60">
-                    {scanResults ? "Collision Matrix Loaded" : isScanning ? "Deep-Pass Analyzing..." : "Standby Operational"}
-                  </Badge>
+
+          {/* Main Content Header - Transforms for Jarvis */}
+          <header className={`flex h-16 shrink-0 items-center justify-between gap-2 px-6 border-b border-border/50 backdrop-blur-xl sticky top-0 z-10 transition-all duration-500 ${activeView === 'jarvis' ? 'bg-black/40 border-primary/20' : ''}`}>
+
+            {activeView === 'jarvis' ? (
+              /* JARVIS HEADER STATE */
+              <div className="flex items-center gap-4 animate-in fade-in slide-in-from-top-2 duration-500">
+                {/* MINI VISUALIZER */}
+                <div className="relative w-10 h-10 flex items-center justify-center">
+                  <div className={`absolute inset-0 rounded-full border border-primary/20
+                            ${jarvisState !== 'Idle' ? 'animate-spin [animation-duration:3s]' : ''}
+                            ${jarvisState === 'Thinking' ? 'border-t-blue-500' :
+                      jarvisState === 'Speaking' ? 'border-t-green-500' :
+                        jarvisState === 'Listening' ? 'border-t-emerald-500' : ''}`}
+                  />
+                  <div className={`absolute inset-1 rounded-full border border-primary/20
+                            ${jarvisState !== 'Idle' ? 'animate-spin [animation-duration:2s] direction-reverse' : ''}`}
+                  />
+                  {jarvisState === 'Speaking' ? (
+                    <Volume2 className="w-5 h-5 text-green-500 animate-bounce" />
+                  ) : (
+                    <Mic className={`w-5 h-5 transition-colors duration-300 
+                                ${jarvisState === 'Thinking' ? 'text-blue-500' :
+                        jarvisState === 'Listening' ? 'text-emerald-500' : 'text-primary'}`}
+                    />
+                  )}
+                </div>
+
+                <div className="flex flex-col">
+                  <h3 className="text-xs font-black uppercase tracking-[0.2em] text-primary/90">
+                    Jarvis Protocol
+                  </h3>
+                  <div className="flex items-center gap-2">
+                    <span className={`text-[10px] font-mono tracking-tight uppercase
+                                ${jarvisState === 'Thinking' ? 'text-blue-400' :
+                        jarvisState === 'Speaking' ? 'text-green-400' :
+                          jarvisState === 'Listening' ? 'text-emerald-400' : 'text-muted-foreground'}`}>
+                      {jarvisState === 'Idle' ? 'System Ready' : jarvisState}
+                    </span>
+                    {audioDevice && (
+                      <span className="text-[9px] text-muted-foreground/40 font-mono hidden sm:inline-block">
+                        | {audioDevice}
+                      </span>
+                    )}
+                  </div>
                 </div>
               </div>
-            </div>
+            ) : (
+              /* STANDARD HEADER STATE */
+              <div className="flex items-center gap-3">
+                <div className="p-2 rounded-xl bg-primary/10 border border-primary/20">
+                  <img src="/src/assets/logo.png" alt="Logo" className="w-5 h-5 object-contain" />
+                </div>
+                <div className="flex flex-col">
+                  <h1 className="text-sm font-bold tracking-tight">Dedupe-Algo Workspace</h1>
+                  <div className="flex items-center gap-2">
+                    <Badge variant="outline" className="text-[9px] px-1.5 py-0 font-bold uppercase tracking-wider opacity-60">
+                      {scanResults ? "Collision Matrix Loaded" : isScanning ? "Deep-Pass Analyzing..." : "Standby Operational"}
+                    </Badge>
+                  </div>
+                </div>
+              </div>
+            )}
 
             <div className="flex items-center gap-4">
               <Tabs value={activeView} onValueChange={(val) => setActiveView(val as any)} className="bg-muted/50 p-1 rounded-xl">
                 <TabsList className="bg-transparent h-9 gap-1">
 
-                  {/* EXPLORER TAB: Only show if activeView is explorer. Hide if in Queue or Results mode. */}
+                  {/* EXPLORER TAB */}
                   {(activeView === 'explorer' || (!scanResults && activeView !== 'queue' && activeView !== 'jarvis')) && (
                     <TabsTrigger value="explorer" className="rounded-lg px-4 font-bold text-xs data-[state=active]:bg-background data-[state=active]:shadow-sm">
                       <FolderOpen className="w-3.5 h-3.5 mr-2 opacity-50" />
@@ -116,7 +227,7 @@ function App() {
                     </TabsTrigger>
                   )}
 
-                  {/* QUEUE TAB: Show if in Queue mode or if there are items. Hide if in Explorer mode (unless manually switched?) - User requested strictness "no explorer view" when in queue. */}
+                  {/* QUEUE TAB */}
                   {(activeView === 'queue' || scanQueue.length > 0 || activeView === 'results') && (
                     <TabsTrigger value="queue" className="rounded-lg px-4 font-bold text-xs data-[state=active]:bg-background data-[state=active]:shadow-sm">
                       <ListTodo className="w-3.5 h-3.5 mr-2 opacity-50" />
@@ -124,7 +235,7 @@ function App() {
                     </TabsTrigger>
                   )}
 
-                  {/* RESULTS TAB: Only show if results exist. */}
+                  {/* RESULTS TAB */}
                   {(scanResults || activeView === 'results') && (
                     <TabsTrigger
                       value="results"
@@ -136,12 +247,26 @@ function App() {
                     </TabsTrigger>
                   )}
 
-                  {/* JARVIS TAB: Hidden but accessible via state */}
-                  <TabsTrigger value="jarvis" className={activeView === 'jarvis' ? "rounded-lg px-4 font-bold text-xs data-[state=active]:bg-background data-[state=active]:shadow-sm" : "hidden"}>
+                  {/* JARVIS TAB */}
+                  <TabsTrigger
+                    value="jarvis"
+                    className={`rounded-lg px-4 font-bold text-xs data-[state=active]:bg-background data-[state=active]:shadow-sm transition-colors ${activeView === 'jarvis' ? 'text-primary' : ''}`}
+                  >
                     Jarvis
                   </TabsTrigger>
                 </TabsList>
               </Tabs>
+
+              {activeView === 'jarvis' && (
+                <div className={`px-2 py-1 rounded border transition-colors ${Date.now() - lastHeartbeat < 3000
+                  ? 'bg-primary/5 border-primary/10 text-primary/60'
+                  : 'bg-red-500/10 border-red-500/20 text-red-500'
+                  }`}>
+                  <span className="text-[9px] font-mono uppercase font-bold">
+                    {Date.now() - lastHeartbeat < 3000 ? 'ONLINE' : 'OFFLINE'}
+                  </span>
+                </div>
+              )}
 
               <Separator orientation="vertical" className="h-4 mx-2 opacity-20" />
 
@@ -205,7 +330,12 @@ function App() {
                 {scanResults && <ResultsView key={useStore.getState().scanTimestamp} onRescan={handleStartScan} />}
               </TabsContent>
               <TabsContent value="jarvis" className="flex-1 flex flex-col overflow-hidden mt-0">
-                <SpeakToJarvisView />
+                <SpeakToJarvisView
+                  state={jarvisState}
+                  messages={jarvisMessages}
+                  onSend={handleManualSend}
+                  resetToListening={resetToListening}
+                />
               </TabsContent>
             </Tabs>
           </div>
