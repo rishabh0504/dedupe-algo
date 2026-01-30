@@ -8,7 +8,7 @@ import { listen } from "@tauri-apps/api/event";
 import { OnboardingWizard } from "./components/OnboardingWizard";
 import { FileExplorerView } from "./components/FileExplorerView";
 import { SpeakToJarvisView } from "./components/SpeakToJarvisView";
-import { Zap, RotateCcw, Search, ListTodo, FolderOpen, Mic, Volume2, Radio } from "lucide-react";
+import { Zap, RotateCcw, Search, ListTodo, FolderOpen, Mic, Volume2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
 import { Badge } from "@/components/ui/badge";
@@ -23,7 +23,6 @@ function App() {
 
   // Jarvis State Transformation
   const [audioDevice, setAudioDevice] = useState<string | null>(null);
-  const [lastHeartbeat, setLastHeartbeat] = useState<number>(Date.now());
   const isStartedRef = useRef(false);
 
   // Lifted Jarvis Logic
@@ -70,8 +69,6 @@ function App() {
     const unsubscribe = jarvisService.onEvent((event: JarvisEvent) => {
       if (event.event === 'audio_device') {
         setAudioDevice(event.device || "Default Interface");
-      } else if (event.event === 'heartbeat') {
-        setLastHeartbeat(Date.now());
       } else {
         handleVoiceEvent(event);
       }
@@ -217,73 +214,57 @@ function App() {
               </div>
             )}
 
-            <div className="flex items-center gap-4">
-              <Tabs value={activeView} onValueChange={(val) => setActiveView(val as any)} className="bg-muted/50 p-1 rounded-xl">
-                <TabsList className="bg-transparent h-9 gap-1">
+            {activeView !== 'jarvis' && (
+              <div className="flex items-center gap-4">
+                <Tabs value={activeView} onValueChange={(val) => setActiveView(val as any)} className="bg-muted/50 p-1 rounded-xl">
+                  <TabsList className="bg-transparent h-9 gap-1">
 
-                  {/* EXPLORER TAB */}
-                  {(activeView === 'explorer' || (!scanResults && activeView !== 'queue' && activeView !== 'jarvis')) && (
-                    <TabsTrigger value="explorer" className="rounded-lg px-4 font-bold text-xs data-[state=active]:bg-background data-[state=active]:shadow-sm">
-                      <FolderOpen className="w-3.5 h-3.5 mr-2 opacity-50" />
-                      Explorer
-                    </TabsTrigger>
-                  )}
+                    {/* EXPLORER TAB */}
+                    {(activeView === 'explorer' || (!scanResults && activeView !== 'queue')) && (
+                      <TabsTrigger value="explorer" className="rounded-lg px-4 font-bold text-xs data-[state=active]:bg-background data-[state=active]:shadow-sm">
+                        <FolderOpen className="w-3.5 h-3.5 mr-2 opacity-50" />
+                        Explorer
+                      </TabsTrigger>
+                    )}
 
-                  {/* QUEUE TAB */}
-                  {(activeView === 'queue' || scanQueue.length > 0 || activeView === 'results') && (
-                    <TabsTrigger value="queue" className="rounded-lg px-4 font-bold text-xs data-[state=active]:bg-background data-[state=active]:shadow-sm">
-                      <ListTodo className="w-3.5 h-3.5 mr-2 opacity-50" />
-                      Queue
-                    </TabsTrigger>
-                  )}
+                    {/* QUEUE TAB */}
+                    {(activeView === 'queue' || scanQueue.length > 0 || activeView === 'results') && (
+                      <TabsTrigger value="queue" className="rounded-lg px-4 font-bold text-xs data-[state=active]:bg-background data-[state=active]:shadow-sm">
+                        <ListTodo className="w-3.5 h-3.5 mr-2 opacity-50" />
+                        Queue
+                      </TabsTrigger>
+                    )}
 
-                  {/* RESULTS TAB */}
-                  {(scanResults || activeView === 'results') && (
-                    <TabsTrigger
-                      value="results"
-                      disabled={!scanResults && !isScanning}
-                      className="rounded-lg px-4 font-bold text-xs data-[state=active]:bg-background data-[state=active]:shadow-sm"
-                    >
-                      <Search className="w-3.5 h-3.5 mr-2 opacity-50" />
-                      Results
-                    </TabsTrigger>
-                  )}
+                    {/* RESULTS TAB */}
+                    {(scanResults || activeView === 'results') && (
+                      <TabsTrigger
+                        value="results"
+                        disabled={!scanResults && !isScanning}
+                        className="rounded-lg px-4 font-bold text-xs data-[state=active]:bg-background data-[state=active]:shadow-sm"
+                      >
+                        <Search className="w-3.5 h-3.5 mr-2 opacity-50" />
+                        Results
+                      </TabsTrigger>
+                    )}
 
-                  {/* JARVIS TAB */}
-                  <TabsTrigger
-                    value="jarvis"
-                    className={`rounded-lg px-4 font-bold text-xs data-[state=active]:bg-background data-[state=active]:shadow-sm transition-colors ${activeView === 'jarvis' ? 'text-primary' : ''}`}
+                  </TabsList>
+                </Tabs>
+
+                <Separator orientation="vertical" className="h-4 mx-2 opacity-20" />
+
+                {scanResults && !isScanning && (
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    onClick={clearResults}
+                    className="rounded-full hover:bg-secondary transition-all"
+                    title="Reset Workspace"
                   >
-                    Jarvis
-                  </TabsTrigger>
-                </TabsList>
-              </Tabs>
-
-              {activeView === 'jarvis' && (
-                <div className={`px-2 py-1 rounded border transition-colors ${Date.now() - lastHeartbeat < 3000
-                  ? 'bg-primary/5 border-primary/10 text-primary/60'
-                  : 'bg-red-500/10 border-red-500/20 text-red-500'
-                  }`}>
-                  <span className="text-[9px] font-mono uppercase font-bold">
-                    {Date.now() - lastHeartbeat < 3000 ? 'ONLINE' : 'OFFLINE'}
-                  </span>
-                </div>
-              )}
-
-              <Separator orientation="vertical" className="h-4 mx-2 opacity-20" />
-
-              {scanResults && !isScanning && (
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  onClick={clearResults}
-                  className="rounded-full hover:bg-secondary transition-all"
-                  title="Reset Workspace"
-                >
-                  <RotateCcw className="w-4 h-4" />
-                </Button>
-              )}
-            </div>
+                    <RotateCcw className="w-4 h-4" />
+                  </Button>
+                )}
+              </div>
+            )}
           </header>
 
           {/* Dynamic Content Area */}

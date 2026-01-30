@@ -30,7 +30,6 @@ import {
     SidebarHeader,
     SidebarMenu,
     SidebarGroup,
-    SidebarGroupLabel,
     SidebarGroupContent,
 } from "@/components/ui/sidebar";
 import { cn } from "@/lib/utils";
@@ -63,9 +62,7 @@ export function AppSidebar() {
         setScanZips,
         minFileSize,
         setMinFileSize,
-        setActiveView,
-        isVoiceEnabled,
-        setVoiceEnabled
+        setActiveView
     } = useStore();
 
     const { data: systemNodes, isLoading: isLoadingNodes } = useQuery({
@@ -175,22 +172,6 @@ export function AppSidebar() {
                         "space-y-2 overflow-hidden transition-all duration-300 ease-in-out",
                         isSettingsOpen ? "max-h-[600px] opacity-100" : "max-h-0 opacity-0"
                     )}>
-                        {/* Audio Config */}
-                        <div className="px-3 py-2 bg-muted/20 rounded-xl mb-2 border border-white/5 space-y-2">
-                            <span className="text-[9px] font-black uppercase tracking-widest opacity-40 mb-1 block">Audio Configuration</span>
-                            <div className="flex items-center justify-between group">
-                                <div className="flex items-center gap-2">
-                                    <Mic className={cn("w-3.5 h-3.5 shrink-0", isVoiceEnabled ? "text-primary" : "text-muted-foreground opacity-40")} />
-                                    <span className="text-[10px] font-black uppercase tracking-widest opacity-60 group-hover:opacity-100 transition-opacity">Microphone</span>
-                                </div>
-                                <Switch
-                                    checked={isVoiceEnabled}
-                                    onCheckedChange={setVoiceEnabled}
-                                    className="scale-75"
-                                />
-                            </div>
-                        </div>
-
                         {/* Scanner Config */}
                         <div className="px-3 py-2 space-y-3 bg-muted/20 rounded-xl mb-4 border border-white/5">
                             <div className="flex items-center justify-between">

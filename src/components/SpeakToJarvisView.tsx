@@ -37,9 +37,9 @@ export function SpeakToJarvisView({ state, messages, onSend, resetToListening, s
             <div className="absolute inset-0 bg-gradient-to-b from-primary/5 via-transparent to-transparent pointer-events-none" />
             <div className="absolute inset-0 bg-[url('/src/assets/grid-pattern.svg')] opacity-[0.03] pointer-events-none" />
 
-            {/* Chat Body - Edge to Edge */}
+            {/* Chat Body - Edge to Edge - No Padding */}
             <div
-                className="flex-1 overflow-y-auto p-4 sm:p-6 space-y-6 custom-scrollbar scroll-smooth w-full max-w-none"
+                className="flex-1 overflow-y-auto space-y-4 custom-scrollbar scroll-smooth w-full"
                 id="chat-scroller"
                 ref={chatContainerRef}
             >
@@ -56,13 +56,14 @@ export function SpeakToJarvisView({ state, messages, onSend, resetToListening, s
                             key={idx}
                             initial={{ opacity: 0, y: 10 }}
                             animate={{ opacity: 1, y: 0 }}
-                            className={`flex flex-col ${msg.role === 'user' ? 'items-end' : 'items-start'} w-full`}
+                            className={`flex flex-col ${msg.role === 'user' ? 'items-end' : 'items-start'} w-full px-4`}
                         >
-                            <div className={`max-w-[85%] md:max-w-[70%] lg:max-w-[60%] flex flex-col ${msg.role === 'user' ? 'items-end' : 'items-start'}`}>
+                            {/* Reduced Constraints: Removed explicit max-w-[] classes that forced narrow columns */}
+                            <div className={`flex flex-col ${msg.role === 'user' ? 'items-end' : 'items-start'} w-full max-w-full`}>
                                 <span className="text-[9px] uppercase tracking-widest text-primary/40 mb-1.5 px-1">
                                     {msg.role === 'user' ? 'You' : 'Jarvis'}
                                 </span>
-                                <div className={`px-6 py-5 text-[14px] leading-relaxed font-sans shadow-sm backdrop-blur-md ${msg.role === 'user'
+                                <div className={`px-6 py-5 text-[14px] leading-relaxed font-sans shadow-sm backdrop-blur-md w-auto inline-block max-w-[95%] ${msg.role === 'user'
                                     ? 'bg-primary/10 border border-primary/20 text-primary rounded-2xl rounded-tr-sm'
                                     : 'bg-white/5 border border-white/10 text-slate-200 rounded-2xl rounded-tl-sm'
                                     }`}>
@@ -80,16 +81,16 @@ export function SpeakToJarvisView({ state, messages, onSend, resetToListening, s
                 )}
             </div>
 
-            {/* Input Area - Full Width */}
-            <div className="p-4 sm:p-6 border-t border-primary/10 bg-black/20 backdrop-blur-xl shrink-0 w-full z-20">
-                <form onSubmit={handleFormSubmit} className="relative flex items-center gap-4 w-full">
+            {/* Input Area - Full Width - Minimized Padding */}
+            <div className="p-2 sm:p-4 border-t border-primary/10 bg-black/20 backdrop-blur-xl shrink-0 w-full z-20">
+                <form onSubmit={handleFormSubmit} className="relative flex items-center gap-2 w-full">
                     <input
                         autoFocus
                         disabled={!isIdle}
                         value={inputText}
                         onChange={(e) => setInputText(e.target.value)}
                         placeholder={!isIdle ? "Audio Channel Active..." : "Type a command..."}
-                        className={`flex-1 bg-black/40 border border-primary/10 rounded-xl px-6 py-4 text-sm font-mono focus:outline-none focus:border-primary/40 transition-all 
+                        className={`flex-1 bg-black/40 border border-primary/10 rounded-xl px-4 py-3 text-sm font-mono focus:outline-none focus:border-primary/40 transition-all 
                             ${!isIdle ? 'opacity-50 cursor-not-allowed placeholder-white/10' : 'placeholder-white/20'}
                             ${state === 'Listening' ? 'border-emerald-500/20 shadow-[0_0_30px_rgba(16,185,129,0.05)]' : ''}`}
                     />
@@ -103,7 +104,7 @@ export function SpeakToJarvisView({ state, messages, onSend, resetToListening, s
                                     stopListening();
                                 }
                             }}
-                            className={`p-4 rounded-xl border transition-all duration-300 ${state === 'Listening' ? 'bg-emerald-500/20 text-emerald-500 border-emerald-500/50 hover:bg-red-500/20 hover:text-red-500 hover:border-red-500/50' :
+                            className={`p-3 rounded-xl border transition-all duration-300 ${state === 'Listening' ? 'bg-emerald-500/20 text-emerald-500 border-emerald-500/50 hover:bg-red-500/20 hover:text-red-500 hover:border-red-500/50' :
                                 state === 'Thinking' ? 'bg-blue-500/10 text-blue-500 border-blue-500/30' :
                                     state === 'Speaking' ? 'bg-green-500/10 text-green-500 border-green-500/30' :
                                         'bg-white/5 text-primary border-primary/10 hover:bg-primary/10 hover:scale-105 active:scale-95'}`}
@@ -115,7 +116,7 @@ export function SpeakToJarvisView({ state, messages, onSend, resetToListening, s
                             type="button"
                             disabled={!isIdle}
                             onClick={handleFormSubmit}
-                            className={`p-4 rounded-xl bg-primary/10 border border-primary/20 text-primary transition-all ${!isIdle ? 'opacity-30 cursor-not-allowed' : 'hover:bg-primary/20 hover:scale-105 active:scale-95'
+                            className={`p-3 rounded-xl bg-primary/10 border border-primary/20 text-primary transition-all ${!isIdle ? 'opacity-30 cursor-not-allowed' : 'hover:bg-primary/20 hover:scale-105 active:scale-95'
                                 }`}
                         >
                             <Send className="w-5 h-5" />
