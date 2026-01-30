@@ -491,6 +491,28 @@ fn get_model_path(_app: tauri::AppHandle) -> String {
     "/Users/rishabh/Desktop/reusable projects/dedupe-algo/models/ggml-base.en.bin".to_string()
 }
 
+#[tauri::command]
+fn speak_native_macos(text: String, voice: Option<String>) -> Result<(), String> {
+    // SECURITY: Use 'say' command to access Premium System Voices
+    let mut cmd = Command::new("say");
+    
+    // Voice selection
+    if let Some(v_name) = voice {
+        cmd.arg("-v").arg(v_name);
+    }
+    
+    // The text to speak
+    cmd.arg(text);
+
+    // Spawn and block until finished so the frontend knows when to unmute
+    let status = cmd.status().map_err(|e| format!("Failed to execute say: {}", e))?;
+    
+    if !status.success() {
+        return Err(format!("say command failed with status: {}", status));
+    }
+    Ok(())
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
@@ -532,7 +554,8 @@ pub fn run() {
             reset_cache,
             get_subdirectories,
             read_directory,
-            get_model_path
+            get_model_path,
+            speak_native_macos
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

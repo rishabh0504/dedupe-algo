@@ -2,9 +2,7 @@ use serde::Serialize;
 use crate::transcript::{Transcriber, is_voice_active};
 
 // Configuration constants
-const SAMPLE_RATE: usize = 16000;
-const SILENCE_THRESHOLD_MS: usize = 1000; // More natural pause
-const MIN_PHRASE_DURATION_MS: usize = 200; // Capture short words like "Hi"
+use crate::config::{SAMPLE_RATE, SILENCE_THRESHOLD_MS, MIN_PHRASE_DURATION_MS, VAD_THRESHOLD, MAX_PHRASE_DURATION_MS};
 
 #[derive(Debug, PartialEq, Clone)] // Added Clone for state tracking
 pub enum JarvisState {
@@ -34,11 +32,6 @@ impl StateMachine {
     pub fn new(model_path: &str) -> Result<Self, anyhow::Error> {
         let transcriber = Transcriber::new(model_path)?;
         
-        // Assuming process_audio receives ~100ms chunks (1600 samples)
-        // If your chunk size is different, adjust these calculations.
-        // Let's assume chunk_size is passed or standard. 
-        // We will calculate frames dynamically based on input length.
-        
         Ok(Self {
             current_state: JarvisState::Idle,
             transcriber,
@@ -50,7 +43,7 @@ impl StateMachine {
 
     pub fn process_audio(&mut self, samples: &[f32]) -> Result<(), anyhow::Error> {
         // 1. Dynamic VAD (RMS Energy)
-        let is_speech = is_voice_active(samples, 0.001); // Maximum sensitivity
+        let is_speech = is_voice_active(samples, VAD_THRESHOLD); 
 
         // Calculate how many frames of silence we need based on input chunk size
         let chunk_duration_ms = (samples.len() * 1000) / SAMPLE_RATE;
@@ -79,7 +72,7 @@ impl StateMachine {
                 // Safety: Don't exceed 15 seconds of audio (prevents memory issues/lag)
                 let total_duration_ms = (self.audio_buffer.len() * 1000) / SAMPLE_RATE;
                 
-                if self.silence_frames > self.max_silence_frames || total_duration_ms > 15000 {
+                if self.silence_frames > self.max_silence_frames || total_duration_ms > MAX_PHRASE_DURATION_MS {
                     if total_duration_ms > MIN_PHRASE_DURATION_MS {
                         self.finalize_sentence();
                     } else {

@@ -19,11 +19,13 @@ impl AudioEngine {
         let source_sample_rate = config.sample_rate.0;
         let channels = config.channels as usize;
 
+        use crate::config::SAMPLE_RATE;
+        
         // Moving producer into the closure
         let mut producer = producer;
         
         let mut phase = 0.0;
-        let step = source_sample_rate as f32 / 16000.0;
+        let step = source_sample_rate as f32 / SAMPLE_RATE as f32;
 
         let err_fn = |err| eprintln!("an error occurred on stream: {}", err);
 

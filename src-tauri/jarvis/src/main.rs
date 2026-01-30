@@ -1,6 +1,7 @@
 mod audio;
 mod transcript;
 mod state_machine;
+mod config;
 
 use audio::AudioEngine;
 use state_machine::StateMachine;
@@ -14,23 +15,28 @@ use std::io::{Write, stdout};
 #[command(author, version, about, long_about = None)]
 struct Args {
     /// Wake word to listen for
-    #[arg(short, long, default_value = "Hello Jarvis")]
-    wake_word: String,
+    #[arg(short, long)]
+    wake_word: Option<String>,
 
     /// Path to Whisper Model
-    #[arg(short, long, default_value = "models/ggml-base.en.bin")]
-    model: String,
+    #[arg(short, long)]
+    model: Option<String>,
 }
 
 #[tokio::main]
 async fn main() -> Result<(), anyhow::Error> {
+    use crate::config::{SAMPLE_RATE, HEARTBEAT_INTERVAL_MS, DEFAULT_MODEL_PATH, DEFAULT_WAKE_WORD};
+    
     let args = Args::parse();
-    println!("{{ \"status\": \"initializing\", \"wake_word\": \"{}\", \"model\": \"{}\" }}", args.wake_word, args.model);
+    let wake_word = args.wake_word.unwrap_or_else(|| DEFAULT_WAKE_WORD.to_string());
+    let model_path = args.model.unwrap_or_else(|| DEFAULT_MODEL_PATH.to_string());
+
+    println!("{{ \"status\": \"initializing\", \"wake_word\": \"{}\", \"model\": \"{}\" }}", wake_word, model_path);
     stdout().flush().unwrap_or_default();
 
     // Setup RingBuffer
     // 16000Hz * 10 seconds buffer
-    let ring = HeapRb::<f32>::new(16000 * 10);
+    let ring = HeapRb::<f32>::new(SAMPLE_RATE * 10);
     let (producer, mut consumer) = ring.split();
 
     // Start Audio Engine
@@ -47,7 +53,7 @@ async fn main() -> Result<(), anyhow::Error> {
 
     // Initialize State Machine
     // This will fail if model is not found, which is expected
-    let mut jarvis = match StateMachine::new(&args.model) {
+    let mut jarvis = match StateMachine::new(&model_path) {
         Ok(vm) => vm,
         Err(e) => {
              eprintln!("{{ \"error\": \"Failed to load model: {}\" }}", e);
@@ -80,7 +86,7 @@ async fn main() -> Result<(), anyhow::Error> {
     // Processing Loop
     loop {
         // Heartbeat every 2 seconds
-        if last_heartbeat.elapsed() > Duration::from_secs(2) {
+        if last_heartbeat.elapsed() > Duration::from_millis(HEARTBEAT_INTERVAL_MS) {
             println!("{{ \"event\": \"heartbeat\", \"state\": \"{:?}\", \"buffer_fill\": {} }}", jarvis.current_state, consumer.len());
             stdout().flush().unwrap_or_default();
             last_heartbeat = tokio::time::Instant::now();
