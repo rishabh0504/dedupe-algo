@@ -11,7 +11,7 @@ export type Message = {
     content: string;
 };
 
-export function useAgentConversation(_isVoiceEnabled: boolean) {
+export function useVoiceConversationAgent() {
     const [state, setState] = useState<ConversationState>("Idle");
     const [status, setStatus] = useState<string>("Ready");
     const [messages, setMessages] = useState<Message[]>([]);
@@ -23,7 +23,7 @@ export function useAgentConversation(_isVoiceEnabled: boolean) {
     const hasStartedRef = useRef(false);
 
     const updateState = useCallback((newState: ConversationState, newStatus?: string) => {
-        console.log(`[Mutex Step]: ${stateRef.current} -> ${newState} (${newStatus || ''})`);
+        console.log(`[VoiceAgent]: ${stateRef.current} -> ${newState} (${newStatus || ''})`);
         stateRef.current = newState;
         setState(newState);
         if (newStatus) setStatus(newStatus);
@@ -35,7 +35,6 @@ export function useAgentConversation(_isVoiceEnabled: boolean) {
 
     const addSystemMessage = useCallback((content: string) => {
         setStatus(content);
-        // Removed: addMessage('assistant', `[SYSTEM]: ${content}`);
     }, []);
 
     const updateLastMessage = useCallback((content: string) => {
@@ -52,7 +51,6 @@ export function useAgentConversation(_isVoiceEnabled: boolean) {
 
     // Step 4: Reset -> Step 1: Listen
     const resetToListening = useCallback(async () => {
-        // addSystemMessage("Activating Microphone..."); // Hidden per user request
         updateState("Idle", "Resetting...");
         isBusyRef.current = true;
 
@@ -63,11 +61,7 @@ export function useAgentConversation(_isVoiceEnabled: boolean) {
             console.log("🔓 Requesting Sidecar START_LISTENER...");
             await jarvisService.setMuted(false);
             console.log("🔓 Sidecar Unmuted. Enabling Listener...");
-            // addSystemMessage("System Ready - I am Listening, Sir."); // Hidden per user request
             commandBufferRef.current = "";
-
-            // Only add a subtle log if it's the very first startup
-            // if (!hasStartedRef.current) addSystemMessage("System Ready");
 
             isBusyRef.current = false;
             updateState("Listening", "Listening...");
@@ -76,9 +70,9 @@ export function useAgentConversation(_isVoiceEnabled: boolean) {
             isBusyRef.current = false;
             updateState("Listening", "Listening (Safe)");
         }
-    }, [updateState, addSystemMessage]);
+    }, [updateState]);
 
-    const processCommand = useCallback(async (text: string) => {
+    const processCommand = useCallback(async (text: string, shouldSpeak: boolean = true) => {
         if (!text.trim()) {
             await resetToListening();
             return;
@@ -87,10 +81,8 @@ export function useAgentConversation(_isVoiceEnabled: boolean) {
         isBusyRef.current = true;
 
         // 1. LOCK MIC
-        // addSystemMessage("Requesting Mic Lock...");
         updateState("Thinking", "Locking...");
         await jarvisService.setMuted(true);
-        // addSystemMessage("Mic Locked (Confirmed)");
 
         // 2. THINKING
         updateState("Thinking", "Thinking...");
@@ -103,20 +95,27 @@ export function useAgentConversation(_isVoiceEnabled: boolean) {
                 updateLastMessage(fullReply);
             });
 
-            // 3. SPEAKING (MIC IS ALREADY LOCKED)
-            // addSystemMessage("Jarvis Speaking...");
-            updateState("Speaking", "Speaking...");
-            await ttsService.speak(fullReply);
+            // 3. SPEAKING (Only if requested)
+            if (shouldSpeak) {
+                updateState("Speaking", "Speaking...");
+                await ttsService.speak(fullReply);
+            }
 
         } catch (error) {
             console.error("Jarvis Logic Failure:", error);
             setStatus("Error");
             updateLastMessage("I'm sorry Sir, I encountered an internal error.");
         } finally {
-            // 4. UNLOCK MIC
-            await resetToListening();
+            // 4. RESET STATE
+            if (shouldSpeak) {
+                // Voice Mode: Continue conversation
+                await resetToListening();
+            } else {
+                // Text Mode: Return to Standby (Mic Off)
+                await stopListening();
+            }
         }
-    }, [addMessage, updateLastMessage, resetToListening, updateState, addSystemMessage]);
+    }, [addMessage, updateLastMessage, resetToListening, updateState]);
 
     // Handle incoming events from Jarvis Service
     const handleVoiceEvent = useCallback(async (event: JarvisEvent) => {
@@ -156,7 +155,6 @@ export function useAgentConversation(_isVoiceEnabled: boolean) {
             console.log(`[Jarvis Event]: Transcription: "${newText}" (Busy: ${isBusyRef.current})`);
 
             if (!newText) {
-                // optional: addSystemMessage("Discarded empty noise");
                 return;
             }
 
@@ -177,7 +175,7 @@ export function useAgentConversation(_isVoiceEnabled: boolean) {
             silenceTimeoutRef.current = setTimeout(() => {
                 const finalCmd = commandBufferRef.current.trim();
                 if (finalCmd.length >= JARVIS_CONFIG.MIN_COMMAND_LENGTH) {
-                    processCommand(finalCmd);
+                    processCommand(finalCmd, true); // Speak when voice triggered
                 } else {
                     // Canceled/Empty fragments
                     setMessages(prev => prev.slice(0, -1));
@@ -185,7 +183,7 @@ export function useAgentConversation(_isVoiceEnabled: boolean) {
                 }
             }, JARVIS_CONFIG.COMMAND_SILENCE_TIMEOUT);
         }
-    }, [addMessage, updateLastMessage, processCommand, resetToListening, updateState]);
+    }, [addMessage, updateLastMessage, processCommand, resetToListening, updateState, addSystemMessage]);
 
     const stopListening = useCallback(async () => {
         if (silenceTimeoutRef.current) clearTimeout(silenceTimeoutRef.current);
@@ -209,7 +207,7 @@ export function useAgentConversation(_isVoiceEnabled: boolean) {
     const handleManualSend = useCallback(async (text: string) => {
         if (!text.trim() || isBusyRef.current) return;
         addMessage('user', text);
-        await processCommand(text);
+        await processCommand(text, false); // Disable TTS for manual input
     }, [addMessage, processCommand]);
 
     return {

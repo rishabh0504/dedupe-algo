@@ -25,14 +25,20 @@ export const AVAILABLE_MODELS: Record<string, LLMModel> = {
         bestFor: 'Complex Logic / Reasoning'
     },
     'gemma3': {
-        id: 'gemma3:1b',
-        name: 'Gemma 3 1B',
+        id: 'gemma3:4b',
+        name: 'Gemma 3 4B',
+        description: 'Ultra-fast and lightweight model.',
+        bestFor: 'Real-time Interaction'
+    },
+    'gemma2': {
+        id: 'gemma2:2b',
+        name: 'Gemma 2 2B',
         description: 'Ultra-fast and lightweight model.',
         bestFor: 'Real-time Interaction'
     }
 };
 
-export const DEFAULT_MODEL_ID = 'gemma3:1b';
+export const DEFAULT_MODEL_ID = 'gemma2:2b';
 
 export const LLMS = {
     OLLAMA_ENDPOINT: "http://localhost:11434",

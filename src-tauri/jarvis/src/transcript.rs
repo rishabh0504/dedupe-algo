@@ -49,6 +49,7 @@ impl Transcriber {
             text.push_str(&segment);
         }
 
+        let text = text.replace("[BLANK_AUDIO]", "");
         Ok(text.trim().to_string())
     }
 }

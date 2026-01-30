@@ -16,7 +16,8 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useEffect, useCallback, useRef, useState } from "react";
 import { Toaster } from "@/components/ui/sonner";
 import { JarvisEvent, jarvisService } from "./services/jarvisService";
-import { useAgentConversation } from "./hooks/useAgentConversation";
+import { useVoiceConversationAgent } from "./hooks/useVoiceConversationAgent";
+import { useTextConversationAgent } from "./hooks/useTextConversationAgent";
 
 function App() {
   const { isScanning, scanQueue, scanResults, setResults, isOnboarded, setScanProgress, activeView, setActiveView, isVoiceEnabled, setVoiceEnabled } = useStore();
@@ -25,16 +26,36 @@ function App() {
   const [audioDevice, setAudioDevice] = useState<string | null>(null);
   const isStartedRef = useRef(false);
 
-  // Lifted Jarvis Logic
+  // --- AGENT: CONDITIONAL HOOKS ---
+  const voiceAgent = useVoiceConversationAgent();
+  const textAgent = useTextConversationAgent();
+
+  // Select active agent based on STORE config (Microphone toggle)
+  const activeAgent = isVoiceEnabled ? voiceAgent : textAgent;
+
+  // Destructure from active agent
   const {
     state: jarvisState,
+    status: jarvisStatus,
     messages: jarvisMessages,
     handleVoiceEvent,
     handleManualSend,
     resetToListening,
-    stopListening,
-    status: jarvisStatus
-  } = useAgentConversation(isVoiceEnabled);
+    stopListening
+  } = activeAgent;
+
+  // --- JARVIS: SIDECAR EVENTS (Only if Voice is Enabled) ---
+  useEffect(() => {
+    if (!isVoiceEnabled) return; // Don't listen to sidecar if voice is off
+
+    const unlistenPromise = listen<JarvisEvent>('jarvis-event', (event) => {
+      handleVoiceEvent(event.payload);
+    });
+
+    return () => {
+      unlistenPromise.then(unlisten => unlisten());
+    };
+  }, [handleVoiceEvent, isVoiceEnabled]);
 
   // Optimized Sidecar Initialization
   const initJarvis = useCallback(async () => {
