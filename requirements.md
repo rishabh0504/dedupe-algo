@@ -1,4 +1,4 @@
-📄 DedupePro: Technical Requirements Document
+📄 Aether Desktop AI: Technical Requirements Document
 1. Project Stack
 Framework: Tauri (Rust Backend + Vite Frontend)
 
@@ -59,4 +59,4 @@ Memory Limit: Ensure streaming I/O so RAM usage never exceeds 2GB regardless of 
 Bash Integration: Provide a "Shell Mode" where the app can export the deletion plan as a .sh script for manual execution.
 
 4. Implementation Prompt for Antigravity
-"Implement the DedupePro application based on the attached DedupePro_Requirements.md. Focus on the Rust-Tauri bridge for file I/O performance. Ensure the Shadcn sidebar supports multi-drive selection with a locked queue state during execution. The preview panel must be reactive to the selection in the main results table."
+"Implement the Jarvis-AI application based on the attached Jarvis-AI_Requirements.md. Focus on the Rust-Tauri bridge for file I/O performance. Ensure the Shadcn sidebar supports multi-drive selection with a locked queue state during execution. The preview panel must be reactive to the selection in the main results table."

@@ -3,7 +3,7 @@ import { Mic, Send } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { Message } from "../hooks/useAgentConversation";
 
-interface SpeakToJarvisViewProps {
+interface SpeakToAetherViewProps {
     state: 'Idle' | 'Listening' | 'Thinking' | 'Speaking';
     messages: Message[];
     onSend: (text: string) => void;
@@ -11,7 +11,7 @@ interface SpeakToJarvisViewProps {
     stopListening: () => void;
 }
 
-export function SpeakToJarvisView({ state, messages, onSend, resetToListening, stopListening }: SpeakToJarvisViewProps) {
+export function SpeakToAetherView({ state, messages, onSend, resetToListening, stopListening }: SpeakToAetherViewProps) {
     const [inputText, setInputText] = useState("");
     const chatContainerRef = useRef<HTMLDivElement>(null);
 
@@ -61,7 +61,7 @@ export function SpeakToJarvisView({ state, messages, onSend, resetToListening, s
                             {/* Reduced Constraints: Removed explicit max-w-[] classes that forced narrow columns */}
                             <div className={`flex flex-col ${msg.role === 'user' ? 'items-end' : 'items-start'} w-full max-w-full`}>
                                 <span className="text-[9px] uppercase tracking-widest text-primary/40 mb-1.5 px-1">
-                                    {msg.role === 'user' ? 'You' : 'Jarvis'}
+                                    {msg.role === 'user' ? 'You' : 'Aether'}
                                 </span>
                                 <div className={`px-6 py-5 text-[14px] leading-relaxed font-sans shadow-sm backdrop-blur-md w-auto inline-block max-w-[95%] ${msg.role === 'user'
                                     ? 'bg-primary/10 border border-primary/20 text-primary rounded-2xl rounded-tr-sm'

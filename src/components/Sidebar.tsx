@@ -87,7 +87,7 @@ export function AppSidebar() {
                         <img src="/src/assets/logo.png" alt="Logo" className="w-7 h-7 object-contain" />
                     </div>
                     <div className="flex flex-col">
-                        <h2 className="text-xl font-black tracking-tighter uppercase italic leading-none text-white">Dedupe-Algo</h2>
+                        <h2 className="text-xl font-black tracking-tighter uppercase italic leading-none text-white">Aether</h2>
                         <span className="text-[9px] font-black text-primary uppercase tracking-[0.2em] mt-1 opacity-60">High Performance Audit</span>
                     </div>
                 </div>
@@ -147,7 +147,7 @@ export function AppSidebar() {
                         <div className="p-1 rounded bg-primary/20 group-hover:bg-primary/30 transition-colors">
                             <Mic className="w-3.5 h-3.5" />
                         </div>
-                        <span className="text-[10px] font-black uppercase tracking-widest">Speak To Jarvis</span>
+                        <span className="text-[10px] font-black uppercase tracking-widest">Connect to Aether</span>
                     </Button>
 
                     <div className="h-px bg-border/40 my-1" />

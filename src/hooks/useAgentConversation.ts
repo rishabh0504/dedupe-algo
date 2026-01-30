@@ -120,25 +120,11 @@ export function useAgentConversation(_isVoiceEnabled: boolean) {
 
     // Handle incoming events from Jarvis Service
     const handleVoiceEvent = useCallback(async (event: JarvisEvent) => {
-        // 1. Handle Startup/Ready Signal
+        // 1. Handle Startup/Ready Signal (Stay in Standby)
         if (event.event === "ready" && !hasStartedRef.current) {
             hasStartedRef.current = true;
-            console.log("🚀 Jarvis Sidecar is READY. Starting greeting...");
-
-            isBusyRef.current = true;
-            updateState("Speaking", "Awaiting Mic Lock...");
-
-            // Initial Lock
-            // addSystemMessage("Requesting Mic Lock...");
-            await jarvisService.setMuted(true);
-            // addSystemMessage("Mic Locked (Startup)");
-
-            const greeting = JARVIS_CONFIG.INITIAL_GREETING;
-            addMessage('assistant', greeting);
-            addSystemMessage("Greeting Boss...");
-            await ttsService.speak(greeting);
-
-            await resetToListening();
+            console.log("🚀 Jarvis Sidecar is READY. Awaiting manual activation.");
+            addSystemMessage("Neural Interface Ready");
             return;
         }
 

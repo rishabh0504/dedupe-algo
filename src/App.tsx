@@ -7,7 +7,7 @@ import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
 import { OnboardingWizard } from "./components/OnboardingWizard";
 import { FileExplorerView } from "./components/FileExplorerView";
-import { SpeakToJarvisView } from "./components/SpeakToJarvisView";
+import { SpeakToAetherView } from "./components/SpeakToAetherView";
 import { Zap, RotateCcw, Search, ListTodo, FolderOpen, Mic, Volume2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
@@ -19,7 +19,7 @@ import { JarvisEvent, jarvisService } from "./services/jarvisService";
 import { useAgentConversation } from "./hooks/useAgentConversation";
 
 function App() {
-  const { isScanning, scanQueue, scanResults, setResults, isOnboarded, setScanProgress, activeView, setActiveView, isVoiceEnabled } = useStore();
+  const { isScanning, scanQueue, scanResults, setResults, isOnboarded, setScanProgress, activeView, setActiveView, isVoiceEnabled, setVoiceEnabled } = useStore();
 
   // Jarvis State Transformation
   const [audioDevice, setAudioDevice] = useState<string | null>(null);
@@ -180,7 +180,7 @@ function App() {
 
                 <div className="flex flex-col">
                   <h3 className="text-xs font-black uppercase tracking-[0.2em] text-primary/90">
-                    Jarvis Protocol
+                    Aether Protocol
                   </h3>
                   <div className="flex items-center gap-2">
                     <span className={`text-[10px] font-mono tracking-tight uppercase
@@ -204,7 +204,7 @@ function App() {
                   <img src="/src/assets/logo.png" alt="Logo" className="w-5 h-5 object-contain" />
                 </div>
                 <div className="flex flex-col">
-                  <h1 className="text-sm font-bold tracking-tight">Dedupe-Algo Workspace</h1>
+                  <h1 className="text-sm font-bold tracking-tight">Aether Workspace</h1>
                   <div className="flex items-center gap-2">
                     <Badge variant="outline" className="text-[9px] px-1.5 py-0 font-bold uppercase tracking-wider opacity-60">
                       {scanResults ? "Collision Matrix Loaded" : isScanning ? "Deep-Pass Analyzing..." : "Standby Operational"}
@@ -313,11 +313,14 @@ function App() {
                 {scanResults && <ResultsView key={useStore.getState().scanTimestamp} onRescan={handleStartScan} />}
               </TabsContent>
               <TabsContent value="jarvis" className="flex-1 flex flex-col overflow-hidden mt-0">
-                <SpeakToJarvisView
+                <SpeakToAetherView
                   state={jarvisState}
                   messages={jarvisMessages}
                   onSend={handleManualSend}
-                  resetToListening={resetToListening}
+                  resetToListening={() => {
+                    if (!isVoiceEnabled) setVoiceEnabled(true);
+                    resetToListening();
+                  }}
                   stopListening={stopListening}
                 />
               </TabsContent>

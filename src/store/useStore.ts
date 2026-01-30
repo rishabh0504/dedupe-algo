@@ -65,13 +65,13 @@ export const useStore = create<UIState>((set) => ({
   scanPhase: 'idle',
   scanTimestamp: 0,
   scanProgress: null,
-  isOnboarded: localStorage.getItem('dedupe-algo-onboarded') === 'true',
-  activeView: 'jarvis',
+  isOnboarded: localStorage.getItem('aether-onboarded') === 'true',
+  activeView: 'explorer',
   explorerPath: null,
-  isVoiceEnabled: localStorage.getItem('dedupe-algo-voice-enabled') !== 'false', // Default true
+  isVoiceEnabled: localStorage.getItem('aether-voice-enabled') === 'true', // Default false
   setScanning: (isScanning) => set({ isScanning }),
   setVoiceEnabled: (enabled) => {
-    localStorage.setItem('dedupe-algo-voice-enabled', enabled.toString());
+    localStorage.setItem('aether-voice-enabled', enabled.toString());
     set({ isVoiceEnabled: enabled });
   },
   setScanPhase: (scanPhase) => set({ scanPhase }),
@@ -85,7 +85,7 @@ export const useStore = create<UIState>((set) => ({
   setActiveView: (activeView) => set({ activeView }),
   setExplorerPath: (explorerPath) => set({ explorerPath }),
   setOnboarded: (val: boolean) => {
-    localStorage.setItem('dedupe-algo-onboarded', val.toString());
+    localStorage.setItem('aether-onboarded', val.toString());
     set({ isOnboarded: val });
   },
   addToQueue: (path) => set((state) => ({
