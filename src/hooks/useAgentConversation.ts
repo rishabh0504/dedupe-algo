@@ -51,7 +51,7 @@ export function useAgentConversation(_isVoiceEnabled: boolean) {
 
     // Step 4: Reset -> Step 1: Listen
     const resetToListening = useCallback(async () => {
-        addSystemMessage("Activating Microphone...");
+        // addSystemMessage("Activating Microphone..."); // Hidden per user request
         updateState("Idle", "Resetting...");
         isBusyRef.current = true;
 
@@ -62,8 +62,12 @@ export function useAgentConversation(_isVoiceEnabled: boolean) {
             console.log("🔓 Requesting Sidecar START_LISTENER...");
             await jarvisService.setMuted(false);
             console.log("🔓 Sidecar Unmuted. Enabling Listener...");
-            addSystemMessage("System Ready - I am Listening, Sir.");
+            // addSystemMessage("System Ready - I am Listening, Sir."); // Hidden per user request
             commandBufferRef.current = "";
+
+            // Only add a subtle log if it's the very first startup
+            // if (!hasStartedRef.current) addSystemMessage("System Ready");
+
             isBusyRef.current = false;
             updateState("Listening", "Listening...");
         } catch (error) {
@@ -82,10 +86,10 @@ export function useAgentConversation(_isVoiceEnabled: boolean) {
         isBusyRef.current = true;
 
         // 1. LOCK MIC
-        addSystemMessage("Requesting Mic Lock...");
+        // addSystemMessage("Requesting Mic Lock...");
         updateState("Thinking", "Locking...");
         await jarvisService.setMuted(true);
-        addSystemMessage("Mic Locked (Confirmed)");
+        // addSystemMessage("Mic Locked (Confirmed)");
 
         // 2. THINKING
         updateState("Thinking", "Thinking...");
@@ -99,7 +103,7 @@ export function useAgentConversation(_isVoiceEnabled: boolean) {
             });
 
             // 3. SPEAKING (MIC IS ALREADY LOCKED)
-            addSystemMessage("Jarvis Speaking...");
+            // addSystemMessage("Jarvis Speaking...");
             updateState("Speaking", "Speaking...");
             await ttsService.speak(fullReply);
 
@@ -124,9 +128,9 @@ export function useAgentConversation(_isVoiceEnabled: boolean) {
             updateState("Speaking", "Awaiting Mic Lock...");
 
             // Initial Lock
-            addSystemMessage("Requesting Mic Lock...");
+            // addSystemMessage("Requesting Mic Lock...");
             await jarvisService.setMuted(true);
-            addSystemMessage("Mic Locked (Startup)");
+            // addSystemMessage("Mic Locked (Startup)");
 
             const greeting = JARVIS_CONFIG.INITIAL_GREETING;
             addMessage('assistant', greeting);
