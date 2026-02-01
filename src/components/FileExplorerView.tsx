@@ -66,8 +66,18 @@ const FileGridItem = ({
     const [isHovering, setIsHovering] = useState(false);
     const videoRef = useRef<HTMLVideoElement>(null);
     const ext = entry.name.split('.').pop()?.toLowerCase();
-    const isImage = ["jpg", "jpeg", "png", "webp", "gif"].includes(ext || "");
-    const isVideo = ["mp4", "mov", "mkv", "webm"].includes(ext || "");
+    const isImage = ["jpg", "jpeg", "png", "webp", "gif", "svg"].includes(ext || "");
+    const isVideo = ["mp4", "mov", "mkv", "webm", "avi"].includes(ext || "");
+    const [duration, setDuration] = useState<string | null>(null);
+
+    const formatDuration = (seconds: number) => {
+        if (!seconds || isNaN(seconds)) return null;
+        const h = Math.floor(seconds / 3600);
+        const m = Math.floor((seconds % 3600) / 60);
+        const s = Math.floor(seconds % 60);
+        if (h > 0) return `${h}:${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
+        return `${m}:${s.toString().padStart(2, '0')}`;
+    };
 
     useEffect(() => {
         if (isVideo && videoRef.current) {
@@ -82,17 +92,17 @@ const FileGridItem = ({
 
     const renderPreview = () => {
         if (entry.is_dir) {
-            return <Folder className="w-14 h-14 text-blue-400 fill-blue-400/10 drop-shadow-lg transition-transform group-hover:scale-105" />;
+            return <Folder className="w-20 h-20 text-blue-400 fill-blue-400/10 drop-shadow-[0_10px_20px_rgba(59,130,246,0.3)] transition-transform group-hover:scale-110" />;
         }
 
         if (!mediaError) {
             if (isImage) {
                 return (
-                    <div className="w-full h-full absolute inset-0 rounded-lg overflow-hidden border border-white/5 bg-black/20">
+                    <div className="w-full h-full absolute inset-0 bg-black/20">
                         <img
                             src={convertFileSrc(entry.path)}
                             alt={entry.name}
-                            className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110"
+                            className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110"
                             loading="lazy"
                             onError={() => setMediaError(true)}
                         />
@@ -101,7 +111,7 @@ const FileGridItem = ({
             }
             if (isVideo) {
                 return (
-                    <div className="w-full h-full absolute inset-0 rounded-lg overflow-hidden border border-white/5 bg-black/20 group-hover:ring-1 ring-primary/50 transition-all">
+                    <div className="w-full h-full absolute inset-0 bg-black/20 group-hover:ring-1 ring-primary/50 transition-all">
                         <video
                             ref={videoRef}
                             src={convertFileSrc(entry.path)}
@@ -109,12 +119,14 @@ const FileGridItem = ({
                             muted
                             loop
                             playsInline
+                            preload="metadata"
+                            onLoadedMetadata={(e) => setDuration(formatDuration(e.currentTarget.duration))}
                             onError={() => setMediaError(true)}
                         />
                         {!isHovering && (
                             <div className="absolute inset-0 flex items-center justify-center bg-black/20">
-                                <div className="w-8 h-8 rounded-full bg-black/50 backdrop-blur-sm flex items-center justify-center border border-white/10">
-                                    <Play className="w-3.5 h-3.5 fill-white text-white ml-0.5" />
+                                <div className="w-12 h-12 rounded-full bg-black/50 backdrop-blur-md flex items-center justify-center border border-white/10">
+                                    <Play className="w-5 h-5 fill-white text-white ml-0.5" />
                                 </div>
                             </div>
                         )}
@@ -124,28 +136,32 @@ const FileGridItem = ({
         }
 
         // Fallback Icons
-        if (isImage) return <ImageIcon className="w-10 h-10 text-purple-400/80" />;
-        if (isVideo) return <Video className="w-10 h-10 text-red-400/80" />;
-        if (["mp3", "wav"].includes(ext || "")) return <Music className="w-10 h-10 text-amber-400/80" />;
-        if (["js", "ts", "json", "rs", "py", "md", "txt", "css", "html"].includes(ext || "")) return <FileText className="w-10 h-10 text-emerald-400/80" />;
-        return <File className="w-10 h-10 text-slate-400/50" />;
+        if (isImage) return <ImageIcon className="w-16 h-16 text-purple-400/80 drop-shadow-lg group-hover:scale-110 transition-transform" />;
+        if (isVideo) return <Video className="w-16 h-16 text-red-400/80 drop-shadow-lg group-hover:scale-110 transition-transform" />;
+        if (["mp3", "wav"].includes(ext || "")) return <Music className="w-16 h-16 text-amber-400/80 drop-shadow-lg group-hover:scale-110 transition-transform" />;
+        return <FileText className="w-16 h-16 text-primary/60 drop-shadow-lg group-hover:scale-110 transition-transform" />;
     };
 
     return (
         <div
-            className="group relative flex flex-col items-center gap-3 p-4 rounded-3xl hover:bg-white/[0.07] transition-all duration-500 cursor-pointer border border-white/[0.03] hover:border-white/20 hover:shadow-[0_20px_40px_rgba(0,0,0,0.4),0_0_20px_rgba(255,255,255,0.02)] animate-scale-in"
+            className={cn(
+                "group relative flex flex-col items-center rounded-[32px] transition-all duration-500 cursor-pointer border border-white/[0.03] hover:border-white/20 hover:shadow-[0_25px_50px_rgba(0,0,0,0.5),0_0_30px_rgba(255,255,255,0.03)] animate-scale-in overflow-hidden active:scale-95",
+                entry.is_dir
+                    ? "bg-white/[0.04] hover:bg-white/[0.08] gap-4 py-8 min-h-[180px] p-3"
+                    : "bg-black/60 hover:bg-white/[0.05] h-[280px] p-0"
+            )}
             onClick={() => onClick(entry)}
             onContextMenu={(e) => onContextMenu(e, entry)}
             onMouseEnter={() => setIsHovering(true)}
             onMouseLeave={() => setIsHovering(false)}
         >
             <div className={cn(
-                "relative flex items-center justify-center transition-all duration-700 ease-out",
-                ((isImage || isVideo) && !mediaError && (!entry.is_dir)) ? "w-full aspect-[4/3] rounded-2xl overflow-hidden shadow-2xl group-hover:scale-[1.03]" : "w-16 h-16 group-hover:scale-110"
+                "relative flex items-center justify-center transition-all duration-700 ease-out w-full h-full overflow-hidden",
+                entry.is_dir ? "max-h-28 group-hover:scale-[1.1]" : "group-hover:scale-[1.05]"
             )}>
                 {renderPreview()}
 
-                {/* Queue Toggle Overlay - Only for Folders */}
+                {/* Queue Toggle Overlay */}
                 {entry.is_dir && (
                     <button
                         onClick={(e) => {
@@ -154,24 +170,52 @@ const FileGridItem = ({
                             else addToQueue(entry.path);
                         }}
                         className={cn(
-                            "absolute z-10 -top-1 -right-1 w-8 h-8 rounded-full flex items-center justify-center shadow-2xl border border-white/20 backdrop-blur-xl transition-all duration-500 transform scale-0 group-hover:scale-100 rotate-12 group-hover:rotate-0",
-                            scanQueue.includes(entry.path) ? "bg-primary text-black scale-100" : "bg-black/60 text-white hover:bg-primary hover:text-black"
+                            "absolute z-10 top-2 right-2 w-9 h-9 rounded-full flex items-center justify-center shadow-2xl border border-white/25 backdrop-blur-2xl transition-all duration-500 transform scale-0 group-hover:scale-100 rotate-12 group-hover:rotate-0",
+                            scanQueue.includes(entry.path) ? "bg-primary text-black scale-100" : "bg-black/70 text-white hover:bg-primary hover:text-black"
                         )}
                     >
-                        {scanQueue.includes(entry.path) ? <Minus className="w-4 h-4" /> : <Plus className="w-4 h-4" />}
+                        {scanQueue.includes(entry.path) ? <Minus className="w-5 h-5" /> : <Plus className="w-5 h-5" />}
                     </button>
                 )}
-            </div>
 
-            <div className="text-center w-full px-1 z-10">
-                <p className="text-[11px] font-black tracking-tight truncate w-full group-hover:text-primary transition-colors duration-300 uppercase italic opacity-80 group-hover:opacity-100" title={entry.name}>{entry.name}</p>
+                {/* Comprehensive Floating Metadata Badge */}
                 {!entry.is_dir && (
-                    <p className="text-[9px] text-primary/40 mt-0.5 font-black uppercase tracking-widest opacity-0 group-hover:opacity-100 transition-all duration-500 translate-y-1 group-hover:translate-y-0">{formatSize(entry.size)}</p>
+                    <div className="absolute top-3 right-3 left-3 z-20 pointer-events-none">
+                        <div className="flex bg-transparent items-center justify-between gap-3 px-1 transition-all duration-500">
+                            <p className="text-[10px] font-black tracking-tight truncate text-white uppercase italic flex-1 drop-shadow-[0_2px_4px_rgba(0,0,0,0.8)]" title={entry.name}>
+                                {entry.name}
+                            </p>
+                            <div className="flex items-center gap-2 shrink-0 border-l border-white/20 pl-3">
+                                <span className="text-[8px] font-black text-primary leading-none drop-shadow-[0_2px_4px_rgba(0,0,0,0.8)]">
+                                    {isVideo ? 'VIDEO' : isImage ? 'IMAGE' : ext?.toUpperCase() || 'FILE'}
+                                </span>
+                                <div className="w-px h-2 bg-white/20" />
+                                <span className="text-[9px] font-black text-white/80 leading-none drop-shadow-[0_2px_4px_rgba(0,0,0,0.8)]">
+                                    {formatSize(entry.size)}
+                                </span>
+                                {isVideo && duration && (
+                                    <>
+                                        <div className="w-px h-2 bg-white/20" />
+                                        <span className="text-[8px] font-black text-primary leading-none drop-shadow-[0_2px_4px_rgba(0,0,0,0.8)] opacity-80">
+                                            {duration}
+                                        </span>
+                                    </>
+                                )}
+                            </div>
+                        </div>
+                    </div>
                 )}
             </div>
 
+            {entry.is_dir && (
+                <div className="text-center w-full px-2 z-10 mt-2 pointer-events-none">
+                    <p className="text-[12px] font-black tracking-tight truncate w-full group-hover:text-primary transition-colors duration-300 uppercase italic opacity-85 group-hover:opacity-100" title={entry.name}>{entry.name}</p>
+                    <p className="text-[9px] text-primary/40 font-black uppercase tracking-widest mt-1">Directory Segment</p>
+                </div>
+            )}
+
             {/* Inner Glow/Rim Light Effect */}
-            <div className="absolute inset-0 rounded-3xl opacity-0 group-hover:opacity-100 transition-opacity duration-700 pointer-events-none bg-gradient-to-br from-white/[0.05] to-transparent ring-1 ring-inset ring-white/[0.05]" />
+            <div className="absolute inset-0 rounded-[32px] opacity-0 group-hover:opacity-100 transition-opacity duration-700 pointer-events-none bg-gradient-to-br from-white/[0.07] to-transparent ring-1 ring-inset ring-white/[0.07]" />
         </div>
     );
 };
@@ -429,7 +473,7 @@ export function FileExplorerView() {
                                     <p className="text-[11px] font-black uppercase tracking-[0.2em] italic">Zero Segments Found</p>
                                 </div>
                             ) : viewMode === 'grid' ? (
-                                <div className="grid grid-cols-[repeat(auto-fill,minmax(140px,1fr))] gap-6">
+                                <div className="grid grid-cols-[repeat(auto-fill,minmax(240px,1fr))] gap-10">
                                     {filteredEntries.map((entry) => (
                                         <FileGridItem
                                             key={entry.path}
