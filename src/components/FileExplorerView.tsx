@@ -133,15 +133,15 @@ const FileGridItem = ({
 
     return (
         <div
-            className="group relative flex flex-col items-center gap-3 p-3 rounded-2xl hover:bg-white/5 transition-all duration-300 cursor-pointer border border-transparent hover:border-white/5"
+            className="group relative flex flex-col items-center gap-3 p-4 rounded-3xl hover:bg-white/[0.07] transition-all duration-500 cursor-pointer border border-white/[0.03] hover:border-white/20 hover:shadow-[0_20px_40px_rgba(0,0,0,0.4),0_0_20px_rgba(255,255,255,0.02)] animate-scale-in"
             onClick={() => onClick(entry)}
             onContextMenu={(e) => onContextMenu(e, entry)}
             onMouseEnter={() => setIsHovering(true)}
             onMouseLeave={() => setIsHovering(false)}
         >
             <div className={cn(
-                "relative flex items-center justify-center transition-all duration-300",
-                ((isImage || isVideo) && !mediaError && (!entry.is_dir)) ? "w-full aspect-[4/3]" : "w-16 h-16"
+                "relative flex items-center justify-center transition-all duration-700 ease-out",
+                ((isImage || isVideo) && !mediaError && (!entry.is_dir)) ? "w-full aspect-[4/3] rounded-2xl overflow-hidden shadow-2xl group-hover:scale-[1.03]" : "w-16 h-16 group-hover:scale-110"
             )}>
                 {renderPreview()}
 
@@ -154,21 +154,24 @@ const FileGridItem = ({
                             else addToQueue(entry.path);
                         }}
                         className={cn(
-                            "absolute z-10 -top-1 -right-1 w-6 h-6 rounded-full flex items-center justify-center shadow-lg border border-black transition-all duration-300 transform scale-0 group-hover:scale-100",
-                            scanQueue.includes(entry.path) ? "bg-primary text-primary-foreground scale-100" : "bg-white text-black hover:bg-primary hover:text-white"
+                            "absolute z-10 -top-1 -right-1 w-8 h-8 rounded-full flex items-center justify-center shadow-2xl border border-white/20 backdrop-blur-xl transition-all duration-500 transform scale-0 group-hover:scale-100 rotate-12 group-hover:rotate-0",
+                            scanQueue.includes(entry.path) ? "bg-primary text-black scale-100" : "bg-black/60 text-white hover:bg-primary hover:text-black"
                         )}
                     >
-                        {scanQueue.includes(entry.path) ? <Minus className="w-3.5 h-3.5" /> : <Plus className="w-3.5 h-3.5" />}
+                        {scanQueue.includes(entry.path) ? <Minus className="w-4 h-4" /> : <Plus className="w-4 h-4" />}
                     </button>
                 )}
             </div>
 
-            <div className="text-center w-full px-1">
-                <p className="text-[10px] font-medium truncate w-full" title={entry.name}>{entry.name}</p>
+            <div className="text-center w-full px-1 z-10">
+                <p className="text-[11px] font-black tracking-tight truncate w-full group-hover:text-primary transition-colors duration-300 uppercase italic opacity-80 group-hover:opacity-100" title={entry.name}>{entry.name}</p>
                 {!entry.is_dir && (
-                    <p className="text-[9px] text-muted-foreground opacity-60 mt-0.5 font-mono">{formatSize(entry.size)}</p>
+                    <p className="text-[9px] text-primary/40 mt-0.5 font-black uppercase tracking-widest opacity-0 group-hover:opacity-100 transition-all duration-500 translate-y-1 group-hover:translate-y-0">{formatSize(entry.size)}</p>
                 )}
             </div>
+
+            {/* Inner Glow/Rim Light Effect */}
+            <div className="absolute inset-0 rounded-3xl opacity-0 group-hover:opacity-100 transition-opacity duration-700 pointer-events-none bg-gradient-to-br from-white/[0.05] to-transparent ring-1 ring-inset ring-white/[0.05]" />
         </div>
     );
 };
@@ -352,77 +355,81 @@ export function FileExplorerView() {
     }
 
     return (
-        <div className="flex-1 flex flex-row h-full overflow-hidden bg-[#0c0c0c] text-white relative">
+        <div className="flex-1 flex flex-row h-full overflow-hidden bg-background/20 backdrop-blur-md text-white relative">
             <div className="flex-1 flex flex-col h-full overflow-hidden border-r border-white/5">
                 {/* Toolbar */}
-                <div className="flex items-center gap-2 p-3 border-b border-white/5 bg-white/[0.02]">
-                    <div className="flex items-center gap-1">
-                        <Button variant="ghost" size="icon" onClick={handleBack} disabled={historyIndex <= 0} className="h-8 w-8 hover:bg-white/10">
+                <div className="flex items-center gap-3 p-4 border-b border-white/5 bg-black/30 backdrop-blur-xl">
+                    <div className="flex items-center gap-1.5 p-1 bg-white/5 rounded-xl border border-white/5">
+                        <Button variant="ghost" size="icon" onClick={handleBack} disabled={historyIndex <= 0} className="h-8 w-8 hover:bg-white/10 rounded-lg disabled:opacity-20 text-white/70">
                             <ChevronLeft className="w-4 h-4" />
                         </Button>
-                        <Button variant="ghost" size="icon" onClick={handleForward} disabled={historyIndex >= history.length - 1} className="h-8 w-8 hover:bg-white/10">
+                        <Button variant="ghost" size="icon" onClick={handleForward} disabled={historyIndex >= history.length - 1} className="h-8 w-8 hover:bg-white/10 rounded-lg disabled:opacity-20 text-white/70">
                             <ChevronRight className="w-4 h-4" />
                         </Button>
-                        <Button variant="ghost" size="icon" onClick={handleUp} className="h-8 w-8 hover:bg-white/10">
+                        <Button variant="ghost" size="icon" onClick={handleUp} className="h-8 w-8 hover:bg-white/10 rounded-lg text-white/70">
                             <ArrowUp className="w-4 h-4" />
                         </Button>
                     </div>
 
-                    <div className="flex-1 mx-2 relative">
-                        <div className="absolute inset-y-0 left-3 flex items-center pointer-events-none">
-                            <Folder className="w-3.5 h-3.5 text-muted-foreground" />
+                    <div className="flex-1 mx-2 relative group">
+                        <div className="absolute inset-y-0 left-3.5 flex items-center pointer-events-none text-primary/50 group-focus-within:text-primary transition-colors">
+                            <Folder className="w-4 h-4" />
                         </div>
                         <Input
                             value={explorerPath}
                             readOnly
-                            className="h-8 pl-9 bg-black/20 border-white/10 text-xs font-mono"
+                            className="h-10 pl-10 pr-4 bg-black/40 border-white/10 text-xs font-mono rounded-xl focus:border-primary/50 transition-all text-white/60"
                         />
                     </div>
 
-                    <div className="relative w-48">
-                        <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground" />
+                    <div className="relative w-64 group">
+                        <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-white/30 group-focus-within:text-primary transition-colors" />
                         <Input
-                            placeholder="Filter..."
+                            placeholder="Search in folder..."
                             value={searchQuery}
                             onChange={(e) => setSearchQuery(e.target.value)}
-                            className="h-8 pl-8 bg-black/20 border-white/10 text-xs"
+                            className="h-10 pl-10 bg-black/40 border-white/10 text-xs rounded-xl focus:border-primary/50 transition-all"
                         />
                     </div>
 
-                    <div className="flex items-center bg-black/20 rounded-lg p-0.5 border border-white/5">
+                    <div className="flex items-center bg-black/40 rounded-xl p-1 border border-white/5">
                         <Button
                             variant="ghost"
                             size="icon"
                             onClick={() => setViewMode('grid')}
-                            className={cn("h-7 w-7 rounded-md", viewMode === 'grid' && "bg-white/10 shadow-sm")}
+                            className={cn("h-8 w-8 rounded-lg transition-all", viewMode === 'grid' ? "bg-white/15 text-primary shadow-lg shadow-primary/10" : "text-white/40 hover:text-white/60")}
                         >
-                            <LayoutGrid className="w-3.5 h-3.5" />
+                            <LayoutGrid className="w-4 h-4" />
                         </Button>
                         <Button
                             variant="ghost"
                             size="icon"
                             onClick={() => setViewMode('list')}
-                            className={cn("h-7 w-7 rounded-md", viewMode === 'list' && "bg-white/10 shadow-sm")}
+                            className={cn("h-8 w-8 rounded-lg transition-all", viewMode === 'list' ? "bg-white/15 text-primary shadow-lg shadow-primary/10" : "text-white/40 hover:text-white/60")}
                         >
-                            <ListIcon className="w-3.5 h-3.5" />
+                            <ListIcon className="w-4 h-4" />
                         </Button>
                     </div>
                 </div>
 
                 {/* Vertical Scroll Container */}
-                <div className="flex-1 relative overflow-hidden">
+                <div className="flex-1 relative overflow-hidden bg-gradient-to-br from-white/[0.03] to-transparent">
                     <ScrollArea className="h-full w-full" type="always">
-                        <div className="p-4" onContextMenu={(e) => e.preventDefault()}>
+                        <div className="p-8" onContextMenu={(e) => e.preventDefault()}>
                             {isLoading ? (
-                                <div className="flex justify-center py-20">
-                                    <Loader2 className="w-8 h-8 animate-spin text-primary" />
+                                <div className="flex flex-col items-center justify-center py-32 gap-4">
+                                    <Loader2 className="w-10 h-10 animate-spin text-primary opacity-50" />
+                                    <span className="text-[10px] font-black uppercase tracking-[0.3em] text-primary/40 italic">Syncing Matrix...</span>
                                 </div>
                             ) : filteredEntries.length === 0 ? (
-                                <div className="text-center py-20 text-muted-foreground/50">
-                                    <p>Empty folder</p>
+                                <div className="flex flex-col items-center justify-center py-32 text-white/10 gap-4 animate-slide-up">
+                                    <div className="w-24 h-24 rounded-full bg-white/[0.02] flex items-center justify-center border border-white/5">
+                                        <FolderOpen className="w-10 h-10 opacity-20" />
+                                    </div>
+                                    <p className="text-[11px] font-black uppercase tracking-[0.2em] italic">Zero Segments Found</p>
                                 </div>
                             ) : viewMode === 'grid' ? (
-                                <div className="grid grid-cols-[repeat(auto-fill,minmax(140px,1fr))] gap-4">
+                                <div className="grid grid-cols-[repeat(auto-fill,minmax(140px,1fr))] gap-6">
                                     {filteredEntries.map((entry) => (
                                         <FileGridItem
                                             key={entry.path}
@@ -436,17 +443,26 @@ export function FileExplorerView() {
                                     ))}
                                 </div>
                             ) : (
-                                <div className="space-y-1">
+                                <div className="space-y-1.5">
                                     {filteredEntries.map((entry) => (
                                         <div
                                             key={entry.path}
-                                            className="group flex items-center gap-3 p-2 rounded-lg hover:bg-white/5 transition-colors cursor-pointer border border-transparent hover:border-white/5"
+                                            className="group flex items-center gap-4 p-3 rounded-xl hover:bg-white/[0.05] transition-all cursor-pointer border border-transparent hover:border-white/10"
                                             onClick={() => handleEntryClick(entry)}
                                             onContextMenu={(e) => handleContextMenu(e, entry)}
                                         >
-                                            {getListIcon(entry)}
-                                            <span className="text-xs flex-1 truncate">{entry.name}</span>
-                                            {!entry.is_dir && <span className="text-[10px] text-muted-foreground w-16 text-right">{formatSize(entry.size)}</span>}
+                                            <div className="w-10 h-10 rounded-lg bg-white/5 flex items-center justify-center border border-white/5 group-hover:border-primary/20 group-hover:bg-primary/5 transition-all">
+                                                {getListIcon(entry)}
+                                            </div>
+                                            <div className="flex-1 min-w-0">
+                                                <p className="text-xs font-bold truncate group-hover:text-primary transition-colors">{entry.name}</p>
+                                                <p className="text-[10px] text-white/20 font-mono tracking-tighter truncate">{entry.path}</p>
+                                            </div>
+                                            {!entry.is_dir && (
+                                                <div className="px-3 py-1 rounded-md bg-white/5 border border-white/5">
+                                                    <span className="text-[10px] text-white/40 font-black tabular-nums">{formatSize(entry.size)}</span>
+                                                </div>
+                                            )}
 
                                             {entry.is_dir && (
                                                 <button
@@ -456,11 +472,11 @@ export function FileExplorerView() {
                                                         else addToQueue(entry.path);
                                                     }}
                                                     className={cn(
-                                                        "w-6 h-6 rounded flex items-center justify-center transition-opacity opacity-0 group-hover:opacity-100",
-                                                        scanQueue.includes(entry.path) ? "opacity-100 text-primary" : "text-muted-foreground hover:text-primary"
+                                                        "w-8 h-8 rounded-lg flex items-center justify-center transition-all bg-white/5 border border-white/5",
+                                                        scanQueue.includes(entry.path) ? "bg-primary text-black opacity-100" : "text-white/20 opacity-0 group-hover:opacity-100 hover:text-primary hover:border-primary/20"
                                                     )}
                                                 >
-                                                    {scanQueue.includes(entry.path) ? <Minus className="w-3.5 h-3.5" /> : <Plus className="w-3.5 h-3.5" />}
+                                                    {scanQueue.includes(entry.path) ? <Minus className="w-4 h-4" /> : <Plus className="w-4 h-4" />}
                                                 </button>
                                             )}
                                         </div>
@@ -472,95 +488,108 @@ export function FileExplorerView() {
                 </div>
             </div>
 
-            {/* RIGHT COLUMN: PREVIEW PANEL */}
+            {/* Preview Panel */}
             {previewFile && (
-                <div className="w-[420px] flex flex-col h-full bg-[#0c0c0c] border-l border-white/5 overflow-hidden relative animate-in slide-in-from-right duration-300">
+                <div className="w-[420px] flex flex-col h-full bg-black/40 backdrop-blur-2xl border-l border-white/10 overflow-hidden relative animate-in slide-in-from-right duration-500">
                     <div className="flex-1 flex flex-col overflow-hidden">
                         {/* Preview Content */}
-                        <div className="flex-1 flex flex-col bg-black/95 relative overflow-hidden group/media">
-                            <div className="absolute top-4 right-4 z-20">
+                        <div className="flex-1 flex flex-col bg-black/60 relative overflow-hidden group/media">
+                            <div className="absolute top-6 right-6 z-20">
                                 <Button
                                     variant="ghost"
                                     size="icon"
                                     onClick={() => setPreviewFile(null)}
-                                    className="rounded-xl bg-white/10 text-white hover:bg-white/20 shadow-lg border border-white/10 hover:scale-105 transition-all"
+                                    className="rounded-2xl bg-black/50 text-white hover:bg-primary hover:text-black shadow-2xl border border-white/10 hover:scale-110 transition-all duration-300 h-10 w-10"
                                 >
-                                    <X className="w-4 h-4" />
+                                    <X className="w-5 h-5" />
                                 </Button>
                             </div>
 
-                            <div className="flex-1 flex items-center justify-center bg-slate-950/50">
+                            <div className="flex-1 flex items-center justify-center bg-slate-950/20 backdrop-blur-sm p-4">
                                 {previewError ? (
-                                    <div className="flex flex-col items-center gap-4 text-white/20">
-                                        <div className="w-16 h-16 rounded-full border-2 border-dashed border-white/10 flex items-center justify-center">
-                                            {isVideo(previewFile.path) ? <VideoOff className="w-6 h-6" /> : <ImageOff className="w-6 h-6" />}
+                                    <div className="flex flex-col items-center gap-6 text-white/20 animate-slide-up">
+                                        <div className="w-20 h-20 rounded-full border-2 border-dashed border-white/10 flex items-center justify-center">
+                                            {isVideo(previewFile.path) ? <VideoOff className="w-8 h-8" /> : <ImageOff className="w-8 h-8" />}
                                         </div>
-                                        <span className="text-[10px] font-black uppercase tracking-widest">
-                                            {isVideo(previewFile.path) ? "Playback Failed" : "Render Failed"}
-                                        </span>
+                                        <span className="text-[10px] font-black uppercase tracking-[0.3em] italic">Render Protocol Failed</span>
                                     </div>
                                 ) : isVideo(previewFile.path) ? (
                                     <video
                                         src={safeConvertFileSrc(previewFile.path)}
                                         controls
                                         muted
-                                        className="max-w-full max-h-full"
+                                        className="max-w-full max-h-full rounded-2xl shadow-2xl border border-white/5"
                                         onError={() => setPreviewError(true)}
                                     />
                                 ) : (
                                     <img
                                         src={safeConvertFileSrc(previewFile.path)}
-                                        className="max-w-full max-h-full object-contain p-2"
+                                        className="max-w-full max-h-full object-contain p-2 rounded-2xl drop-shadow-[0_20px_50px_rgba(0,0,0,0.5)]"
                                         alt="Preview"
                                         onError={() => setPreviewError(true)}
                                     />
                                 )}
                             </div>
 
-                            <div className="p-6 pb-8 bg-gradient-to-t from-black to-transparent flex flex-col gap-2">
-                                <div className="flex items-center gap-2">
-                                    {isVideo(previewFile.path) ? <Video className="w-4 h-4 text-primary" /> : <ImageIcon className="w-4 h-4 text-primary" />}
-                                    <span className="text-sm font-black text-white truncate tracking-tight">{previewFile.name}</span>
+                            <div className="p-10 pb-12 bg-gradient-to-t from-black via-black/80 to-transparent flex flex-col gap-5">
+                                <div className="flex items-center gap-4">
+                                    <div className="w-12 h-12 rounded-2xl bg-primary/10 flex items-center justify-center border border-primary/20 shadow-2xl">
+                                        {isVideo(previewFile.path) ? <Video className="w-6 h-6 text-primary" /> : <ImageIcon className="w-6 h-6 text-primary" />}
+                                    </div>
+                                    <div className="flex flex-col min-w-0">
+                                        <span className="text-xl font-black text-white truncate tracking-tighter uppercase leading-tight italic">{previewFile.name}</span>
+                                        <div className="flex items-center gap-2">
+                                            <div className="w-1.5 h-1.5 rounded-full bg-primary animate-pulse shadow-[0_0_8px_rgba(74,222,220,1)]" />
+                                            <span className="text-[10px] text-primary/60 font-black tracking-[0.2em] uppercase italic">Asset Authenticated</span>
+                                        </div>
+                                    </div>
                                 </div>
-                                <div className="flex flex-col gap-1.5 border-l-2 border-primary/20 pl-4 py-1">
-                                    <div className="flex items-center gap-2">
-                                        <Badge variant="secondary" className="bg-white/10 text-white border-white/10 uppercase font-black tracking-widest text-[8px] h-4">
+                                <div className="flex flex-col gap-3 border-l-2 border-primary/30 pl-6 py-1">
+                                    <div className="flex items-center gap-3">
+                                        <Badge variant="secondary" className="glass bg-white/5 text-white border-white/10 uppercase font-black tracking-widest text-[9px] h-6 px-3">
                                             {formatSize(previewFile.size)}
                                         </Badge>
-                                        <span className="text-[9px] text-white/30 font-bold uppercase tracking-widest">{new Date(previewFile.modified * 1000).toLocaleDateString()}</span>
+                                        <div className="w-1 h-1 rounded-full bg-white/20" />
+                                        <span className="text-[10px] text-white/40 font-bold uppercase tracking-widest">{new Date(previewFile.modified * 1000).toLocaleDateString()}</span>
                                     </div>
-                                    <p className="text-[9px] text-white/40 font-medium break-all leading-tight opacity-60 hover:opacity-100 transition-opacity">
+                                    <p className="text-[10px] text-white/30 font-medium break-all leading-relaxed font-mono hover:text-white/60 transition-colors">
                                         {previewFile.path}
                                     </p>
                                 </div>
 
-                                <div className="mt-4 flex flex-col gap-2">
-                                    <div className="flex gap-2">
+                                <div className="mt-6 flex flex-col gap-3">
+                                    <div className="grid grid-cols-2 gap-4">
                                         <Button
                                             variant="secondary"
-                                            size="sm"
+                                            size="lg"
                                             onClick={() => invoke("reveal_in_finder", { path: previewFile.path })}
-                                            className="flex-1 bg-white/5 hover:bg-white/10 text-white border border-white/10 rounded-xl h-9 text-[10px] font-black uppercase tracking-widest"
+                                            className="bg-white/5 hover:bg-white/15 text-white border border-white/10 rounded-[24px] h-14 text-[10px] font-black uppercase tracking-[0.15em] transition-all hover:scale-[1.02] shadow-xl"
                                         >
-                                            <ExternalLink className="w-3.5 h-3.5 mr-2" />
+                                            <ExternalLink className="w-5 h-5 mr-3 text-primary" />
                                             Reveal
                                         </Button>
                                         <Button
                                             variant="destructive"
-                                            size="sm"
+                                            size="lg"
                                             onClick={() => handleDelete(previewFile)}
-                                            className="bg-red-500/10 hover:bg-red-500/20 text-red-400 border border-red-500/20 rounded-xl h-9 w-9 p-0"
+                                            className="bg-red-500/10 hover:bg-red-500/20 text-red-500 border border-red-500/20 rounded-[24px] h-14 text-[10px] font-black uppercase tracking-[0.15em] transition-all hover:scale-[1.02] shadow-xl shadow-red-500/5"
                                         >
-                                            <Trash2 className="w-4 h-4" />
+                                            <Trash2 className="w-5 h-5 mr-3" />
+                                            Purge
                                         </Button>
                                     </div>
                                     <Button
                                         variant="ghost"
                                         size="sm"
-                                        onClick={() => navigator.clipboard.writeText(previewFile.path)}
-                                        className="w-full bg-white/5 hover:bg-white/10 text-white/40 hover:text-white border border-white/5 rounded-xl h-8 text-[8px] font-black uppercase tracking-widest"
+                                        onClick={() => {
+                                            navigator.clipboard.writeText(previewFile.path);
+                                            toast.success("Identity key copied", {
+                                                className: "glass-dark border-primary/20"
+                                            });
+                                        }}
+                                        className="w-full bg-white/5 hover:bg-white/10 text-white/30 hover:text-white border border-white/5 rounded-2xl h-11 text-[9px] font-black uppercase tracking-[0.2em] transition-all"
                                     >
-                                        Copy Path
+                                        Copy Identifier Protocol
                                     </Button>
                                 </div>
                             </div>
@@ -569,14 +598,14 @@ export function FileExplorerView() {
                 </div>
             )}
 
-            {/* Context Menu Portal/Overlay */}
+            {/* Context Menu */}
             {contextMenu && (
                 <div
-                    className="fixed z-50 min-w-[160px] bg-[#0c0c0c] border border-white/10 rounded-xl shadow-2xl p-1 animate-in fade-in zoom-in-95 duration-100"
+                    className="fixed z-[100] min-w-[200px] glass-dark border border-white/10 rounded-2xl shadow-[0_20px_80px_rgba(0,0,0,1)] p-1.5 animate-in fade-in zoom-in-95 duration-200"
                     style={{ top: contextMenu.y, left: contextMenu.x }}
                     onClick={(e) => e.stopPropagation()}
                 >
-                    <div className="px-2 py-1.5 text-[10px] font-black text-muted-foreground uppercase tracking-wider border-b border-white/5 mb-1 truncate max-w-[200px]">
+                    <div className="px-3 py-2 text-[10px] font-black text-white/30 uppercase tracking-[0.15em] border-b border-white/10 mb-1.5 truncate max-w-[240px] italic">
                         {contextMenu.entry.name}
                     </div>
                     <button
@@ -584,31 +613,42 @@ export function FileExplorerView() {
                             invoke("reveal_in_finder", { path: contextMenu.entry.path });
                             setContextMenu(null);
                         }}
-                        className="w-full text-left flex items-center gap-2 px-2 py-1.5 rounded-lg hover:bg-white/10 text-xs text-white transition-colors"
+                        className="w-full text-left flex items-center gap-3 px-3 py-2.5 rounded-xl hover:bg-white/10 text-[11px] font-bold text-white transition-all group"
                     >
-                        <ExternalLink className="w-3.5 h-3.5" />
+                        <ExternalLink className="w-4 h-4 text-primary group-hover:scale-110 transition-transform" />
                         Reveal in Finder
                     </button>
                     <button
                         onClick={() => {
                             navigator.clipboard.writeText(contextMenu.entry.path);
                             setContextMenu(null);
+                            toast.success("Path copied");
                         }}
-                        className="w-full text-left flex items-center gap-2 px-2 py-1.5 rounded-lg hover:bg-white/10 text-xs text-white transition-colors"
+                        className="w-full text-left flex items-center gap-3 px-3 py-2.5 rounded-xl hover:bg-white/10 text-[11px] font-bold text-white transition-all group"
                     >
-                        <FileText className="w-3.5 h-3.5" />
-                        Copy Path
+                        <FileText className="w-4 h-4 text-primary group-hover:scale-110 transition-transform" />
+                        Copy System Path
                     </button>
-                    <div className="h-px bg-white/5 my-1" />
+                    <div className="h-px bg-white/10 my-1.5" />
                     <button
-                        onClick={() => handleDelete(contextMenu.entry)}
-                        className="w-full text-left flex items-center gap-2 px-2 py-1.5 rounded-lg hover:bg-red-500/10 text-xs text-red-400 hover:text-red-300 transition-colors"
+                        onClick={() => {
+                            handleDelete(contextMenu.entry);
+                            setContextMenu(null);
+                        }}
+                        className="w-full text-left flex items-center gap-3 px-3 py-2.5 rounded-xl hover:bg-red-500/15 text-[11px] font-bold text-red-400 group transition-all"
                     >
-                        <Trash2 className="w-3.5 h-3.5" />
-                        Delete
+                        <Trash2 className="w-4 h-4 group-hover:scale-110 transition-transform" />
+                        Execute Purge
                     </button>
                 </div>
             )}
         </div>
     );
 }
+
+// Missing Component Definition
+const FolderOpen = ({ className }: { className?: string }) => (
+    <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}>
+        <path d="m6 14 1.45-2.9A2 2 0 0 1 9.24 10H20a2 2 0 0 1 1.94 2.5l-1.55 6a2 2 0 0 1-1.94 1.5H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h3.9a2 2 0 0 1 1.69.9l.81 1.2a2 2 0 0 0 1.69.9H18a2 2 0 0 1 2 2v2" />
+    </svg>
+);

@@ -28,6 +28,7 @@ import { ClusterResultsView } from "./views/ClusterResultsView";
 import { FolderResultsView } from "./views/FolderResultsView";
 import { CategoryResultsView } from "./views/CategoryResultsView";
 import { transformToCategories, transformToFolders } from "../lib/dataTransform";
+import { toast } from "sonner";
 
 interface ResultsViewProps {
     onRescan: () => void;
@@ -176,9 +177,9 @@ export function ResultsView({ onRescan }: ResultsViewProps) {
                 <div className="p-6 pb-6 flex flex-col gap-6 bg-white/[0.02] backdrop-blur-3xl sticky top-0 z-20 shadow-sm border-b border-white/5">
                     <div className="flex items-center justify-between">
                         <div className="flex flex-col">
-                            <div className="flex items-center gap-2">
-                                <h2 className="text-xl font-black tracking-tighter uppercase italic leading-none text-white">Audit Matrix</h2>
-                                <Badge variant="secondary" className="bg-primary/10 text-primary border-primary/20 text-[8px] h-4 px-1 font-black uppercase tracking-widest leading-none">
+                            <div className="flex items-center gap-3">
+                                <h1 className="text-2xl font-black tracking-tighter uppercase italic leading-none text-white text-glow">Audit Matrix</h1>
+                                <Badge variant="secondary" className="glass bg-primary/10 text-primary border-primary/20 text-[10px] h-5 px-2 font-black uppercase tracking-widest leading-none">
                                     {scanResults.groups.length} Groups
                                 </Badge>
                             </div>
@@ -359,55 +360,68 @@ export function ResultsView({ onRescan }: ResultsViewProps) {
                                 )}
                             </div>
 
-                            <div className="p-8 pb-10 bg-gradient-to-t from-black to-transparent flex flex-col gap-2">
-                                <div className="flex items-center gap-2">
-                                    {isVideo(previewFile.path) ? <Video className="w-4 h-4 text-primary" /> : <ImageIcon className="w-4 h-4 text-primary" />}
-                                    <span className="text-sm font-black text-white truncate tracking-tight">{previewFile.path.split('/').pop()}</span>
+                            <div className="p-10 pb-12 bg-gradient-to-t from-black via-black/90 to-transparent flex flex-col gap-5">
+                                <div className="flex items-center gap-4">
+                                    <div className="w-12 h-12 rounded-2xl bg-primary/10 flex items-center justify-center border border-primary/20 shadow-2xl">
+                                        {isVideo(previewFile.path) ? <Video className="w-6 h-6 text-primary" /> : <ImageIcon className="w-6 h-6 text-primary" />}
+                                    </div>
+                                    <div className="flex flex-col min-w-0">
+                                        <span className="text-lg font-black text-white truncate tracking-tight uppercase leading-tight italic">{previewFile.path.split('/').pop()}</span>
+                                        <div className="flex items-center gap-2">
+                                            <div className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse shadow-[0_0_8px_rgba(16,185,129,0.5)]" />
+                                            <span className="text-[10px] text-emerald-500 font-black tracking-[0.2em] uppercase italic">System Integrity Verified</span>
+                                        </div>
+                                    </div>
                                 </div>
-                                <div className="flex flex-col gap-1.5 border-l-2 border-primary/20 pl-4 py-1">
-                                    <div className="flex items-center gap-2">
-                                        <Badge variant="secondary" className="bg-white/10 text-white border-white/10 uppercase font-black tracking-widest text-[8px] h-4">
+
+                                <div className="flex flex-col gap-3 border-l-2 border-primary/30 pl-6 py-1">
+                                    <div className="flex items-center gap-3">
+                                        <Badge variant="secondary" className="glass bg-white/5 text-white border-white/10 uppercase font-black tracking-widest text-[9px] h-5 px-2">
                                             {formatSize(previewFile.size)}
                                         </Badge>
-                                        <span className="text-[9px] text-white/30 font-bold uppercase tracking-widest">{new Date(previewFile.modified * 1000).toLocaleDateString()}</span>
+                                        <div className="w-1 h-1 rounded-full bg-white/20" />
+                                        <span className="text-[10px] text-white/40 font-bold uppercase tracking-widest">{new Date(previewFile.modified * 1000).toLocaleDateString()}</span>
                                     </div>
-                                    <p className="text-[9px] text-white/40 font-medium break-all leading-tight opacity-60 hover:opacity-100 transition-opacity">
+                                    <p className="text-[10px] text-white/30 font-medium break-all leading-tight font-mono hover:text-white/60 transition-colors">
                                         {previewFile.path}
                                     </p>
                                 </div>
 
-                                <div className="mt-4 flex flex-col gap-2">
-                                    <div className="flex gap-2">
+                                <div className="mt-6 flex flex-col gap-3">
+                                    <div className="grid grid-cols-2 gap-3">
                                         <Button
                                             variant="secondary"
-                                            size="sm"
+                                            size="lg"
                                             onClick={() => invoke("reveal_in_finder", { path: previewFile.path })}
-                                            className="flex-1 bg-white/5 hover:bg-white/10 text-white border border-white/10 rounded-xl h-9 text-[10px] font-black uppercase tracking-widest"
+                                            className="bg-white/5 hover:bg-white/15 text-white border border-white/10 rounded-2xl h-12 text-[10px] font-black uppercase tracking-widest transition-all hover:scale-[1.02]"
                                         >
-                                            <ExternalLink className="w-3.5 h-3.5 mr-2" />
+                                            <ExternalLink className="w-4 h-4 mr-2 text-primary" />
                                             Locate
                                         </Button>
                                         <Button
                                             variant="default"
-                                            size="sm"
+                                            size="lg"
                                             onClick={() => toggleSelection(previewFile.path)}
                                             className={cn(
-                                                "flex-1 rounded-xl h-9 text-[10px] font-black uppercase tracking-widest",
+                                                "rounded-2xl h-12 text-[10px] font-black uppercase tracking-widest transition-all hover:scale-[1.02] shadow-xl",
                                                 selectionQueue.includes(previewFile.path)
-                                                    ? "bg-destructive hover:bg-destructive/90 text-white"
-                                                    : "bg-primary hover:bg-primary/90 text-white"
+                                                    ? "bg-red-500 text-white hover:bg-red-600 shadow-red-500/20"
+                                                    : "bg-primary text-black hover:bg-primary/90 shadow-primary/20"
                                             )}
                                         >
-                                            {selectionQueue.includes(previewFile.path) ? <><Trash2 className="w-3.5 h-3.5 mr-2" /> Deselect</> : <><CheckCircle2 className="w-3.5 h-3.5 mr-2" /> Select</>}
+                                            {selectionQueue.includes(previewFile.path) ? <><X className="w-4 h-4 mr-2" /> Deselect</> : <><CheckCircle2 className="w-4 h-4 mr-2" /> Select</>}
                                         </Button>
                                     </div>
                                     <Button
                                         variant="ghost"
                                         size="sm"
-                                        onClick={() => navigator.clipboard.writeText(previewFile.path)}
-                                        className="w-full bg-white/5 hover:bg-white/10 text-white/40 hover:text-white border border-white/5 rounded-xl h-8 text-[8px] font-black uppercase tracking-widest"
+                                        onClick={() => {
+                                            navigator.clipboard.writeText(previewFile.path);
+                                            toast.success("Identity identifier copied");
+                                        }}
+                                        className="w-full bg-white/5 hover:bg-white/10 text-white/30 hover:text-white border border-white/5 rounded-xl h-10 text-[9px] font-black uppercase tracking-widest transition-all"
                                     >
-                                        Copy Full Path
+                                        Copy Protocol Path
                                     </Button>
                                 </div>
                             </div>

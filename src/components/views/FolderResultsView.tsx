@@ -100,36 +100,36 @@ export const FolderResultsView: React.FC<FolderResultsViewProps> = React.memo(({
                             value={folderId}
                             className="border border-white/5 rounded-2xl bg-[#0c0c0c] shadow-2xl overflow-hidden px-0"
                         >
-                            <AccordionTrigger className="px-5 py-4 hover:no-underline bg-zinc-900 hover:bg-zinc-800 transition-colors group/trigger border-b border-white/5 relative overflow-hidden">
-                                <div className="flex items-center gap-4 text-left w-full min-w-0 pr-4">
-                                    <div className="w-10 h-10 bg-white/10 rounded-xl flex items-center justify-center text-white border border-white/10 shrink-0">
-                                        <Folder className="w-5 h-5" />
+                            <AccordionTrigger className="px-5 py-5 hover:no-underline bg-zinc-900/50 hover:bg-zinc-800/80 transition-all group/trigger border-b border-white/5 relative overflow-hidden backdrop-blur-sm">
+                                <div className="flex items-center gap-5 text-left w-full min-w-0 pr-4">
+                                    <div className="w-12 h-12 bg-primary/10 rounded-2xl flex items-center justify-center text-primary border border-primary/20 shrink-0 shadow-lg group-hover/trigger:scale-110 transition-transform">
+                                        <Folder className="w-6 h-6" />
                                     </div>
                                     <div className="flex flex-col min-w-0 flex-1 overflow-hidden">
-                                        <div className="flex items-center gap-3 mb-1.5 w-full">
-                                            <h3 className="text-sm font-black text-white truncate font-mono">
+                                        <div className="flex items-center gap-3 mb-2 w-full">
+                                            <h3 className="text-base font-black text-white truncate tracking-tight uppercase italic group-hover/trigger:text-primary transition-colors">
                                                 {folder.folderPath.split('/').pop()}
                                             </h3>
                                             <Button
                                                 variant="ghost"
                                                 size="icon"
                                                 onClick={(e) => handleReveal(e, folder.folderPath)}
-                                                className="h-5 w-5 text-white/40 hover:text-white hover:bg-white/10 rounded-md transition-colors shrink-0"
+                                                className="h-6 w-6 text-white/20 hover:text-primary hover:bg-primary/10 rounded-lg transition-all shrink-0"
                                                 title="Reveal in Finder"
                                             >
-                                                <ExternalLink className="w-3 h-3" />
+                                                <ExternalLink className="w-3.5 h-3.5" />
                                             </Button>
                                         </div>
                                         <div className="flex items-center gap-3 overflow-hidden w-full">
-                                            <span className="text-[10px] text-white/40 font-medium truncate shrink min-w-0 font-mono opacity-60" title={folder.folderPath}>
+                                            <span className="text-[10px] text-white/30 font-bold truncate shrink min-w-0 font-mono tracking-wider" title={folder.folderPath}>
                                                 {folder.folderPath}
                                             </span>
-                                            <div className="w-px h-3 bg-white/10 shrink-0" />
-                                            <Badge variant="secondary" className="h-4 bg-amber-500/10 text-amber-500 border-amber-500/20 font-bold text-[9px] items-center gap-1 px-1.5 hover:bg-amber-500/20 shrink-0">
+                                            <div className="w-1 h-1 rounded-full bg-white/10 shrink-0" />
+                                            <Badge variant="secondary" className="glass h-5 bg-amber-500/10 text-amber-500 border-amber-500/20 font-black text-[9px] items-center gap-1 px-2 hover:bg-amber-500/20 shrink-0 uppercase tracking-widest">
                                                 {formatSize(folder.totalSize)}
                                             </Badge>
-                                            <span className="text-[9px] font-bold text-white/20 uppercase tracking-widest opacity-60 whitespace-nowrap shrink-0">
-                                                {folder.duplicateSets.length} Sets
+                                            <span className="text-[9px] font-black text-white/20 uppercase tracking-[0.2em] whitespace-nowrap shrink-0 italic">
+                                                {folder.duplicateSets.length} Sets Detected
                                             </span>
                                         </div>
                                     </div>
@@ -164,21 +164,21 @@ export const FolderResultsView: React.FC<FolderResultsViewProps> = React.memo(({
                                                 }
                                             }}
                                             className={cn(
-                                                "h-8 px-3 text-[10px] font-black uppercase tracking-widest transition-all border shrink-0 whitespace-nowrap",
+                                                "h-10 px-5 text-[10px] font-black uppercase tracking-[0.1em] transition-all border shrink-0 whitespace-nowrap rounded-xl shadow-lg",
                                                 hasSelection
                                                     ? "bg-white text-slate-900 hover:bg-white/90 border-white"
-                                                    : "bg-white/10 text-white/60 hover:text-white hover:bg-emerald-600 border-white/5 hover:border-emerald-500/50"
+                                                    : "glass bg-primary/10 text-primary hover:text-black hover:bg-primary border-primary/20 hover:border-primary"
                                             )}
                                         >
                                             {hasSelection ? (
                                                 <>
-                                                    <X className="w-3.5 h-3.5 mr-2" />
+                                                    <X className="w-4 h-4 mr-2" />
                                                     Unselect All
                                                 </>
                                             ) : (
                                                 <>
-                                                    <Trash2 className="w-3.5 h-3.5 mr-2" />
-                                                    Mark Duplicates
+                                                    <Trash2 className="w-4 h-4 mr-2" />
+                                                    Auto-Mark Duplicates
                                                 </>
                                             )}
                                         </Button>
@@ -211,12 +211,14 @@ export const FolderResultsView: React.FC<FolderResultsViewProps> = React.memo(({
                                                             setFocusedIndex(currentIndex);
                                                         }}
                                                         className={cn(
-                                                            "pl-12 pr-6 py-3 flex items-center justify-between cursor-pointer group/file transition-all",
-                                                            isChecked ? "bg-emerald-500/10 hover:bg-emerald-500/20" : "hover:bg-white/[0.02]",
-                                                            isFocused ? "ring-2 ring-emerald-500 ring-inset z-10" : ""
+                                                            "pl-12 pr-6 py-4 flex items-center justify-between cursor-pointer group/file transition-all relative",
+                                                            isChecked ? "bg-primary/10 hover:bg-primary/15" : "hover:bg-white/[0.04]",
+                                                            isFocused ? "bg-white/5" : ""
                                                         )}
                                                     >
-                                                        <div className="flex items-center gap-4 overflow-hidden">
+                                                        {isFocused && <div className="absolute left-0 top-0 bottom-0 w-1 bg-primary shadow-[0_0_15px_rgba(74,222,220,0.5)]" />}
+
+                                                        <div className="flex items-center gap-5 overflow-hidden">
                                                             <div
                                                                 onClick={(e) => {
                                                                     e.stopPropagation();
@@ -224,45 +226,54 @@ export const FolderResultsView: React.FC<FolderResultsViewProps> = React.memo(({
                                                                     setFocusedIndex(currentIndex);
                                                                 }}
                                                                 className={cn(
-                                                                    "w-4 h-4 rounded-md border flex items-center justify-center shrink-0 transition-all cursor-pointer hover:scale-110 active:scale-95",
+                                                                    "w-5 h-5 rounded-lg border flex items-center justify-center shrink-0 transition-all cursor-pointer hover:scale-110 active:scale-95",
                                                                     isChecked
-                                                                        ? "bg-emerald-500 border-emerald-600 text-white shadow-sm"
-                                                                        : "border-slate-200 hover:border-emerald-400/40"
+                                                                        ? "bg-primary border-primary text-black shadow-[0_0_15px_rgba(74,222,220,0.4)]"
+                                                                        : "border-white/20 hover:border-primary/50"
                                                                 )}>
-                                                                {isChecked && <CheckCircle2 className="w-3 h-3" />}
+                                                                {isChecked && <CheckCircle2 className="w-3.5 h-3.5" />}
                                                             </div>
                                                             <div className="flex flex-col min-w-0">
                                                                 <span className={cn(
-                                                                    "text-[11px] font-bold truncate max-w-[400px]",
-                                                                    isChecked ? "text-emerald-700" : "text-slate-900"
+                                                                    "text-xs font-bold truncate max-w-[500px] transition-colors",
+                                                                    isChecked ? "text-primary" : "text-white/80 group-hover/file:text-white"
                                                                 )}>
                                                                     {fileName}
                                                                 </span>
-                                                                <span className={cn(
-                                                                    "text-[9px] font-medium tabular-nums",
-                                                                    isChecked ? "text-emerald-500/40" : "text-white/40"
-                                                                )}>
-                                                                    {formatSize(file.size)} &middot; {new Date(file.modified * 1000).toLocaleDateString()}
-                                                                </span>
+                                                                <div className="flex items-center gap-2 mt-1">
+                                                                    <span className={cn(
+                                                                        "text-[10px] font-black tracking-widest uppercase italic",
+                                                                        isChecked ? "text-primary/50" : "text-white/20"
+                                                                    )}>
+                                                                        {formatSize(file.size)}
+                                                                    </span>
+                                                                    <div className="w-1 h-1 rounded-full bg-white/5" />
+                                                                    <span className={cn(
+                                                                        "text-[10px] font-medium font-mono",
+                                                                        isChecked ? "text-primary/30" : "text-white/10"
+                                                                    )}>
+                                                                        {new Date(file.modified * 1000).toLocaleDateString()}
+                                                                    </span>
+                                                                </div>
                                                             </div>
                                                         </div>
 
-                                                        <div className="flex gap-2 opacity-0 group-hover/file:opacity-100 transition-opacity">
+                                                        <div className="flex gap-2 opacity-0 group-hover/file:opacity-100 transition-all transform translate-x-2 group-hover/file:translate-x-0">
                                                             {isMedia(file.path) && (
                                                                 <button
                                                                     onClick={(e) => handlePreview(e, file)}
-                                                                    className="w-7 h-7 rounded-lg flex items-center justify-center transition-all hover:bg-emerald-500/10 text-emerald-600/60 hover:text-emerald-600 cursor-pointer"
+                                                                    className="w-8 h-8 rounded-xl flex items-center justify-center transition-all bg-white/5 hover:bg-primary/20 text-white/40 hover:text-primary cursor-pointer border border-white/5 hover:border-primary/20"
                                                                     title="Preview File"
                                                                 >
-                                                                    <Eye className="w-3.5 h-3.5" />
+                                                                    <Eye className="w-4 h-4" />
                                                                 </button>
                                                             )}
                                                             <button
                                                                 onClick={(e) => handleReveal(e, file.path)}
-                                                                className="w-7 h-7 rounded-lg flex items-center justify-center transition-all hover:bg-emerald-500/10 text-emerald-600/60 hover:text-emerald-600 cursor-pointer"
+                                                                className="w-8 h-8 rounded-xl flex items-center justify-center transition-all bg-white/5 hover:bg-primary/20 text-white/40 hover:text-primary cursor-pointer border border-white/5 hover:border-primary/20"
                                                                 title="Reveal in Finder"
                                                             >
-                                                                <ExternalLink className="w-3.5 h-3.5" />
+                                                                <ExternalLink className="w-4 h-4" />
                                                             </button>
                                                         </div>
                                                     </div>
