@@ -25,12 +25,19 @@ else
     echo "✅ Rust is already installed."
 fi
 
-# 4. Node.js (Frontend)
+# 4. Node.js & pnpm (Frontend)
 if ! command -v node &> /dev/null; then
     echo "🟢 Node.js not found. Installing via Brew..."
     brew install node
 else
     echo "✅ Node.js is already installed."
+fi
+
+if ! command -v pnpm &> /dev/null; then
+    echo "📦 pnpm not found. Installing..."
+    brew install pnpm
+else
+    echo "✅ pnpm is already installed."
 fi
 
 # 5. Connect/Install Ollama (LLM Server)
@@ -58,8 +65,17 @@ else
 fi
 
 # 7. Install Project Dependencies
-echo "📦 Installing NPM Project Dependencies..."
-npm install
+echo "📦 Installing pnpm Project Dependencies..."
+pnpm install
+
+# 8. Build Sidecar Binaries
+echo "🔨 Building Jarvis Sidecar Binaries..."
+if [ -f "src-tauri/build_jarvis.sh" ]; then
+    chmod +x src-tauri/build_jarvis.sh
+    ./src-tauri/build_jarvis.sh
+else
+    echo "❌ src-tauri/build_jarvis.sh not found!"
+fi
 
 echo "🎉 Setup Complete! You can now run the app using:"
-echo "   npm run tauri dev"
+echo "   pnpm tauri dev"
