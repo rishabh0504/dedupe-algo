@@ -27,7 +27,6 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { Badge } from "@/components/ui/badge";
 import { cn, formatSize } from "@/lib/utils";
 import { toast } from "sonner";
 
@@ -232,9 +231,37 @@ export function FileExplorerView() {
     // Preview State
     const [previewFile, setPreviewFile] = useState<FileEntry | null>(null);
     const [previewError, setPreviewError] = useState(false);
+    const [previewWidth, setPreviewWidth] = useState(420);
+    const [isResizing, setIsResizing] = useState(false);
 
     // Context Menu State
     const [contextMenu, setContextMenu] = useState<ContextMenuState | null>(null);
+
+    useEffect(() => {
+        if (!isResizing) return;
+
+        const handleMouseMove = (e: MouseEvent) => {
+            const newWidth = window.innerWidth - e.clientX;
+            if (newWidth >= 300 && newWidth <= 800) {
+                setPreviewWidth(newWidth);
+            }
+        };
+
+        const handleMouseUp = () => {
+            setIsResizing(false);
+            document.body.style.cursor = 'default';
+        };
+
+        document.addEventListener('mousemove', handleMouseMove);
+        document.addEventListener('mouseup', handleMouseUp);
+        document.body.style.cursor = 'col-resize';
+
+        return () => {
+            document.removeEventListener('mousemove', handleMouseMove);
+            document.removeEventListener('mouseup', handleMouseUp);
+            document.body.style.cursor = 'default';
+        };
+    }, [isResizing]);
 
     useEffect(() => {
         if (explorerPath) {
@@ -534,7 +561,19 @@ export function FileExplorerView() {
 
             {/* Preview Panel */}
             {previewFile && (
-                <div className="w-[420px] flex flex-col h-full bg-black/40 backdrop-blur-2xl border-l border-white/10 overflow-hidden relative animate-in slide-in-from-right duration-500">
+                <div
+                    className="flex flex-col h-full bg-black/40 backdrop-blur-2xl border-l border-white/10 overflow-hidden relative animate-in slide-in-from-right duration-500"
+                    style={{ width: `${previewWidth}px` }}
+                >
+                    {/* Resize Handle */}
+                    <div
+                        className="absolute left-0 top-0 bottom-0 w-1.5 cursor-col-resize hover:bg-primary/30 transition-colors z-50"
+                        onMouseDown={(e) => {
+                            e.preventDefault();
+                            setIsResizing(true);
+                        }}
+                    />
+
                     <div className="flex-1 flex flex-col overflow-hidden">
                         {/* Preview Content */}
                         <div className="flex-1 flex flex-col bg-black/60 relative overflow-hidden group/media">
@@ -575,66 +614,41 @@ export function FileExplorerView() {
                                 )}
                             </div>
 
-                            <div className="p-10 pb-12 bg-gradient-to-t from-black via-black/80 to-transparent flex flex-col gap-5">
-                                <div className="flex items-center gap-4">
-                                    <div className="w-12 h-12 rounded-2xl bg-primary/10 flex items-center justify-center border border-primary/20 shadow-2xl">
-                                        {isVideo(previewFile.path) ? <Video className="w-6 h-6 text-primary" /> : <ImageIcon className="w-6 h-6 text-primary" />}
+                            <div className="p-6 pb-8 bg-gradient-to-t from-black via-black/80 to-transparent flex flex-col gap-4">
+                                <div className="flex items-center gap-3">
+                                    <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center border border-primary/20 shadow-2xl">
+                                        {isVideo(previewFile.path) ? <Video className="w-5 h-5 text-primary" /> : <ImageIcon className="w-5 h-5 text-primary" />}
                                     </div>
                                     <div className="flex flex-col min-w-0">
-                                        <span className="text-xl font-black text-white truncate tracking-tighter uppercase leading-tight italic">{previewFile.name}</span>
+                                        <span className="text-base font-black text-white truncate tracking-tighter uppercase leading-tight italic">{previewFile.name}</span>
                                         <div className="flex items-center gap-2">
-                                            <div className="w-1.5 h-1.5 rounded-full bg-primary animate-pulse shadow-[0_0_8px_rgba(74,222,220,1)]" />
-                                            <span className="text-[10px] text-primary/60 font-black tracking-[0.2em] uppercase italic">Asset Authenticated</span>
+                                            <div className="w-1.5 h-1.5 rounded-full bg-primary shadow-[0_0_8px_rgba(74,222,220,1)]" />
+                                            <span className="text-[9px] text-primary/60 font-black tracking-[0.2em] uppercase italic">Master Object</span>
                                         </div>
                                     </div>
                                 </div>
-                                <div className="flex flex-col gap-3 border-l-2 border-primary/30 pl-6 py-1">
-                                    <div className="flex items-center gap-3">
-                                        <Badge variant="secondary" className="glass bg-white/5 text-white border-white/10 uppercase font-black tracking-widest text-[9px] h-6 px-3">
-                                            {formatSize(previewFile.size)}
-                                        </Badge>
-                                        <div className="w-1 h-1 rounded-full bg-white/20" />
-                                        <span className="text-[10px] text-white/40 font-bold uppercase tracking-widest">{new Date(previewFile.modified * 1000).toLocaleDateString()}</span>
-                                    </div>
-                                    <p className="text-[10px] text-white/30 font-medium break-all leading-relaxed font-mono hover:text-white/60 transition-colors">
-                                        {previewFile.path}
-                                    </p>
-                                </div>
 
-                                <div className="mt-6 flex flex-col gap-3">
-                                    <div className="grid grid-cols-2 gap-4">
+                                <div className="mt-2 flex flex-col gap-3">
+                                    <div className="grid grid-cols-2 gap-3">
                                         <Button
                                             variant="secondary"
                                             size="lg"
                                             onClick={() => invoke("reveal_in_finder", { path: previewFile.path })}
-                                            className="bg-white/5 hover:bg-white/15 text-white border border-white/10 rounded-[24px] h-14 text-[10px] font-black uppercase tracking-[0.15em] transition-all hover:scale-[1.02] shadow-xl"
+                                            className="bg-white/5 hover:bg-white/15 text-white border border-white/10 rounded-2xl h-11 text-[9px] font-black uppercase tracking-[0.15em] transition-all hover:scale-[1.02] shadow-xl"
                                         >
-                                            <ExternalLink className="w-5 h-5 mr-3 text-primary" />
+                                            <ExternalLink className="w-4 h-4 mr-2.5 text-primary" />
                                             Reveal
                                         </Button>
                                         <Button
                                             variant="destructive"
                                             size="lg"
                                             onClick={() => handleDelete(previewFile)}
-                                            className="bg-red-500/10 hover:bg-red-500/20 text-red-500 border border-red-500/20 rounded-[24px] h-14 text-[10px] font-black uppercase tracking-[0.15em] transition-all hover:scale-[1.02] shadow-xl shadow-red-500/5"
+                                            className="bg-red-500/10 hover:bg-red-500/20 text-red-500 border border-red-500/20 rounded-2xl h-11 text-[9px] font-black uppercase tracking-[0.15em] transition-all hover:scale-[1.02] shadow-xl shadow-red-500/5"
                                         >
-                                            <Trash2 className="w-5 h-5 mr-3" />
+                                            <Trash2 className="w-4 h-4 mr-2.5" />
                                             Purge
                                         </Button>
                                     </div>
-                                    <Button
-                                        variant="ghost"
-                                        size="sm"
-                                        onClick={() => {
-                                            navigator.clipboard.writeText(previewFile.path);
-                                            toast.success("Identity key copied", {
-                                                className: "glass-dark border-primary/20"
-                                            });
-                                        }}
-                                        className="w-full bg-white/5 hover:bg-white/10 text-white/30 hover:text-white border border-white/5 rounded-2xl h-11 text-[9px] font-black uppercase tracking-[0.2em] transition-all"
-                                    >
-                                        Copy Identifier Protocol
-                                    </Button>
                                 </div>
                             </div>
                         </div>
