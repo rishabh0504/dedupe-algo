@@ -139,12 +139,12 @@ export function ResultsView({ onRescan }: ResultsViewProps) {
 
     const isMedia = (path: string) => {
         const ext = path.split('.').pop()?.toLowerCase();
-        return ["jpg", "jpeg", "png", "webp", "gif", "mp4", "mov"].includes(ext || "");
+        return ["jpg", "jpeg", "png", "webp", "gif", "mp4", "mov", "mkv", "webm"].includes(ext || "");
     };
 
     const isVideo = (path: string) => {
         const ext = path.split('.').pop()?.toLowerCase();
-        return ["mp4", "mov"].includes(ext || "");
+        return ["mp4", "mov", "mkv", "webm"].includes(ext || "");
     };
 
     const safeConvertFileSrc = (path: string) => {
