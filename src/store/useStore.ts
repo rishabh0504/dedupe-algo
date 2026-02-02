@@ -43,9 +43,11 @@ interface UIState {
   toggleSelection: (path: string) => void;
   smartSelect: (criteria: "newest" | "oldest") => void;
   clearSelection: () => void;
-  activeView: 'explorer' | 'results' | 'jarvis' | 'queue';
+  activeView: 'explorer' | 'dedupe' | 'jarvis';
+  activeDedupeTab: 'queue' | 'results';
   explorerPath: string | null;
-  setActiveView: (view: 'explorer' | 'results' | 'jarvis' | 'queue') => void;
+  setActiveView: (view: 'explorer' | 'dedupe' | 'jarvis') => void;
+  setActiveDedupeTab: (tab: 'queue' | 'results') => void;
   setExplorerPath: (path: string | null) => void;
   removeDeletedFromResults: (paths: string[]) => void;
   isVoiceEnabled: boolean;
@@ -66,8 +68,9 @@ export const useStore = create<UIState>((set) => ({
   scanTimestamp: 0,
   scanProgress: null,
   isOnboarded: localStorage.getItem('aether-onboarded') === 'true',
-  activeView: 'explorer',
-  explorerPath: null,
+  activeView: (localStorage.getItem('aether-active-view') as any) || 'explorer',
+  activeDedupeTab: (localStorage.getItem('aether-dedupe-tab') as any) || 'queue',
+  explorerPath: localStorage.getItem('aether-explorer-path'),
   isVoiceEnabled: false, // ALWAYS OFF by default (User must explicitly enable)
   setScanning: (isScanning) => set({ isScanning }),
   setVoiceEnabled: (enabled) => {
@@ -82,8 +85,25 @@ export const useStore = create<UIState>((set) => ({
   setMinFileSize: (minFileSize) => set({ minFileSize }),
   setScanTimestamp: (ts) => set({ scanTimestamp: ts }),
   setScanProgress: (scanProgress) => set({ scanProgress }),
-  setActiveView: (activeView) => set({ activeView }),
-  setExplorerPath: (explorerPath) => set({ explorerPath }),
+  setActiveView: (activeView) => {
+    localStorage.setItem('aether-active-view', activeView);
+    set((state) => ({
+      activeView,
+      scanQueue: activeView !== 'dedupe' ? [] : state.scanQueue
+    }));
+  },
+  setActiveDedupeTab: (activeDedupeTab) => {
+    localStorage.setItem('aether-dedupe-tab', activeDedupeTab);
+    set({ activeDedupeTab });
+  },
+  setExplorerPath: (explorerPath) => {
+    if (explorerPath) {
+      localStorage.setItem('aether-explorer-path', explorerPath);
+    } else {
+      localStorage.removeItem('aether-explorer-path');
+    }
+    set({ explorerPath });
+  },
   setOnboarded: (val: boolean) => {
     localStorage.setItem('aether-onboarded', val.toString());
     set({ isOnboarded: val });

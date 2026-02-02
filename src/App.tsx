@@ -8,22 +8,21 @@ import { listen } from "@tauri-apps/api/event";
 import { OnboardingWizard } from "./components/OnboardingWizard";
 import { FileExplorerView } from "./components/FileExplorerView";
 import { SpeakToAetherView } from "./components/SpeakToAetherView";
-import { Zap, RotateCcw, Search, ListTodo, FolderOpen, Mic, Volume2 } from "lucide-react";
+import { Zap, RotateCcw, Search, ListTodo } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
 import { Badge } from "@/components/ui/badge";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { useEffect, useCallback, useRef, useState } from "react";
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { useEffect, useCallback, useRef } from "react";
 import { Toaster } from "@/components/ui/sonner";
 import { JarvisEvent, jarvisService } from "./services/jarvisService";
 import { useVoiceConversationAgent } from "./hooks/useVoiceConversationAgent";
 import { useTextConversationAgent } from "./hooks/useTextConversationAgent";
 
 function App() {
-  const { isScanning, scanQueue, scanResults, setResults, isOnboarded, setScanProgress, activeView, setActiveView, isVoiceEnabled, setVoiceEnabled } = useStore();
+  const { isScanning, scanQueue, scanResults, setResults, isOnboarded, setScanProgress, activeView, setActiveView, setActiveDedupeTab, isVoiceEnabled, setVoiceEnabled } = useStore();
 
   // Jarvis State Transformation
-  const [audioDevice, setAudioDevice] = useState<string | null>(null);
   const isStartedRef = useRef(false);
 
   // --- AGENT: CONDITIONAL HOOKS ---
@@ -88,11 +87,7 @@ function App() {
     }
 
     const unsubscribe = jarvisService.onEvent((event: JarvisEvent) => {
-      if (event.event === 'audio_device') {
-        setAudioDevice(event.device || "Default Interface");
-      } else {
-        handleVoiceEvent(event);
-      }
+      handleVoiceEvent(event);
     });
 
     initJarvis();
@@ -107,9 +102,10 @@ function App() {
   // Auto-switch to results tab when scan completes
   useEffect(() => {
     if (scanResults && !isScanning) {
-      setActiveView("results");
+      setActiveView("dedupe");
+      setActiveDedupeTab("results");
     }
-  }, [scanResults, isScanning, setActiveView]);
+  }, [scanResults, isScanning, setActiveView, setActiveDedupeTab]);
 
   // Listen for scan progress
   useEffect(() => {
@@ -161,7 +157,8 @@ function App() {
 
   const clearResults = () => {
     setResults(null);
-    setActiveView("queue");
+    setActiveView("dedupe");
+    setActiveDedupeTab("queue");
   };
 
   return (
@@ -172,123 +169,7 @@ function App() {
 
         <SidebarInset className="flex flex-col relative overflow-hidden bg-background/50">
 
-          {/* Main Content Header - Transforms for Jarvis */}
-          <header className={`flex h-16 shrink-0 items-center justify-between gap-2 px-6 border-b border-border/50 backdrop-blur-xl sticky top-0 z-10 transition-all duration-500 ${activeView === 'jarvis' ? 'bg-black/40 border-primary/20' : ''}`}>
-
-            {activeView === 'jarvis' ? (
-              /* JARVIS HEADER STATE */
-              <div className="flex items-center gap-4 animate-in fade-in slide-in-from-top-2 duration-500">
-                {/* MINI VISUALIZER */}
-                <div className="relative w-10 h-10 flex items-center justify-center">
-                  <div className={`absolute inset-0 rounded-full border border-primary/20
-                            ${jarvisState !== 'Idle' ? 'animate-spin [animation-duration:3s]' : ''}
-                            ${jarvisState === 'Thinking' ? 'border-t-blue-500' :
-                      jarvisState === 'Speaking' ? 'border-t-green-500' :
-                        jarvisState === 'Listening' ? 'border-t-emerald-500' : ''}`}
-                  />
-                  <div className={`absolute inset-1 rounded-full border border-primary/20
-                            ${jarvisState !== 'Idle' ? 'animate-spin [animation-duration:2s] direction-reverse' : ''}`}
-                  />
-                  {jarvisState === 'Speaking' ? (
-                    <Volume2 className="w-5 h-5 text-green-500 animate-bounce" />
-                  ) : (
-                    <Mic className={`w-5 h-5 transition-colors duration-300 
-                                ${jarvisState === 'Thinking' ? 'text-blue-500' :
-                        jarvisState === 'Listening' ? 'text-emerald-500' : 'text-primary'}`}
-                    />
-                  )}
-                </div>
-
-                <div className="flex flex-col">
-                  <h3 className="text-xs font-black uppercase tracking-[0.2em] text-primary/90">
-                    Aether Protocol
-                  </h3>
-                  <div className="flex items-center gap-2">
-                    <span className={`text-[10px] font-mono tracking-tight uppercase
-                                ${jarvisState === 'Thinking' ? 'text-blue-400' :
-                        jarvisState === 'Speaking' ? 'text-green-400' :
-                          jarvisState === 'Listening' ? 'text-emerald-400' : 'text-muted-foreground'}`}>
-                      {jarvisStatus}
-                    </span>
-                    {audioDevice && (
-                      <span className="text-[9px] text-muted-foreground/40 font-mono hidden sm:inline-block">
-                        | {audioDevice}
-                      </span>
-                    )}
-                  </div>
-                </div>
-              </div>
-            ) : (
-              /* STANDARD HEADER STATE */
-              <div className="flex items-center gap-3">
-                <div className="p-2 rounded-xl bg-primary/10 border border-primary/20">
-                  <img src="/src/assets/logo.png" alt="Logo" className="w-5 h-5 object-contain" />
-                </div>
-                <div className="flex flex-col">
-                  <h1 className="text-sm font-bold tracking-tight">Aether Workspace</h1>
-                  <div className="flex items-center gap-2">
-                    <Badge variant="outline" className="text-[9px] px-1.5 py-0 font-bold uppercase tracking-wider opacity-60">
-                      {scanResults ? "Collision Matrix Loaded" : isScanning ? "Deep-Pass Analyzing..." : "Standby Operational"}
-                    </Badge>
-                  </div>
-                </div>
-              </div>
-            )}
-
-            {activeView !== 'jarvis' && (
-              <div className="flex items-center gap-4">
-                <Tabs value={activeView} onValueChange={(val) => setActiveView(val as any)} className="bg-muted/50 p-1 rounded-xl">
-                  <TabsList className="bg-transparent h-9 gap-1">
-
-                    {/* EXPLORER TAB */}
-                    {(activeView === 'explorer' || (!scanResults && activeView !== 'queue')) && (
-                      <TabsTrigger value="explorer" className="rounded-lg px-4 font-bold text-xs data-[state=active]:bg-background data-[state=active]:shadow-sm">
-                        <FolderOpen className="w-3.5 h-3.5 mr-2 opacity-50" />
-                        Explorer
-                      </TabsTrigger>
-                    )}
-
-                    {/* QUEUE TAB */}
-                    {(activeView === 'queue' || scanQueue.length > 0 || activeView === 'results') && (
-                      <TabsTrigger value="queue" className="rounded-lg px-4 font-bold text-xs data-[state=active]:bg-background data-[state=active]:shadow-sm">
-                        <ListTodo className="w-3.5 h-3.5 mr-2 opacity-50" />
-                        Queue
-                      </TabsTrigger>
-                    )}
-
-                    {/* RESULTS TAB */}
-                    {(scanResults || activeView === 'results') && (
-                      <TabsTrigger
-                        value="results"
-                        disabled={!scanResults && !isScanning}
-                        className="rounded-lg px-4 font-bold text-xs data-[state=active]:bg-background data-[state=active]:shadow-sm"
-                      >
-                        <Search className="w-3.5 h-3.5 mr-2 opacity-50" />
-                        Results
-                      </TabsTrigger>
-                    )}
-
-                  </TabsList>
-                </Tabs>
-
-                <Separator orientation="vertical" className="h-4 mx-2 opacity-20" />
-
-                {scanResults && !isScanning && (
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    onClick={clearResults}
-                    className="rounded-full hover:bg-secondary transition-all"
-                    title="Reset Workspace"
-                  >
-                    <RotateCcw className="w-4 h-4" />
-                  </Button>
-                )}
-              </div>
-            )}
-          </header>
-
-          {/* Dynamic Content Area */}
+          {/* Main Content View Dispatcher */}
           <div className="flex-1 overflow-hidden flex flex-col relative">
             {isScanning && (
               <div className="absolute inset-0 z-50 flex flex-col items-center justify-center bg-background/80 backdrop-blur-sm animate-in fade-in duration-500">
@@ -323,36 +204,111 @@ function App() {
               </div>
             )}
 
-            <Tabs value={activeView} onValueChange={(val) => setActiveView(val as any)} className="flex-1 flex flex-col overflow-hidden">
-              <TabsContent value="explorer" className="flex-1 flex flex-col overflow-hidden mt-0">
-                <FileExplorerView />
-              </TabsContent>
-              <TabsContent value="queue" className="flex-1 flex flex-col overflow-hidden mt-0">
-                <ScanQueueView onStartScan={handleStartScan} />
-              </TabsContent>
-              <TabsContent value="results" className="flex-1 flex flex-col overflow-hidden mt-0">
-                {scanResults && <ResultsView key={useStore.getState().scanTimestamp} onRescan={handleStartScan} />}
-              </TabsContent>
-              <TabsContent value="jarvis" className="flex-1 flex flex-col overflow-hidden mt-0">
-                <SpeakToAetherView
-                  state={jarvisState}
-                  messages={jarvisMessages}
-                  onSend={handleManualSend}
-                  resetToListening={() => {
-                    if (!isVoiceEnabled) setVoiceEnabled(true);
-                    resetToListening();
-                  }}
-                  stopListening={stopListening}
-                  isVoiceEnabled={isVoiceEnabled}
-                  onToggleVoice={() => setVoiceEnabled(!isVoiceEnabled)}
-                />
-              </TabsContent>
-            </Tabs>
+            {activeView === 'explorer' && <FileExplorerView />}
+
+            {activeView === 'dedupe' && (
+              <DedupeView
+                onStartScan={handleStartScan}
+                scanResults={scanResults}
+                clearResults={clearResults}
+              />
+            )}
+
+            {activeView === 'jarvis' && (
+              <SpeakToAetherView
+                state={jarvisState}
+                status={jarvisStatus}
+                messages={jarvisMessages}
+                onSend={handleManualSend}
+                resetToListening={() => {
+                  if (!isVoiceEnabled) setVoiceEnabled(true);
+                  resetToListening();
+                }}
+                stopListening={stopListening}
+                isVoiceEnabled={isVoiceEnabled}
+                onToggleVoice={() => setVoiceEnabled(!isVoiceEnabled)}
+              />
+            )}
           </div>
         </SidebarInset>
       </div>
       <Toaster />
     </SidebarProvider>
+  );
+}
+
+// Internal Dedupe Wrapper to handle headers for Deduplication
+function DedupeView({
+  onStartScan,
+  scanResults,
+  clearResults
+}: {
+  onStartScan: () => void;
+  scanResults: ScanResult | null;
+  clearResults: () => void;
+}) {
+  const { activeDedupeTab, setActiveDedupeTab, isScanning, scanTimestamp } = useStore();
+
+  return (
+    <div className="flex-1 flex flex-col overflow-hidden">
+      <header className="flex h-16 shrink-0 items-center justify-between gap-2 px-6 border-b border-border/50 backdrop-blur-xl sticky top-0 z-10">
+        <div className="flex items-center gap-3">
+          <div className="p-2 rounded-xl bg-primary/10 border border-primary/20">
+            <img src="/src/assets/logo.png" alt="Logo" className="w-5 h-5 object-contain" />
+          </div>
+          <div className="flex flex-col">
+            <h1 className="text-sm font-bold tracking-tight">Deduplication Matrix</h1>
+            <div className="flex items-center gap-2">
+              <Badge variant="outline" className="text-[9px] px-1.5 py-0 font-bold uppercase tracking-wider opacity-60">
+                {scanResults ? "Collision Matrix Loaded" : "Extraction Ready"}
+              </Badge>
+            </div>
+          </div>
+        </div>
+
+        <div className="flex items-center gap-4">
+          <Tabs value={activeDedupeTab} onValueChange={(val) => setActiveDedupeTab(val as any)} className="bg-muted/50 p-1 rounded-xl">
+            <TabsList className="bg-transparent h-9 gap-1">
+              <TabsTrigger value="queue" className="rounded-lg px-4 font-bold text-xs data-[state=active]:bg-background data-[state=active]:shadow-sm">
+                <ListTodo className="w-3.5 h-3.5 mr-2 opacity-50" />
+                Scan Queue
+              </TabsTrigger>
+              <TabsTrigger
+                value="results"
+                disabled={!scanResults && !isScanning}
+                className="rounded-lg px-4 font-bold text-xs data-[state=active]:bg-background data-[state=active]:shadow-sm"
+              >
+                <Search className="w-3.5 h-3.5 mr-2 opacity-50" />
+                Collision Results
+              </TabsTrigger>
+            </TabsList>
+          </Tabs>
+
+          {scanResults && !isScanning && (
+            <>
+              <Separator orientation="vertical" className="h-4 mx-2 opacity-20" />
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={clearResults}
+                className="rounded-full hover:bg-secondary transition-all"
+                title="Reset Workspace"
+              >
+                <RotateCcw className="w-4 h-4" />
+              </Button>
+            </>
+          )}
+        </div>
+      </header>
+
+      <div className="flex-1 overflow-hidden">
+        {activeDedupeTab === 'queue' ? (
+          <ScanQueueView onStartScan={onStartScan} />
+        ) : (
+          scanResults && <ResultsView key={scanTimestamp} onRescan={onStartScan} />
+        )}
+      </div>
+    </div>
   );
 }
 

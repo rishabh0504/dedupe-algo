@@ -28,7 +28,7 @@ export function SidebarItem({ node, level = 0 }: SidebarItemProps) {
     const [isLoading, setIsLoading] = useState(false);
     const [children, setChildren] = useState<Drive[]>([]);
     const [hasLoaded, setHasLoaded] = useState(false);
-    const { scanQueue, addToQueue, removeFromQueue, isScanning, setExplorerPath, setActiveView } = useStore();
+    const { scanQueue, addToQueue, removeFromQueue, isScanning, setExplorerPath, setActiveView, setActiveDedupeTab } = useStore();
 
     const isQueued = scanQueue.includes(node.mount_point);
 
@@ -70,7 +70,8 @@ export function SidebarItem({ node, level = 0 }: SidebarItemProps) {
             removeFromQueue(node.mount_point);
         } else {
             addToQueue(node.mount_point);
-            setActiveView('queue');
+            setActiveView('dedupe');
+            setActiveDedupeTab('queue');
         }
     };
 

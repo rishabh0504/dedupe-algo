@@ -416,295 +416,335 @@ export function FileExplorerView() {
 
     if (!explorerPath) {
         return (
-            <div className="flex-1 flex items-center justify-center text-muted-foreground">
-                <div className="text-center">
-                    <Folder className="w-24 h-24 mx-auto mb-6 opacity-10" />
-                    <p className="text-sm font-medium opacity-60">Select a folder from the sidebar to browse</p>
+            <div className="flex-1 flex items-center justify-center relative overflow-hidden bg-black/5 animate-scale-in">
+                {/* Background Glows */}
+                <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[600px] bg-primary/10 rounded-full blur-[120px] opacity-20 animate-pulse" />
+
+                <div className="relative z-10 text-center max-w-2xl px-6">
+                    <div className="inline-flex items-center justify-center w-24 h-24 rounded-[32px] bg-white/[0.03] border border-white/10 backdrop-blur-2xl mb-12 group hover:border-primary/40 transition-all duration-700 shadow-2xl">
+                        <Folder className="w-10 h-10 text-primary/40 group-hover:text-primary transition-all duration-700 animate-float" />
+                    </div>
+
+                    <h1 className="text-7xl font-black text-white tracking-tighter mb-6 uppercase italic leading-none drop-shadow-[0_10px_30px_rgba(0,0,0,0.5)]">
+                        How may I <span className="text-primary italic">help</span> you?
+                    </h1>
+
+                    <div className="flex flex-col items-center gap-4">
+                        <div className="h-px w-24 bg-gradient-to-r from-transparent via-primary/50 to-transparent" />
+                        <p className="text-[10px] font-black uppercase tracking-[0.4em] text-primary/40 italic flex items-center gap-3">
+                            <span className="w-1.5 h-1.5 rounded-full bg-primary animate-pulse" />
+                            Select a segment to begin data optimization
+                            <span className="w-1.5 h-1.5 rounded-full bg-primary animate-pulse" />
+                        </p>
+                    </div>
+                </div>
+
+                {/* Corner Accents */}
+                <div className="absolute bottom-12 left-12 p-8 border-l border-b border-white/5 opacity-40">
+                    <p className="text-[8px] font-mono text-white/20 tracking-widest uppercase">Initializing Core Protocol...</p>
+                </div>
+                <div className="absolute top-12 right-12 p-8 border-r border-t border-white/5 opacity-40 text-right">
+                    <p className="text-[8px] font-mono text-white/20 tracking-widest uppercase">System Status: Optimal</p>
                 </div>
             </div>
         );
     }
 
     return (
-        <div className="flex-1 flex flex-row h-full overflow-hidden bg-background/20 backdrop-blur-md text-white relative">
-            <div className="flex-1 flex flex-col h-full overflow-hidden border-r border-white/5">
-                {/* Toolbar */}
-                <div className="flex items-center gap-3 p-4 border-b border-white/5 bg-black/30 backdrop-blur-xl">
-                    <div className="flex items-center gap-1.5 p-1 bg-white/5 rounded-xl border border-white/5">
-                        <Button variant="ghost" size="icon" onClick={handleBack} disabled={historyIndex <= 0} className="h-8 w-8 hover:bg-white/10 rounded-lg disabled:opacity-20 text-white/70">
-                            <ChevronLeft className="w-4 h-4" />
-                        </Button>
-                        <Button variant="ghost" size="icon" onClick={handleForward} disabled={historyIndex >= history.length - 1} className="h-8 w-8 hover:bg-white/10 rounded-lg disabled:opacity-20 text-white/70">
-                            <ChevronRight className="w-4 h-4" />
-                        </Button>
-                        <Button variant="ghost" size="icon" onClick={handleUp} className="h-8 w-8 hover:bg-white/10 rounded-lg text-white/70">
-                            <ArrowUp className="w-4 h-4" />
-                        </Button>
+        <div className="flex-1 flex flex-col h-full overflow-hidden bg-background/20 backdrop-blur-md text-white relative">
+            <header className="flex h-16 shrink-0 items-center justify-between gap-2 px-6 border-b border-border/50 backdrop-blur-xl sticky top-0 z-10 transition-all duration-500">
+                <div className="flex items-center gap-3">
+                    <div className="p-2 rounded-xl bg-primary/10 border border-primary/20">
+                        <img src="/src/assets/logo.png" alt="Logo" className="w-5 h-5 object-contain" />
                     </div>
-
-                    <div className="flex-1 mx-2 relative group">
-                        <div className="absolute inset-y-0 left-3.5 flex items-center pointer-events-none text-primary/50 group-focus-within:text-primary transition-colors">
-                            <Folder className="w-4 h-4" />
+                    <div className="flex flex-col">
+                        <h1 className="text-sm font-bold tracking-tight">Aether Workspace</h1>
+                        <div className="flex items-center gap-2">
+                            <span className="text-[10px] font-mono opacity-50 truncate max-w-[300px]">{explorerPath}</span>
                         </div>
-                        <Input
-                            value={explorerPath}
-                            readOnly
-                            className="h-10 pl-10 pr-4 bg-black/40 border-white/10 text-xs font-mono rounded-xl focus:border-primary/50 transition-all text-white/60"
-                        />
-                    </div>
-
-                    <div className="relative w-64 group">
-                        <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-white/30 group-focus-within:text-primary transition-colors" />
-                        <Input
-                            placeholder="Search in folder..."
-                            value={searchQuery}
-                            onChange={(e) => setSearchQuery(e.target.value)}
-                            className="h-10 pl-10 bg-black/40 border-white/10 text-xs rounded-xl focus:border-primary/50 transition-all"
-                        />
-                    </div>
-
-                    <div className="flex items-center bg-black/40 rounded-xl p-1 border border-white/5">
-                        <Button
-                            variant="ghost"
-                            size="icon"
-                            onClick={() => setViewMode('grid')}
-                            className={cn("h-8 w-8 rounded-lg transition-all", viewMode === 'grid' ? "bg-white/15 text-primary shadow-lg shadow-primary/10" : "text-white/40 hover:text-white/60")}
-                        >
-                            <LayoutGrid className="w-4 h-4" />
-                        </Button>
-                        <Button
-                            variant="ghost"
-                            size="icon"
-                            onClick={() => setViewMode('list')}
-                            className={cn("h-8 w-8 rounded-lg transition-all", viewMode === 'list' ? "bg-white/15 text-primary shadow-lg shadow-primary/10" : "text-white/40 hover:text-white/60")}
-                        >
-                            <ListIcon className="w-4 h-4" />
-                        </Button>
                     </div>
                 </div>
+            </header>
 
-                {/* Vertical Scroll Container */}
-                <div className="flex-1 relative overflow-hidden bg-gradient-to-br from-white/[0.03] to-transparent">
-                    <ScrollArea className="h-full w-full" type="always">
-                        <div className="p-8" onContextMenu={(e) => e.preventDefault()}>
-                            {isLoading ? (
-                                <div className="flex flex-col items-center justify-center py-32 gap-4">
-                                    <Loader2 className="w-10 h-10 animate-spin text-primary opacity-50" />
-                                    <span className="text-[10px] font-black uppercase tracking-[0.3em] text-primary/40 italic">Syncing Matrix...</span>
-                                </div>
-                            ) : filteredEntries.length === 0 ? (
-                                <div className="flex flex-col items-center justify-center py-32 text-white/10 gap-4 animate-slide-up">
-                                    <div className="w-24 h-24 rounded-full bg-white/[0.02] flex items-center justify-center border border-white/5">
-                                        <FolderOpen className="w-10 h-10 opacity-20" />
-                                    </div>
-                                    <p className="text-[11px] font-black uppercase tracking-[0.2em] italic">Zero Segments Found</p>
-                                </div>
-                            ) : viewMode === 'grid' ? (
-                                <div className="grid grid-cols-[repeat(auto-fill,minmax(240px,1fr))] gap-10">
-                                    {filteredEntries.map((entry) => (
-                                        <FileGridItem
-                                            key={entry.path}
-                                            entry={entry}
-                                            onClick={handleEntryClick}
-                                            onContextMenu={handleContextMenu}
-                                            scanQueue={scanQueue}
-                                            addToQueue={addToQueue}
-                                            removeFromQueue={removeFromQueue}
-                                        />
-                                    ))}
-                                </div>
-                            ) : (
-                                <div className="space-y-1.5">
-                                    {filteredEntries.map((entry) => (
-                                        <div
-                                            key={entry.path}
-                                            className="group flex items-center gap-4 p-3 rounded-xl hover:bg-white/[0.05] transition-all cursor-pointer border border-transparent hover:border-white/10"
-                                            onClick={() => handleEntryClick(entry)}
-                                            onContextMenu={(e) => handleContextMenu(e, entry)}
-                                        >
-                                            <div className="w-10 h-10 rounded-lg bg-white/5 flex items-center justify-center border border-white/5 group-hover:border-primary/20 group-hover:bg-primary/5 transition-all">
-                                                {getListIcon(entry)}
-                                            </div>
-                                            <div className="flex-1 min-w-0">
-                                                <p className="text-xs font-bold truncate group-hover:text-primary transition-colors">{entry.name}</p>
-                                                <p className="text-[10px] text-white/20 font-mono tracking-tighter truncate">{entry.path}</p>
-                                            </div>
-                                            {!entry.is_dir && (
-                                                <div className="px-3 py-1 rounded-md bg-white/5 border border-white/5">
-                                                    <span className="text-[10px] text-white/40 font-black tabular-nums">{formatSize(entry.size)}</span>
-                                                </div>
-                                            )}
-
-                                            {entry.is_dir && (
-                                                <button
-                                                    onClick={(e) => {
-                                                        e.stopPropagation();
-                                                        if (scanQueue.includes(entry.path)) removeFromQueue(entry.path);
-                                                        else addToQueue(entry.path);
-                                                    }}
-                                                    className={cn(
-                                                        "w-8 h-8 rounded-lg flex items-center justify-center transition-all bg-white/5 border border-white/5",
-                                                        scanQueue.includes(entry.path) ? "bg-primary text-black opacity-100" : "text-white/20 opacity-0 group-hover:opacity-100 hover:text-primary hover:border-primary/20"
-                                                    )}
-                                                >
-                                                    {scanQueue.includes(entry.path) ? <Minus className="w-4 h-4" /> : <Plus className="w-4 h-4" />}
-                                                </button>
-                                            )}
-                                        </div>
-                                    ))}
-                                </div>
-                            )}
+            <div className="flex-1 flex flex-row h-full overflow-hidden relative">
+                <div className="flex-1 flex flex-col h-full overflow-hidden border-r border-white/5">
+                    {/* Toolbar */}
+                    <div className="flex items-center gap-3 p-4 border-b border-white/5 bg-black/30 backdrop-blur-xl">
+                        <div className="flex items-center gap-1.5 p-1 bg-white/5 rounded-xl border border-white/5">
+                            <Button variant="ghost" size="icon" onClick={handleBack} disabled={historyIndex <= 0} className="h-8 w-8 hover:bg-white/10 rounded-lg disabled:opacity-20 text-white/70">
+                                <ChevronLeft className="w-4 h-4" />
+                            </Button>
+                            <Button variant="ghost" size="icon" onClick={handleForward} disabled={historyIndex >= history.length - 1} className="h-8 w-8 hover:bg-white/10 rounded-lg disabled:opacity-20 text-white/70">
+                                <ChevronRight className="w-4 h-4" />
+                            </Button>
+                            <Button variant="ghost" size="icon" onClick={handleUp} className="h-8 w-8 hover:bg-white/10 rounded-lg text-white/70">
+                                <ArrowUp className="w-4 h-4" />
+                            </Button>
                         </div>
-                    </ScrollArea>
-                </div>
-            </div>
 
-            {/* Preview Panel */}
-            {previewFile && (
-                <div
-                    className="flex flex-col h-full bg-black/40 backdrop-blur-2xl border-l border-white/10 overflow-hidden relative animate-in slide-in-from-right duration-500"
-                    style={{ width: `${previewWidth}px` }}
-                >
-                    {/* Resize Handle */}
-                    <div
-                        className="absolute left-0 top-0 bottom-0 w-1.5 cursor-col-resize hover:bg-primary/30 transition-colors z-50"
-                        onMouseDown={(e) => {
-                            e.preventDefault();
-                            setIsResizing(true);
-                        }}
-                    />
-
-                    <div className="flex-1 flex flex-col overflow-hidden">
-                        {/* Preview Content */}
-                        <div className="flex-1 flex flex-col bg-black/60 relative overflow-hidden group/media">
-                            <div className="absolute top-6 right-6 z-20">
-                                <Button
-                                    variant="ghost"
-                                    size="icon"
-                                    onClick={() => setPreviewFile(null)}
-                                    className="rounded-2xl bg-black/50 text-white hover:bg-primary hover:text-black shadow-2xl border border-white/10 hover:scale-110 transition-all duration-300 h-10 w-10"
-                                >
-                                    <X className="w-5 h-5" />
-                                </Button>
+                        <div className="flex-1 mx-2 relative group">
+                            <div className="absolute inset-y-0 left-3.5 flex items-center pointer-events-none text-primary/50 group-focus-within:text-primary transition-colors">
+                                <Folder className="w-4 h-4" />
                             </div>
+                            <Input
+                                value={explorerPath}
+                                readOnly
+                                className="h-10 pl-10 pr-4 bg-black/40 border-white/10 text-xs font-mono rounded-xl focus:border-primary/50 transition-all text-white/60"
+                            />
+                        </div>
 
-                            <div className="flex-1 flex items-center justify-center bg-slate-950/20 backdrop-blur-sm p-4">
-                                {previewError ? (
-                                    <div className="flex flex-col items-center gap-6 text-white/20 animate-slide-up">
-                                        <div className="w-20 h-20 rounded-full border-2 border-dashed border-white/10 flex items-center justify-center">
-                                            {isVideo(previewFile.path) ? <VideoOff className="w-8 h-8" /> : <ImageOff className="w-8 h-8" />}
-                                        </div>
-                                        <span className="text-[10px] font-black uppercase tracking-[0.3em] italic">Render Protocol Failed</span>
+                        <div className="relative w-64 group">
+                            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-white/30 group-focus-within:text-primary transition-colors" />
+                            <Input
+                                placeholder="Search in folder..."
+                                value={searchQuery}
+                                onChange={(e) => setSearchQuery(e.target.value)}
+                                className="h-10 pl-10 bg-black/40 border-white/10 text-xs rounded-xl focus:border-primary/50 transition-all"
+                            />
+                        </div>
+
+                        <div className="flex items-center bg-black/40 rounded-xl p-1 border border-white/5">
+                            <Button
+                                variant="ghost"
+                                size="icon"
+                                onClick={() => setViewMode('grid')}
+                                className={cn("h-8 w-8 rounded-lg transition-all", viewMode === 'grid' ? "bg-white/15 text-primary shadow-lg shadow-primary/10" : "text-white/40 hover:text-white/60")}
+                            >
+                                <LayoutGrid className="w-4 h-4" />
+                            </Button>
+                            <Button
+                                variant="ghost"
+                                size="icon"
+                                onClick={() => setViewMode('list')}
+                                className={cn("h-8 w-8 rounded-lg transition-all", viewMode === 'list' ? "bg-white/15 text-primary shadow-lg shadow-primary/10" : "text-white/40 hover:text-white/60")}
+                            >
+                                <ListIcon className="w-4 h-4" />
+                            </Button>
+                        </div>
+                    </div>
+
+                    {/* Vertical Scroll Container */}
+                    <div className="flex-1 relative overflow-hidden bg-gradient-to-br from-white/[0.03] to-transparent">
+                        <ScrollArea className="h-full w-full" type="always">
+                            <div className="p-8" onContextMenu={(e) => e.preventDefault()}>
+                                {isLoading ? (
+                                    <div className="flex flex-col items-center justify-center py-32 gap-4">
+                                        <Loader2 className="w-10 h-10 animate-spin text-primary opacity-50" />
+                                        <span className="text-[10px] font-black uppercase tracking-[0.3em] text-primary/40 italic">Syncing Matrix...</span>
                                     </div>
-                                ) : isVideo(previewFile.path) ? (
-                                    <video
-                                        src={safeConvertFileSrc(previewFile.path)}
-                                        controls
-                                        muted
-                                        className="max-w-full max-h-full rounded-2xl shadow-2xl border border-white/5"
-                                        onError={() => setPreviewError(true)}
-                                    />
+                                ) : filteredEntries.length === 0 ? (
+                                    <div className="flex flex-col items-center justify-center py-32 text-white/10 gap-4 animate-slide-up">
+                                        <div className="w-24 h-24 rounded-full bg-white/[0.02] flex items-center justify-center border border-white/5">
+                                            <FolderOpen className="w-10 h-10 opacity-20" />
+                                        </div>
+                                        <p className="text-[11px] font-black uppercase tracking-[0.2em] italic">Zero Segments Found</p>
+                                    </div>
+                                ) : viewMode === 'grid' ? (
+                                    <div className="grid grid-cols-[repeat(auto-fill,minmax(240px,1fr))] gap-10">
+                                        {filteredEntries.map((entry) => (
+                                            <FileGridItem
+                                                key={entry.path}
+                                                entry={entry}
+                                                onClick={handleEntryClick}
+                                                onContextMenu={handleContextMenu}
+                                                scanQueue={scanQueue}
+                                                addToQueue={addToQueue}
+                                                removeFromQueue={removeFromQueue}
+                                            />
+                                        ))}
+                                    </div>
                                 ) : (
-                                    <img
-                                        src={safeConvertFileSrc(previewFile.path)}
-                                        className="max-w-full max-h-full object-contain p-2 rounded-2xl drop-shadow-[0_20px_50px_rgba(0,0,0,0.5)]"
-                                        alt="Preview"
-                                        onError={() => setPreviewError(true)}
-                                    />
+                                    <div className="space-y-1.5">
+                                        {filteredEntries.map((entry) => (
+                                            <div
+                                                key={entry.path}
+                                                className="group flex items-center gap-4 p-3 rounded-xl hover:bg-white/[0.05] transition-all cursor-pointer border border-transparent hover:border-white/10"
+                                                onClick={() => handleEntryClick(entry)}
+                                                onContextMenu={(e) => handleContextMenu(e, entry)}
+                                            >
+                                                <div className="w-10 h-10 rounded-lg bg-white/5 flex items-center justify-center border border-white/5 group-hover:border-primary/20 group-hover:bg-primary/5 transition-all">
+                                                    {getListIcon(entry)}
+                                                </div>
+                                                <div className="flex-1 min-w-0">
+                                                    <p className="text-xs font-bold truncate group-hover:text-primary transition-colors">{entry.name}</p>
+                                                    <p className="text-[10px] text-white/20 font-mono tracking-tighter truncate">{entry.path}</p>
+                                                </div>
+                                                {!entry.is_dir && (
+                                                    <div className="px-3 py-1 rounded-md bg-white/5 border border-white/5">
+                                                        <span className="text-[10px] text-white/40 font-black tabular-nums">{formatSize(entry.size)}</span>
+                                                    </div>
+                                                )}
+
+                                                {entry.is_dir && (
+                                                    <button
+                                                        onClick={(e) => {
+                                                            e.stopPropagation();
+                                                            if (scanQueue.includes(entry.path)) removeFromQueue(entry.path);
+                                                            else addToQueue(entry.path);
+                                                        }}
+                                                        className={cn(
+                                                            "w-8 h-8 rounded-lg flex items-center justify-center transition-all bg-white/5 border border-white/5",
+                                                            scanQueue.includes(entry.path) ? "bg-primary text-black opacity-100" : "text-white/20 opacity-0 group-hover:opacity-100 hover:text-primary hover:border-primary/20"
+                                                        )}
+                                                    >
+                                                        {scanQueue.includes(entry.path) ? <Minus className="w-4 h-4" /> : <Plus className="w-4 h-4" />}
+                                                    </button>
+                                                )}
+                                            </div>
+                                        ))}
+                                    </div>
                                 )}
                             </div>
+                        </ScrollArea>
+                    </div>
+                </div>
 
-                            <div className="p-6 pb-8 bg-gradient-to-t from-black via-black/80 to-transparent flex flex-col gap-4">
-                                <div className="flex items-center gap-3">
-                                    <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center border border-primary/20 shadow-2xl">
-                                        {isVideo(previewFile.path) ? <Video className="w-5 h-5 text-primary" /> : <ImageIcon className="w-5 h-5 text-primary" />}
-                                    </div>
-                                    <div className="flex flex-col min-w-0">
-                                        <span className="text-base font-black text-white truncate tracking-tighter uppercase leading-tight italic">{previewFile.name}</span>
-                                        <div className="flex items-center gap-2">
-                                            <div className="w-1.5 h-1.5 rounded-full bg-primary shadow-[0_0_8px_rgba(74,222,220,1)]" />
-                                            <span className="text-[9px] text-primary/60 font-black tracking-[0.2em] uppercase italic">Master Object</span>
-                                        </div>
-                                    </div>
+                {/* Preview Panel */}
+                {previewFile && (
+                    <div
+                        className="flex flex-col h-full bg-black/40 backdrop-blur-2xl border-l border-white/10 overflow-hidden relative animate-in slide-in-from-right duration-500"
+                        style={{ width: `${previewWidth}px` }}
+                    >
+                        {/* Resize Handle */}
+                        <div
+                            className="absolute left-0 top-0 bottom-0 w-1.5 cursor-col-resize hover:bg-primary/30 transition-colors z-50"
+                            onMouseDown={(e) => {
+                                e.preventDefault();
+                                setIsResizing(true);
+                            }}
+                        />
+
+                        <div className="flex-1 flex flex-col overflow-hidden">
+                            {/* Preview Content */}
+                            <div className="flex-1 flex flex-col bg-black/60 relative overflow-hidden group/media">
+                                <div className="absolute top-6 right-6 z-20">
+                                    <Button
+                                        variant="ghost"
+                                        size="icon"
+                                        onClick={() => setPreviewFile(null)}
+                                        className="rounded-2xl bg-black/50 text-white hover:bg-primary hover:text-black shadow-2xl border border-white/10 hover:scale-110 transition-all duration-300 h-10 w-10"
+                                    >
+                                        <X className="w-5 h-5" />
+                                    </Button>
                                 </div>
 
-                                <div className="mt-2 flex flex-col gap-3">
-                                    <div className="grid grid-cols-2 gap-3">
-                                        <Button
-                                            variant="secondary"
-                                            size="lg"
-                                            onClick={() => invoke("reveal_in_finder", { path: previewFile.path })}
-                                            className="bg-white/5 hover:bg-white/15 text-white border border-white/10 rounded-2xl h-11 text-[9px] font-black uppercase tracking-[0.15em] transition-all hover:scale-[1.02] shadow-xl"
-                                        >
-                                            <ExternalLink className="w-4 h-4 mr-2.5 text-primary" />
-                                            Reveal
-                                        </Button>
-                                        <Button
-                                            variant="destructive"
-                                            size="lg"
-                                            onClick={() => handleDelete(previewFile)}
-                                            className="bg-red-500/10 hover:bg-red-500/20 text-red-500 border border-red-500/20 rounded-2xl h-11 text-[9px] font-black uppercase tracking-[0.15em] transition-all hover:scale-[1.02] shadow-xl shadow-red-500/5"
-                                        >
-                                            <Trash2 className="w-4 h-4 mr-2.5" />
-                                            Purge
-                                        </Button>
+                                <div className="flex-1 flex items-center justify-center bg-slate-950/20 backdrop-blur-sm p-4">
+                                    {previewError ? (
+                                        <div className="flex flex-col items-center gap-6 text-white/20 animate-slide-up">
+                                            <div className="w-20 h-20 rounded-full border-2 border-dashed border-white/10 flex items-center justify-center">
+                                                {isVideo(previewFile.path) ? <VideoOff className="w-8 h-8" /> : <ImageOff className="w-8 h-8" />}
+                                            </div>
+                                            <span className="text-[10px] font-black uppercase tracking-[0.3em] italic">Render Protocol Failed</span>
+                                        </div>
+                                    ) : isVideo(previewFile.path) ? (
+                                        <video
+                                            src={safeConvertFileSrc(previewFile.path)}
+                                            controls
+                                            muted
+                                            className="max-w-full max-h-full rounded-2xl shadow-2xl border border-white/5"
+                                            onError={() => setPreviewError(true)}
+                                        />
+                                    ) : (
+                                        <img
+                                            src={safeConvertFileSrc(previewFile.path)}
+                                            className="max-w-full max-h-full object-contain p-2 rounded-2xl drop-shadow-[0_20px_50px_rgba(0,0,0,0.5)]"
+                                            alt="Preview"
+                                            onError={() => setPreviewError(true)}
+                                        />
+                                    )}
+                                </div>
+
+                                <div className="p-6 pb-8 bg-gradient-to-t from-black via-black/80 to-transparent flex flex-col gap-4">
+                                    <div className="flex items-center gap-3">
+                                        <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center border border-primary/20 shadow-2xl">
+                                            {isVideo(previewFile.path) ? <Video className="w-5 h-5 text-primary" /> : <ImageIcon className="w-5 h-5 text-primary" />}
+                                        </div>
+                                        <div className="flex flex-col min-w-0">
+                                            <span className="text-base font-black text-white truncate tracking-tighter uppercase leading-tight italic">{previewFile.name}</span>
+                                            <div className="flex items-center gap-2">
+                                                <div className="w-1.5 h-1.5 rounded-full bg-primary shadow-[0_0_8px_rgba(74,222,220,1)]" />
+                                                <span className="text-[9px] text-primary/60 font-black tracking-[0.2em] uppercase italic">Master Object</span>
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    <div className="mt-2 flex flex-col gap-3">
+                                        <div className="grid grid-cols-2 gap-3">
+                                            <Button
+                                                variant="secondary"
+                                                size="lg"
+                                                onClick={() => invoke("reveal_in_finder", { path: previewFile.path })}
+                                                className="bg-white/5 hover:bg-white/15 text-white border border-white/10 rounded-2xl h-11 text-[9px] font-black uppercase tracking-[0.15em] transition-all hover:scale-[1.02] shadow-xl"
+                                            >
+                                                <ExternalLink className="w-4 h-4 mr-2.5 text-primary" />
+                                                Reveal
+                                            </Button>
+                                            <Button
+                                                variant="destructive"
+                                                size="lg"
+                                                onClick={() => handleDelete(previewFile)}
+                                                className="bg-red-500/10 hover:bg-red-500/20 text-red-500 border border-red-500/20 rounded-2xl h-11 text-[9px] font-black uppercase tracking-[0.15em] transition-all hover:scale-[1.02] shadow-xl shadow-red-500/5"
+                                            >
+                                                <Trash2 className="w-4 h-4 mr-2.5" />
+                                                Purge
+                                            </Button>
+                                        </div>
                                     </div>
                                 </div>
                             </div>
                         </div>
                     </div>
-                </div>
-            )}
+                )}
 
-            {/* Context Menu */}
-            {contextMenu && (
-                <div
-                    className="fixed z-[100] min-w-[200px] glass-dark border border-white/10 rounded-2xl shadow-[0_20px_80px_rgba(0,0,0,1)] p-1.5 animate-in fade-in zoom-in-95 duration-200"
-                    style={{ top: contextMenu.y, left: contextMenu.x }}
-                    onClick={(e) => e.stopPropagation()}
-                >
-                    <div className="px-3 py-2 text-[10px] font-black text-white/30 uppercase tracking-[0.15em] border-b border-white/10 mb-1.5 truncate max-w-[240px] italic">
-                        {contextMenu.entry.name}
+                {/* Context Menu */}
+                {contextMenu && (
+                    <div
+                        className="fixed z-[100] min-w-[200px] glass-dark border border-white/10 rounded-2xl shadow-[0_20px_80px_rgba(0,0,0,1)] p-1.5 animate-in fade-in zoom-in-95 duration-200"
+                        style={{ top: contextMenu.y, left: contextMenu.x }}
+                        onClick={(e) => e.stopPropagation()}
+                    >
+                        <div className="px-3 py-2 text-[10px] font-black text-white/30 uppercase tracking-[0.15em] border-b border-white/10 mb-1.5 truncate max-w-[240px] italic">
+                            {contextMenu.entry.name}
+                        </div>
+                        <button
+                            onClick={() => {
+                                invoke("reveal_in_finder", { path: contextMenu.entry.path });
+                                setContextMenu(null);
+                            }}
+                            className="w-full text-left flex items-center gap-3 px-3 py-2.5 rounded-xl hover:bg-white/10 text-[11px] font-bold text-white transition-all group"
+                        >
+                            <ExternalLink className="w-4 h-4 text-primary group-hover:scale-110 transition-transform" />
+                            Reveal in Finder
+                        </button>
+                        <button
+                            onClick={() => {
+                                navigator.clipboard.writeText(contextMenu.entry.path);
+                                setContextMenu(null);
+                                toast.success("Path copied");
+                            }}
+                            className="w-full text-left flex items-center gap-3 px-3 py-2.5 rounded-xl hover:bg-white/10 text-[11px] font-bold text-white transition-all group"
+                        >
+                            <FileText className="w-4 h-4 text-primary group-hover:scale-110 transition-transform" />
+                            Copy System Path
+                        </button>
+                        <div className="h-px bg-white/10 my-1.5" />
+                        <button
+                            onClick={() => {
+                                handleDelete(contextMenu.entry);
+                                setContextMenu(null);
+                            }}
+                            className="w-full text-left flex items-center gap-3 px-3 py-2.5 rounded-xl hover:bg-red-500/15 text-[11px] font-bold text-red-400 group transition-all"
+                        >
+                            <Trash2 className="w-4 h-4 group-hover:scale-110 transition-transform" />
+                            Execute Purge
+                        </button>
                     </div>
-                    <button
-                        onClick={() => {
-                            invoke("reveal_in_finder", { path: contextMenu.entry.path });
-                            setContextMenu(null);
-                        }}
-                        className="w-full text-left flex items-center gap-3 px-3 py-2.5 rounded-xl hover:bg-white/10 text-[11px] font-bold text-white transition-all group"
-                    >
-                        <ExternalLink className="w-4 h-4 text-primary group-hover:scale-110 transition-transform" />
-                        Reveal in Finder
-                    </button>
-                    <button
-                        onClick={() => {
-                            navigator.clipboard.writeText(contextMenu.entry.path);
-                            setContextMenu(null);
-                            toast.success("Path copied");
-                        }}
-                        className="w-full text-left flex items-center gap-3 px-3 py-2.5 rounded-xl hover:bg-white/10 text-[11px] font-bold text-white transition-all group"
-                    >
-                        <FileText className="w-4 h-4 text-primary group-hover:scale-110 transition-transform" />
-                        Copy System Path
-                    </button>
-                    <div className="h-px bg-white/10 my-1.5" />
-                    <button
-                        onClick={() => {
-                            handleDelete(contextMenu.entry);
-                            setContextMenu(null);
-                        }}
-                        className="w-full text-left flex items-center gap-3 px-3 py-2.5 rounded-xl hover:bg-red-500/15 text-[11px] font-bold text-red-400 group transition-all"
-                    >
-                        <Trash2 className="w-4 h-4 group-hover:scale-110 transition-transform" />
-                        Execute Purge
-                    </button>
-                </div>
-            )}
+                )}
+            </div>
         </div>
     );
 }
 
-// Missing Component Definition
 const FolderOpen = ({ className }: { className?: string }) => (
     <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}>
         <path d="m6 14 1.45-2.9A2 2 0 0 1 9.24 10H20a2 2 0 0 1 1.94 2.5l-1.55 6a2 2 0 0 1-1.94 1.5H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h3.9a2 2 0 0 1 1.69.9l.81 1.2a2 2 0 0 0 1.69.9H18a2 2 0 0 1 2 2v2" />
