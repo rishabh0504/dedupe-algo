@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useMemo } from "react";
 import { invoke, convertFileSrc } from "@tauri-apps/api/core";
 import { useStore } from "@/store/useStore";
 import {
@@ -17,10 +17,15 @@ import {
     Music,
     LayoutGrid,
     List as ListIcon,
+    Trash2,
+    Edit2,
+    FolderPlus,
+    FilePlus,
+    SortAsc,
+    SortDesc,
     Play,
     X,
-    ExternalLink,
-    Trash2
+    ExternalLink
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -42,8 +47,16 @@ interface FileEntry {
 interface ContextMenuState {
     x: number;
     y: number;
-    entry: FileEntry;
+    entry?: FileEntry;
+    type: 'item' | 'background';
+    path: string; // The directory where the menu was opened
 }
+
+const EmptyFolderIcon = ({ className }: { className?: string }) => (
+    <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}>
+        <path d="m6 14 1.45-2.9A2 2 0 0 1 9.24 10H20a2 2 0 0 1 1.94 2.5l-1.55 6a2 2 0 0 1-1.94 1.5H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h3.9a2 2 0 0 1 1.69.9l.81 1.2a2 2 0 0 0 1.69.9H18a2 2 0 0 1 2 2v2" />
+    </svg>
+);
 
 const FileGridItem = ({
     entry,
@@ -51,21 +64,46 @@ const FileGridItem = ({
     onContextMenu,
     scanQueue,
     addToQueue,
-    removeFromQueue
+    removeFromQueue,
+    renamingPath,
+    onRenameCommit,
+    onRenameCancel
 }: {
     entry: FileEntry;
     onClick: (entry: FileEntry) => void;
-    onContextMenu: (e: React.MouseEvent, entry: FileEntry) => void;
+    onContextMenu: (e: React.MouseEvent, entry?: FileEntry, path?: string) => void;
     scanQueue: string[];
     addToQueue: (path: string) => void;
     removeFromQueue: (path: string) => void;
+    renamingPath: string | null;
+    onRenameCommit: (newName: string) => void;
+    onRenameCancel: () => void;
 }) => {
     const [mediaError, setMediaError] = useState(false);
     const [isHovering, setIsHovering] = useState(false);
     const [duration, setDuration] = useState<string | null>(null);
     const [isVisible, setIsVisible] = useState(false);
+    const [tempName, setTempName] = useState(entry.name);
     const videoRef = useRef<HTMLVideoElement>(null);
     const itemRef = useRef<HTMLDivElement>(null);
+    const inputRef = useRef<HTMLInputElement>(null);
+
+    const isRenaming = renamingPath === entry.path;
+
+    useEffect(() => {
+        if (isRenaming && inputRef.current) {
+            inputRef.current.focus();
+            inputRef.current.select();
+        }
+    }, [isRenaming]);
+
+    const handleKeyDown = (e: React.KeyboardEvent) => {
+        if (e.key === 'Enter') {
+            onRenameCommit(tempName);
+        } else if (e.key === 'Escape') {
+            onRenameCancel();
+        }
+    };
 
     const ext = entry.name.split('.').pop()?.toLowerCase();
     const isImage = ["jpg", "jpeg", "png", "webp", "gif", "svg"].includes(ext || "");
@@ -229,9 +267,30 @@ const FileGridItem = ({
             </div>
 
             {entry.is_dir && (
-                <div className="text-center w-full px-2 z-10 mt-2 pointer-events-none">
-                    <p className="text-[12px] font-black tracking-tight truncate w-full group-hover:text-primary transition-colors duration-300 uppercase italic opacity-85 group-hover:opacity-100" title={entry.name}>{entry.name}</p>
-                    <p className="text-[9px] text-primary/40 font-black uppercase tracking-widest mt-1">Directory Segment</p>
+                <div className="text-center w-full px-2 z-10 mt-2">
+                    {isRenaming ? (
+                        <input
+                            ref={inputRef}
+                            value={tempName}
+                            onChange={(e) => setTempName(e.target.value)}
+                            onKeyDown={handleKeyDown}
+                            onBlur={() => onRenameCommit(tempName)}
+                            className="w-full bg-black/60 border border-primary/50 rounded-lg px-2 py-1 text-[12px] font-black text-white focus:outline-none uppercase italic"
+                        />
+                    ) : (
+                        <>
+                            <p className="text-[12px] font-black tracking-tight truncate w-full group-hover:text-primary transition-colors duration-300 uppercase italic opacity-85 group-hover:opacity-100" title={entry.name}>{entry.name}</p>
+                            <div className="flex items-center justify-center gap-2 mt-1">
+                                <p className="text-[9px] text-primary/40 font-black uppercase tracking-widest">Directory Segment</p>
+                                {entry.size > 0 && (
+                                    <>
+                                        <div className="w-px h-2 bg-white/10" />
+                                        <p className="text-[9px] text-white/30 font-black tabular-nums">{formatSize(entry.size)}</p>
+                                    </>
+                                )}
+                            </div>
+                        </>
+                    )}
                 </div>
             )}
         </div>
@@ -243,12 +302,24 @@ const ExplorerSplit = ({
     tab,
     onFileClick,
     onContextMenu,
-    onClose
+    onClose,
+    renamingItem,
+    setRenamingItem,
+    onRenameCommit,
+    newName,
+    setNewName,
+    refreshTrigger
 }: {
     tab: any;
     onFileClick: (entry: FileEntry) => void;
-    onContextMenu: (e: React.MouseEvent, entry: FileEntry) => void;
+    onContextMenu: (e: React.MouseEvent, entry?: FileEntry, path?: string) => void;
     onClose: () => void;
+    renamingItem: { path: string, oldName: string } | null;
+    setRenamingItem: (item: { path: string, oldName: string } | null) => void;
+    onRenameCommit: () => void;
+    newName: string;
+    setNewName: (name: string) => void;
+    refreshTrigger: number;
 }) => {
     const { scanQueue, addToQueue, removeFromQueue, updateExplorerTab } = useStore();
     const [entries, setEntries] = useState<FileEntry[]>([]);
@@ -256,7 +327,7 @@ const ExplorerSplit = ({
 
     useEffect(() => {
         loadDirectory(tab.path);
-    }, [tab.path]);
+    }, [tab.path, renamingItem, refreshTrigger]);
 
     const loadDirectory = async (path: string) => {
         setIsLoading(true);
@@ -331,9 +402,25 @@ const ExplorerSplit = ({
         }
     };
 
-    const filteredEntries = entries.filter(e =>
-        e.name.toLowerCase().includes((tab.searchQuery || "").toLowerCase())
-    );
+    const sortedEntries = useMemo(() => {
+        return [...entries]
+            .filter(e => e.name.toLowerCase().includes((tab.searchQuery || "").toLowerCase()))
+            .sort((a, b) => {
+                const order = (tab.sortOrder || 'asc') === 'asc' ? 1 : -1;
+
+                if (tab.sortBy === 'modified') {
+                    return (a.modified - b.modified) * order;
+                } else if (tab.sortBy === 'kind') {
+                    const extA = a.name.split('.').pop() || "";
+                    const extB = b.name.split('.').pop() || "";
+                    if (extA !== extB) return extA.localeCompare(extB) * order;
+                    return a.name.toLowerCase().localeCompare(b.name.toLowerCase()) * order;
+                } else {
+                    // Unified Name Sort: Ignores is_dir priority as requested
+                    return a.name.toLowerCase().localeCompare(b.name.toLowerCase()) * order;
+                }
+            });
+    }, [entries, tab.searchQuery, tab.sortBy, tab.sortOrder]);
 
     const getListIcon = (entry: FileEntry) => {
         if (entry.is_dir) return <Folder className="w-5 h-5 text-blue-400" />;
@@ -373,6 +460,33 @@ const ExplorerSplit = ({
                             <ArrowUp className="w-3.5 h-3.5" />
                         </Button>
                     </div>
+
+                    <div className="flex items-center bg-black/40 rounded-lg p-0.5 border border-white/5">
+                        <Button
+                            variant="ghost"
+                            size="icon"
+                            onClick={() => updateExplorerTab(tab.id, {
+                                sortOrder: tab.sortOrder === 'asc' ? 'desc' : 'asc'
+                            })}
+                            className="h-7 w-7 rounded-md text-white/40 hover:text-primary transition-all"
+                            title={`Sort ${tab.sortOrder === 'asc' ? 'Descending' : 'Ascending'}`}
+                        >
+                            {tab.sortOrder === 'asc' ? <SortAsc className="w-3.5 h-3.5" /> : <SortDesc className="w-3.5 h-3.5" />}
+                        </Button>
+                        <div className="w-px h-3 bg-white/10 mx-0.5" />
+                        <Button
+                            variant="ghost"
+                            size="icon"
+                            onClick={() => {
+                                const modes: ('name' | 'size' | 'modified')[] = ['name', 'size', 'modified'];
+                                const next = modes[(modes.indexOf(tab.sortBy || 'name') + 1) % modes.length];
+                                updateExplorerTab(tab.id, { sortBy: next });
+                            }}
+                            className="h-7 px-2 rounded-md text-[9px] font-black uppercase tracking-widest text-white/40 hover:text-primary transition-all min-w-[50px]"
+                        >
+                            {tab.sortBy || 'name'}
+                        </Button>
+                    </div>
                     <div className="flex-1 relative group">
                         <div className="absolute inset-y-0 left-2.5 flex items-center pointer-events-none text-white/20 group-focus-within:text-primary transition-colors">
                             <Search className="w-3 h-3" />
@@ -409,22 +523,25 @@ const ExplorerSplit = ({
             </div>
 
             {/* Content Aria */}
-            <div className="flex-1 relative overflow-hidden">
+            <div
+                className="flex-1 relative overflow-hidden"
+                onContextMenu={(e) => onContextMenu(e, undefined, tab.path)}
+            >
                 <ScrollArea className="h-full w-full" type="always">
-                    <div className="p-4">
+                    <div className="p-4 min-h-full">
                         {isLoading ? (
                             <div className="flex flex-col items-center justify-center py-20 gap-3">
                                 <Loader2 className="w-6 h-6 animate-spin text-primary opacity-50" />
                                 <span className="text-[9px] font-black uppercase tracking-widest text-primary/40 italic">Syncing...</span>
                             </div>
-                        ) : filteredEntries.length === 0 ? (
+                        ) : sortedEntries.length === 0 ? (
                             <div className="flex flex-col items-center justify-center py-20 text-white/10 gap-3">
-                                <FolderOpen className="w-8 h-8 opacity-20" />
+                                <EmptyFolderIcon className="w-8 h-8 opacity-20" />
                                 <p className="text-[10px] font-black uppercase tracking-widest italic">Empty</p>
                             </div>
                         ) : tab.viewMode === 'grid' ? (
                             <div className="grid grid-cols-[repeat(auto-fill,minmax(180px,1fr))] gap-6">
-                                {filteredEntries.map((entry) => (
+                                {sortedEntries.map((entry) => (
                                     <FileGridItem
                                         key={entry.path}
                                         entry={entry}
@@ -433,12 +550,19 @@ const ExplorerSplit = ({
                                         scanQueue={scanQueue}
                                         addToQueue={addToQueue}
                                         removeFromQueue={removeFromQueue}
+                                        renamingPath={renamingItem?.path || null}
+                                        onRenameCommit={(val) => {
+                                            setNewName(val);
+                                            // Trigger commit in parent context
+                                            setTimeout(onRenameCommit, 0);
+                                        }}
+                                        onRenameCancel={() => setRenamingItem(null)}
                                     />
                                 ))}
                             </div>
                         ) : (
                             <div className="space-y-1">
-                                {filteredEntries.map((entry) => (
+                                {sortedEntries.map((entry) => (
                                     <div
                                         key={entry.path}
                                         className="group/item flex items-center gap-3 p-2 rounded-lg hover:bg-white/[0.05] transition-all cursor-pointer border border-transparent hover:border-white/10"
@@ -449,10 +573,31 @@ const ExplorerSplit = ({
                                             {getListIcon(entry)}
                                         </div>
                                         <div className="flex-1 min-w-0">
-                                            <p className="text-[11px] font-bold truncate group-hover/item:text-primary transition-colors">{entry.name}</p>
-                                            <p className="text-[9px] text-white/20 font-mono tracking-tighter truncate">{entry.path}</p>
+                                            {renamingItem?.path === entry.path ? (
+                                                <input
+                                                    autoFocus
+                                                    value={newName}
+                                                    onChange={(e) => setNewName(e.target.value)}
+                                                    onKeyDown={(e) => {
+                                                        if (e.key === 'Enter') onRenameCommit();
+                                                        else if (e.key === 'Escape') setRenamingItem(null);
+                                                    }}
+                                                    onBlur={onRenameCommit}
+                                                    className="w-full bg-black/60 border border-primary/50 rounded px-2 py-0.5 text-[11px] font-bold text-white focus:outline-none"
+                                                />
+                                            ) : (
+                                                <>
+                                                    <p className="text-[11px] font-bold truncate group-hover/item:text-primary transition-colors">{entry.name}</p>
+                                                    <p className="text-[9px] text-white/20 font-mono tracking-tighter truncate">{entry.path}</p>
+                                                </>
+                                            )}
                                         </div>
                                         {!entry.is_dir && (
+                                            <div className="px-2 py-0.5 rounded bg-white/5 border border-white/5">
+                                                <span className="text-[9px] text-white/40 font-black tabular-nums">{formatSize(entry.size)}</span>
+                                            </div>
+                                        )}
+                                        {entry.is_dir && entry.size > 0 && (
                                             <div className="px-2 py-0.5 rounded bg-white/5 border border-white/5">
                                                 <span className="text-[9px] text-white/40 font-black tabular-nums">{formatSize(entry.size)}</span>
                                             </div>
@@ -486,9 +631,16 @@ const ExplorerSplit = ({
 export function FileExplorerView() {
     const {
         explorerTabs,
+        activeTabId,
         setActiveTabId,
         closeExplorerTab,
+        updateExplorerTab,
+        triggerRefresh,
+        refreshTrigger
     } = useStore();
+
+    // Container ref for absolute positioning
+    const containerRef = useRef<HTMLDivElement>(null);
 
     // Preview State (shared across splits)
     const [previewFile, setPreviewFile] = useState<FileEntry | null>(null);
@@ -532,14 +684,90 @@ export function FileExplorerView() {
         return () => document.removeEventListener("click", handleClick);
     }, []);
 
-    const handleContextMenu = (e: React.MouseEvent, entry: FileEntry) => {
+    const handleContextMenu = (e: React.MouseEvent, entry?: FileEntry, path?: string) => {
         e.preventDefault();
         e.stopPropagation();
+
+        const rect = containerRef.current?.getBoundingClientRect();
+        if (!rect) return;
+
+        let x = e.clientX - rect.left;
+        let y = e.clientY - rect.top;
+
+        // Simple collision detection (flip if near edge)
+        const menuWidth = 200;
+        const menuHeight = entry ? 200 : 120; // Estimations
+
+        if (x + menuWidth > rect.width) x -= menuWidth;
+        if (y + menuHeight > rect.height) y -= menuHeight;
+
         setContextMenu({
-            x: e.clientX,
-            y: e.clientY,
-            entry
+            x,
+            y,
+            entry,
+            type: entry ? 'item' : 'background',
+            path: path || entry?.path || ""
         });
+    };
+
+    const generateUntitledName = (base: string, currentEntries: FileEntry[], isDir: boolean): string => {
+        let name = base;
+        let counter = 1;
+
+        while (currentEntries.find(e => e.name.toLowerCase() === name.toLowerCase() && e.is_dir === isDir)) {
+            name = `${base.split('.')[0]} (${counter})${base.includes('.') ? '.' + base.split('.').pop() : ''}`;
+            counter++;
+        }
+        return name;
+    };
+
+    const handleCreate = async (dirPath: string, type: 'file' | 'dir') => {
+        toast.promise(
+            async () => {
+                const name = type === 'dir' ? "Untitled Folder" : "untitled";
+                const extension = type === 'file' ? ".txt" : "";
+
+                const currentEntries = await invoke<FileEntry[]>("read_directory", { path: dirPath });
+                const finalName = generateUntitledName(name + extension, currentEntries, type === 'dir');
+
+                const fullPath = `${dirPath}/${finalName}`;
+                if (type === 'dir') {
+                    await invoke("create_dir", { path: fullPath });
+                } else {
+                    await invoke("create_file", { path: fullPath });
+                }
+
+                triggerRefresh();
+            },
+            {
+                loading: `Creating ${type}...`,
+                success: `${type === 'dir' ? 'Folder' : 'File'} created`,
+                error: (err) => `Failed to create: ${err}`
+            }
+        );
+    };
+
+    const [renamingItem, setRenamingItem] = useState<{ path: string, oldName: string } | null>(null);
+    const [newName, setNewName] = useState("");
+
+    const handleRenameCommit = async () => {
+        if (!renamingItem || !newName.trim() || newName === renamingItem.oldName) {
+            setRenamingItem(null);
+            return;
+        }
+
+        const oldPath = renamingItem.path;
+        const parentDir = oldPath.substring(0, oldPath.lastIndexOf('/'));
+        const newPath = `${parentDir}/${newName.trim()}`;
+
+        try {
+            await invoke("rename_path", { oldPath, newPath });
+            toast.success("Renamed successfully");
+            setRenamingItem(null);
+            triggerRefresh();
+        } catch (error) {
+            toast.error(`Rename failed: ${error}`);
+        }
     };
 
     const handleDelete = async (entry: FileEntry) => {
@@ -556,10 +784,7 @@ export function FileExplorerView() {
                 if (previewFile?.path === entry.path) {
                     setPreviewFile(null);
                 }
-                // Refresh is tricky with multi-split, but typically we want to refresh all splits
-                // In this simple impl, loadDirectory is called on path change.
-                // To force refresh without store changes, we'd need a refresh bus.
-                // For now, let's just toast and expect user to nav back/forth or rely on auto-refresh if we added it.
+                triggerRefresh();
             } else {
                 const msg = report.errors && report.errors.length > 0 ? report.errors[0] : "Failed to delete item";
                 toast.error(msg, { id: toastId, duration: 4000 });
@@ -598,7 +823,10 @@ export function FileExplorerView() {
     }
 
     return (
-        <div className="flex-1 flex flex-col h-full overflow-hidden bg-background/20 backdrop-blur-md text-white relative">
+        <div
+            ref={containerRef}
+            className="flex-1 flex flex-col h-full overflow-hidden bg-background/20 backdrop-blur-md text-white relative"
+        >
             <header className="flex h-14 shrink-0 items-center justify-between gap-2 px-4 border-b border-border/10 backdrop-blur-xl sticky top-0 z-10">
                 <div className="flex items-center gap-3">
                     <SidebarTrigger className="h-8 w-8 text-white/40 hover:text-white" />
@@ -627,6 +855,12 @@ export function FileExplorerView() {
                             }}
                             onContextMenu={handleContextMenu}
                             onClose={() => closeExplorerTab(tab.id)}
+                            renamingItem={renamingItem}
+                            setRenamingItem={setRenamingItem}
+                            onRenameCommit={handleRenameCommit}
+                            newName={newName}
+                            setNewName={setNewName}
+                            refreshTrigger={refreshTrigger}
                         />
                     ))}
                 </div>
@@ -717,53 +951,149 @@ export function FileExplorerView() {
             {/* Context Menu */}
             {contextMenu && (
                 <div
-                    className="fixed z-[100] min-w-[180px] glass-dark border border-white/10 rounded-xl shadow-2xl p-1 animate-in fade-in zoom-in-95 duration-200"
+                    className="absolute z-[100] min-w-[200px] bg-white border border-slate-200 rounded-2xl shadow-[0_20px_50px_rgba(0,0,0,0.2)] p-1.5 animate-in fade-in zoom-in-95 duration-200"
                     style={{ top: contextMenu.y, left: contextMenu.x }}
                     onClick={(e) => e.stopPropagation()}
                 >
-                    <div className="px-3 py-2 text-[9px] font-black text-white/30 uppercase tracking-widest border-b border-white/5 mb-1 truncate italic">
-                        {contextMenu.entry.name}
-                    </div>
-                    <button
-                        onClick={() => {
-                            invoke("reveal_in_finder", { path: contextMenu.entry.path });
-                            setContextMenu(null);
-                        }}
-                        className="w-full text-left flex items-center gap-3 px-3 py-2 rounded-lg hover:bg-white/10 text-[10px] font-bold text-white transition-all group"
-                    >
-                        <ExternalLink className="w-3.5 h-3.5 text-primary group-hover:scale-110 transition-transform" />
-                        Reveal in Finder
-                    </button>
-                    <button
-                        onClick={() => {
-                            navigator.clipboard.writeText(contextMenu.entry.path);
-                            setContextMenu(null);
-                            toast.success("Path copied");
-                        }}
-                        className="w-full text-left flex items-center gap-3 px-3 py-2 rounded-lg hover:bg-white/10 text-[10px] font-bold text-white transition-all group"
-                    >
-                        <FileText className="w-3.5 h-3.5 text-primary group-hover:scale-110 transition-transform" />
-                        Copy Path
-                    </button>
-                    <div className="h-px bg-white/5 my-1" />
-                    <button
-                        onClick={() => {
-                            handleDelete(contextMenu.entry);
-                            setContextMenu(null);
-                        }}
-                        className="w-full text-left flex items-center gap-3 px-3 py-2 rounded-lg hover:bg-red-500/15 text-[10px] font-bold text-red-400 group transition-all"
-                    >
-                        <Trash2 className="w-3.5 h-3.5 group-hover:scale-110 transition-transform" />
-                        Purge
-                    </button>
+                    {contextMenu.type === 'item' && contextMenu.entry && (
+                        <>
+                            <div className="px-3 py-2 text-[10px] font-black text-slate-400 uppercase tracking-widest border-b border-slate-100 mb-1.5 truncate italic">
+                                {contextMenu.entry.name}
+                            </div>
+                            <button
+                                onClick={() => {
+                                    invoke("reveal_in_finder", { path: contextMenu.entry!.path });
+                                    setContextMenu(null);
+                                }}
+                                className="w-full text-left flex items-center gap-3 px-3 py-2 rounded-xl hover:bg-slate-100 text-[11px] font-bold text-slate-700 transition-all group"
+                            >
+                                <ExternalLink className="w-3.5 h-3.5 text-primary group-hover:scale-110 transition-transform" />
+                                Reveal in Finder
+                            </button>
+                            <button
+                                onClick={() => {
+                                    navigator.clipboard.writeText(contextMenu.entry!.path);
+                                    setContextMenu(null);
+                                    toast.success("Path copied");
+                                }}
+                                className="w-full text-left flex items-center gap-3 px-3 py-2 rounded-xl hover:bg-slate-100 text-[11px] font-bold text-slate-700 transition-all group"
+                            >
+                                <FileText className="w-3.5 h-3.5 text-primary group-hover:scale-110 transition-transform" />
+                                Copy Path
+                            </button>
+                            <button
+                                onClick={() => {
+                                    setRenamingItem({ path: contextMenu.entry!.path, oldName: contextMenu.entry!.name });
+                                    setNewName(contextMenu.entry!.name);
+                                    setContextMenu(null);
+                                }}
+                                className="w-full text-left flex items-center gap-3 px-3 py-2 rounded-xl hover:bg-slate-100 text-[11px] font-bold text-slate-700 transition-all group"
+                            >
+                                <Edit2 className="w-3.5 h-3.5 text-primary group-hover:scale-110 transition-transform" />
+                                Rename
+                            </button>
+                            <div className="h-px bg-slate-100 my-1.5" />
+                            <button
+                                onClick={() => {
+                                    handleDelete(contextMenu.entry!);
+                                    setContextMenu(null);
+                                }}
+                                className="w-full text-left flex items-center gap-3 px-3 py-2 rounded-xl hover:bg-red-50 text-[11px] font-bold text-red-500 group transition-all"
+                            >
+                                <Trash2 className="w-3.5 h-3.5 group-hover:scale-110 transition-transform" />
+                                Purge
+                            </button>
+                        </>
+                    )}
+
+                    {contextMenu.type === 'background' && (
+                        <div className="flex flex-col">
+                            <button
+                                onClick={() => {
+                                    handleCreate(contextMenu.path, 'dir');
+                                    setContextMenu(null);
+                                }}
+                                className="w-full text-left flex items-center gap-3 px-3 py-2 rounded-xl hover:bg-slate-100 text-[11px] font-bold text-slate-700 transition-all group"
+                            >
+                                <FolderPlus className="w-3.5 h-3.5 text-primary group-hover:scale-110 transition-transform" />
+                                New Folder
+                            </button>
+                            <button
+                                onClick={() => {
+                                    handleCreate(contextMenu.path, 'file');
+                                    setContextMenu(null);
+                                }}
+                                className="w-full text-left flex items-center gap-3 px-3 py-2 rounded-xl hover:bg-slate-100 text-[11px] font-bold text-slate-700 transition-all group"
+                            >
+                                <FilePlus className="w-3.5 h-3.5 text-primary group-hover:scale-110 transition-transform" />
+                                New File
+                            </button>
+                            <div className="h-px bg-slate-100 my-1.5" />
+                            <div className="px-3 py-1.5 text-[9px] font-black text-slate-300 uppercase tracking-[0.2em] italic">
+                                Sort Display
+                            </div>
+                            <button
+                                onClick={() => {
+                                    const tabId = explorerTabs.find(t => t.path === contextMenu.path)?.id || activeTabId;
+                                    if (tabId) updateExplorerTab(tabId, { sortBy: 'name' });
+                                    setContextMenu(null);
+                                }}
+                                className="w-full text-left flex items-center gap-3 px-3 py-2 rounded-xl hover:bg-slate-100 text-[11px] font-bold text-slate-700 transition-all group"
+                            >
+                                <SortAsc className="w-3.5 h-3.5 text-primary group-hover:scale-110 transition-transform" />
+                                Sort by Name
+                            </button>
+                            <button
+                                onClick={() => {
+                                    const tabId = explorerTabs.find(t => t.path === contextMenu.path)?.id || activeTabId;
+                                    if (tabId) updateExplorerTab(tabId, { sortBy: 'modified' });
+                                    setContextMenu(null);
+                                }}
+                                className="w-full text-left flex items-center gap-3 px-3 py-2 rounded-xl hover:bg-slate-100 text-[11px] font-bold text-slate-700 transition-all group"
+                            >
+                                <Play className="rotate-90 w-3.5 h-3.5 text-primary group-hover:scale-110 transition-transform" />
+                                Sort by Created
+                            </button>
+                            <button
+                                onClick={() => {
+                                    const tabId = explorerTabs.find(t => t.path === contextMenu.path)?.id || activeTabId;
+                                    if (tabId) updateExplorerTab(tabId, { sortBy: 'kind' });
+                                    setContextMenu(null);
+                                }}
+                                className="w-full text-left flex items-center gap-3 px-3 py-2 rounded-xl hover:bg-slate-100 text-[11px] font-bold text-slate-700 transition-all group"
+                            >
+                                <FileText className="w-3.5 h-3.5 text-primary group-hover:scale-110 transition-transform" />
+                                Sort by Kind
+                            </button>
+                            <div className="h-px bg-slate-100 my-1.5" />
+                            <div className="px-3 py-1.5 text-[9px] font-black text-slate-300 uppercase tracking-[0.2em] italic">
+                                Direction
+                            </div>
+                            <button
+                                onClick={() => {
+                                    const tabId = explorerTabs.find(t => t.path === contextMenu.path)?.id || activeTabId;
+                                    const currentOrder = explorerTabs.find(t => t.id === tabId)?.sortOrder || 'asc';
+                                    if (tabId) updateExplorerTab(tabId, { sortOrder: currentOrder === 'asc' ? 'desc' : 'asc' });
+                                    setContextMenu(null);
+                                }}
+                                className="w-full text-left flex items-center gap-3 px-3 py-2 rounded-xl hover:bg-slate-100 text-[11px] font-bold text-slate-700 transition-all group"
+                            >
+                                {(explorerTabs.find(t => t.id === (explorerTabs.find(t => t.path === contextMenu.path)?.id || activeTabId))?.sortOrder === 'asc') ? (
+                                    <>
+                                        <SortDesc className="w-3.5 h-3.5 text-primary group-hover:scale-110 transition-transform" />
+                                        Switch to Descending
+                                    </>
+                                ) : (
+                                    <>
+                                        <SortAsc className="w-3.5 h-3.5 text-primary group-hover:scale-110 transition-transform" />
+                                        Switch to Ascending
+                                    </>
+                                )}
+                            </button>
+                        </div>
+                    )}
                 </div>
             )}
         </div>
     );
 }
-
-const FolderOpen = ({ className }: { className?: string }) => (
-    <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}>
-        <path d="m6 14 1.45-2.9A2 2 0 0 1 9.24 10H20a2 2 0 0 1 1.94 2.5l-1.55 6a2 2 0 0 1-1.94 1.5H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h3.9a2 2 0 0 1 1.69.9l.81 1.2a2 2 0 0 0 1.69.9H18a2 2 0 0 1 2 2v2" />
-    </svg>
-);

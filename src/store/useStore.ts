@@ -20,6 +20,8 @@ export interface ExplorerTab {
   historyIndex: number;
   viewMode: 'grid' | 'list';
   searchQuery: string;
+  sortBy: 'name' | 'size' | 'modified' | 'kind';
+  sortOrder: 'asc' | 'desc';
 }
 
 interface UIState {
@@ -66,6 +68,8 @@ interface UIState {
   setActiveTabId: (id: string | null) => void;
   updateExplorerTab: (id: string, updates: Partial<ExplorerTab>) => void;
   removeDeletedFromResults: (paths: string[]) => void;
+  refreshTrigger: number;
+  triggerRefresh: () => void;
   isVoiceEnabled: boolean;
   setVoiceEnabled: (enabled: boolean) => void;
 }
@@ -90,9 +94,13 @@ export const useStore = create<UIState>((set) => ({
   explorerTabs: (JSON.parse(localStorage.getItem('aether-explorer-tabs') || '[]') as ExplorerTab[]).map(t => ({
     ...t,
     viewMode: t.viewMode || 'grid',
-    searchQuery: t.searchQuery || ''
+    searchQuery: t.searchQuery || '',
+    sortBy: t.sortBy || 'name',
+    sortOrder: t.sortOrder || 'asc'
   })),
   activeTabId: localStorage.getItem('aether-active-tab-id'),
+  refreshTrigger: 0,
+  triggerRefresh: () => set((state) => ({ refreshTrigger: state.refreshTrigger + 1 })),
   isVoiceEnabled: false, // ALWAYS OFF by default (User must explicitly enable)
   setScanning: (isScanning) => set({ isScanning }),
   setVoiceEnabled: (enabled) => {
@@ -134,7 +142,9 @@ export const useStore = create<UIState>((set) => ({
       history: [path],
       historyIndex: 0,
       viewMode: 'grid',
-      searchQuery: ''
+      searchQuery: '',
+      sortBy: 'name',
+      sortOrder: 'asc'
     };
 
     const newTabs = [...state.explorerTabs, newTab];

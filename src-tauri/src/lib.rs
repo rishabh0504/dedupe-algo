@@ -348,6 +348,49 @@ fn get_folder_size(path: String) -> u64 {
 }
 
 #[tauri::command]
+fn get_bulk_dir_sizes(parent_path: String) -> HashMap<String, u64> {
+    let mut results = HashMap::new();
+    
+    // macOS/Linux Optimization: Use 'du' command for rapid bulk sizing
+    let output = Command::new("du")
+        .args(["-k", "-d", "1", &parent_path])
+        .output();
+
+    if let Ok(out) = output {
+        let stdout = String::from_utf8_lossy(&out.stdout);
+        for line in stdout.lines() {
+            let parts: Vec<&str> = line.split_whitespace().collect();
+            if parts.len() >= 2 {
+                if let Ok(kbytes) = parts[0].parse::<u64>() {
+                    let path = parts[1..].join(" ");
+                    if path != parent_path {
+                         results.insert(path, kbytes * 1024);
+                    }
+                }
+            }
+        }
+    }
+
+    if results.is_empty() {
+        if let Ok(entries) = std::fs::read_dir(&parent_path) {
+            let dir_paths: Vec<String> = entries.filter_map(|e| e.ok())
+                .filter(|e| e.file_type().map(|t| t.is_dir()).unwrap_or(false))
+                .map(|e| e.path().to_string_lossy().to_string())
+                .collect();
+
+            let sizes: Vec<(String, u64)> = dir_paths.into_par_iter()
+                .map(|path| (path.clone(), get_folder_size(path)))
+                .collect();
+            
+            for (path, size) in sizes {
+                results.insert(path, size);
+            }
+        }
+    }
+    results
+}
+
+#[tauri::command]
 fn reveal_in_finder(path: String) {
     #[cfg(target_os = "macos")]
     {
@@ -426,6 +469,21 @@ struct FileEntry {
     size: u64,
     created: u64,
     modified: u64,
+}
+
+#[tauri::command]
+fn create_dir(path: String) -> Result<(), String> {
+    std::fs::create_dir_all(&path).map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+fn create_file(path: String) -> Result<(), String> {
+    std::fs::File::create(&path).map(|_| ()).map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+fn rename_path(old_path: String, new_path: String) -> Result<(), String> {
+    std::fs::rename(old_path, new_path).map_err(|e| e.to_string())
 }
 
 #[tauri::command]
@@ -553,11 +611,15 @@ pub fn run() {
             reveal_in_finder,
             allow_folder_access,
             get_folder_size,
+            get_bulk_dir_sizes,
             reset_cache,
             get_subdirectories,
             read_directory,
             get_model_path,
-            speak_native_macos
+            speak_native_macos,
+            create_dir,
+            create_file,
+            rename_path
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
