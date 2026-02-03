@@ -12,6 +12,16 @@ export interface ScanResult {
   groups: FileMetadata[][];
 }
 
+export interface ExplorerTab {
+  id: string;
+  name: string;
+  path: string;
+  history: string[];
+  historyIndex: number;
+  viewMode: 'grid' | 'list';
+  searchQuery: string;
+}
+
 interface UIState {
   isScanning: boolean;
   scanQueue: string[];
@@ -46,9 +56,15 @@ interface UIState {
   activeView: 'explorer' | 'dedupe' | 'jarvis';
   activeDedupeTab: 'queue' | 'results';
   explorerPath: string | null;
+  explorerTabs: ExplorerTab[];
+  activeTabId: string | null;
   setActiveView: (view: 'explorer' | 'dedupe' | 'jarvis') => void;
   setActiveDedupeTab: (tab: 'queue' | 'results') => void;
   setExplorerPath: (path: string | null) => void;
+  addExplorerTab: (name: string, path: string) => void;
+  closeExplorerTab: (id: string) => void;
+  setActiveTabId: (id: string | null) => void;
+  updateExplorerTab: (id: string, updates: Partial<ExplorerTab>) => void;
   removeDeletedFromResults: (paths: string[]) => void;
   isVoiceEnabled: boolean;
   setVoiceEnabled: (enabled: boolean) => void;
@@ -71,6 +87,12 @@ export const useStore = create<UIState>((set) => ({
   activeView: (localStorage.getItem('aether-active-view') as any) || 'explorer',
   activeDedupeTab: (localStorage.getItem('aether-dedupe-tab') as any) || 'queue',
   explorerPath: localStorage.getItem('aether-explorer-path'),
+  explorerTabs: (JSON.parse(localStorage.getItem('aether-explorer-tabs') || '[]') as ExplorerTab[]).map(t => ({
+    ...t,
+    viewMode: t.viewMode || 'grid',
+    searchQuery: t.searchQuery || ''
+  })),
+  activeTabId: localStorage.getItem('aether-active-tab-id'),
   isVoiceEnabled: false, // ALWAYS OFF by default (User must explicitly enable)
   setScanning: (isScanning) => set({ isScanning }),
   setVoiceEnabled: (enabled) => {
@@ -104,6 +126,76 @@ export const useStore = create<UIState>((set) => ({
     }
     set({ explorerPath });
   },
+  addExplorerTab: (name, path) => set((state) => {
+    const newTab: ExplorerTab = {
+      id: Math.random().toString(36).substring(7),
+      name,
+      path,
+      history: [path],
+      historyIndex: 0,
+      viewMode: 'grid',
+      searchQuery: ''
+    };
+
+    const newTabs = [...state.explorerTabs, newTab];
+    localStorage.setItem('aether-explorer-tabs', JSON.stringify(newTabs));
+    localStorage.setItem('aether-active-tab-id', newTab.id);
+    return {
+      explorerTabs: newTabs,
+      activeTabId: newTab.id,
+      explorerPath: path // Keep sync for legacy or shared parts
+    };
+  }),
+  closeExplorerTab: (id) => set((state) => {
+    const newTabs = state.explorerTabs.filter(t => t.id !== id);
+    let nextActiveId = state.activeTabId;
+
+    if (state.activeTabId === id) {
+      nextActiveId = newTabs.length > 0 ? newTabs[newTabs.length - 1].id : null;
+    }
+
+    localStorage.setItem('aether-explorer-tabs', JSON.stringify(newTabs));
+    if (nextActiveId) {
+      localStorage.setItem('aether-active-tab-id', nextActiveId);
+    } else {
+      localStorage.removeItem('aether-active-tab-id');
+    }
+
+    const activeTab = newTabs.find(t => t.id === nextActiveId);
+
+    return {
+      explorerTabs: newTabs,
+      activeTabId: nextActiveId,
+      explorerPath: activeTab?.path || null
+    };
+  }),
+  setActiveTabId: (id) => {
+    if (id) {
+      localStorage.setItem('aether-active-tab-id', id);
+    } else {
+      localStorage.removeItem('aether-active-tab-id');
+    }
+    set((state) => {
+      const activeTab = state.explorerTabs.find(t => t.id === id);
+      return {
+        activeTabId: id,
+        explorerPath: activeTab?.path || state.explorerPath
+      };
+    });
+  },
+  updateExplorerTab: (id, updates) => set((state) => {
+    const newTabs = state.explorerTabs.map(t =>
+      t.id === id ? { ...t, ...updates } : t
+    );
+    localStorage.setItem('aether-explorer-tabs', JSON.stringify(newTabs));
+
+    const activeTab = newTabs.find(t => t.id === state.activeTabId);
+
+    return {
+      explorerTabs: newTabs,
+      explorerPath: activeTab?.path || state.explorerPath
+    };
+  }),
   setOnboarded: (val: boolean) => {
     localStorage.setItem('aether-onboarded', val.toString());
     set({ isOnboarded: val });

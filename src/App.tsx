@@ -1,4 +1,4 @@
-import { SidebarProvider, SidebarInset } from "@/components/ui/sidebar";
+import { SidebarProvider, SidebarInset, SidebarTrigger } from "@/components/ui/sidebar";
 import { AppSidebar } from "./components/Sidebar";
 import { ResultsView } from "./components/ResultsView";
 import { ScanQueueView } from "./components/ScanQueueView";
@@ -253,6 +253,8 @@ function DedupeView({
     <div className="flex-1 flex flex-col overflow-hidden">
       <header className="flex h-16 shrink-0 items-center justify-between gap-2 px-6 border-b border-border/50 backdrop-blur-xl sticky top-0 z-10">
         <div className="flex items-center gap-3">
+          <SidebarTrigger className="h-8 w-8 text-white/40 hover:text-white" />
+          <div className="h-4 w-px bg-white/10 mx-1" />
           <div className="p-2 rounded-xl bg-primary/10 border border-primary/20">
             <img src="/src/assets/logo.png" alt="Logo" className="w-5 h-5 object-contain" />
           </div>

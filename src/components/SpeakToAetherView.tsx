@@ -1,7 +1,8 @@
 import { motion } from "framer-motion";
 import { Mic, Send, Volume2 } from "lucide-react";
-import { useEffect, useRef, useState } from "react";
+import { useRef, useState, useEffect } from "react";
 import { Message } from "../hooks/useTextConversationAgent";
+import { SidebarTrigger } from "@/components/ui/sidebar";
 
 interface SpeakToAetherViewProps {
     state: 'Idle' | 'Listening' | 'Thinking' | 'Speaking';
@@ -40,6 +41,8 @@ export function SpeakToAetherView({ state, status, messages, onSend, resetToList
         <div className="flex flex-col h-full w-full relative overflow-hidden bg-background/95 backdrop-blur-sm">
             <header className="flex h-16 shrink-0 items-center justify-between gap-2 px-6 border-b border-primary/20 bg-black/40 backdrop-blur-xl sticky top-0 z-10 transition-all duration-500 animate-in fade-in slide-in-from-top-2">
                 <div className="flex items-center gap-4">
+                    <SidebarTrigger className="h-8 w-8 text-white/40 hover:text-white" />
+                    <div className="h-4 w-px bg-white/10 mx-1" />
                     <div className="relative w-10 h-10 flex items-center justify-center">
                         <div className={`absolute inset-0 rounded-full border border-primary/20
                                 ${state !== 'Idle' ? 'animate-spin [animation-duration:3s]' : ''}

@@ -28,7 +28,7 @@ export function SidebarItem({ node, level = 0 }: SidebarItemProps) {
     const [isLoading, setIsLoading] = useState(false);
     const [children, setChildren] = useState<Drive[]>([]);
     const [hasLoaded, setHasLoaded] = useState(false);
-    const { scanQueue, addToQueue, removeFromQueue, isScanning, setExplorerPath, setActiveView, setActiveDedupeTab } = useStore();
+    const { scanQueue, addToQueue, removeFromQueue, isScanning, addExplorerTab, setActiveView, setActiveDedupeTab } = useStore();
 
     const isQueued = scanQueue.includes(node.mount_point);
 
@@ -58,7 +58,7 @@ export function SidebarItem({ node, level = 0 }: SidebarItemProps) {
 
     const handleOpenExplorer = (e: React.MouseEvent) => {
         e.stopPropagation();
-        setExplorerPath(node.mount_point);
+        addExplorerTab(node.name, node.mount_point);
         setActiveView('explorer');
     };
 

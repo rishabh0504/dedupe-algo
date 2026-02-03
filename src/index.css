@@ -141,6 +141,14 @@
   .text-glow {
     text-shadow: 0 0 15px rgba(74, 222, 220, 0.5);
   }
+
+  .no-scrollbar::-webkit-scrollbar {
+    display: none;
+  }
+  .no-scrollbar {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
 }
 
 @keyframes slide-up {

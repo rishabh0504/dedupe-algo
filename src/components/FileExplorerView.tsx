@@ -20,8 +20,6 @@ import {
     Play,
     X,
     ExternalLink,
-    VideoOff,
-    ImageOff,
     Trash2
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -29,6 +27,7 @@ import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { cn, formatSize } from "@/lib/utils";
 import { toast } from "sonner";
+import { SidebarTrigger } from "@/components/ui/sidebar";
 
 interface FileEntry {
     name: string;
@@ -63,11 +62,14 @@ const FileGridItem = ({
 }) => {
     const [mediaError, setMediaError] = useState(false);
     const [isHovering, setIsHovering] = useState(false);
+    const [duration, setDuration] = useState<string | null>(null);
+    const [isVisible, setIsVisible] = useState(false);
     const videoRef = useRef<HTMLVideoElement>(null);
+    const itemRef = useRef<HTMLDivElement>(null);
+
     const ext = entry.name.split('.').pop()?.toLowerCase();
     const isImage = ["jpg", "jpeg", "png", "webp", "gif", "svg"].includes(ext || "");
     const isVideo = ["mp4", "mov", "mkv", "webm", "avi"].includes(ext || "");
-    const [duration, setDuration] = useState<string | null>(null);
 
     const formatDuration = (seconds: number) => {
         if (!seconds || isNaN(seconds)) return null;
@@ -77,6 +79,21 @@ const FileGridItem = ({
         if (h > 0) return `${h}:${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
         return `${m}:${s.toString().padStart(2, '0')}`;
     };
+
+    useEffect(() => {
+        const observer = new IntersectionObserver(([entry]) => {
+            if (entry.isIntersecting) {
+                setIsVisible(true);
+                observer.disconnect();
+            }
+        }, { rootMargin: '200px' });
+
+        if (itemRef.current) {
+            observer.observe(itemRef.current);
+        }
+
+        return () => observer.disconnect();
+    }, []);
 
     useEffect(() => {
         if (isVideo && videoRef.current) {
@@ -90,6 +107,10 @@ const FileGridItem = ({
     }, [isHovering, isVideo]);
 
     const renderPreview = () => {
+        if (!isVisible && !entry.is_dir) {
+            return <div className="w-full h-full bg-white/[0.02] animate-pulse" />;
+        }
+
         if (entry.is_dir) {
             return <Folder className="w-20 h-20 text-blue-400 fill-blue-400/10 drop-shadow-[0_10px_20px_rgba(59,130,246,0.3)] transition-transform group-hover:scale-110" />;
         }
@@ -118,7 +139,7 @@ const FileGridItem = ({
                             muted
                             loop
                             playsInline
-                            preload="metadata"
+                            preload="none"
                             onLoadedMetadata={(e) => setDuration(formatDuration(e.currentTarget.duration))}
                             onError={() => setMediaError(true)}
                         />
@@ -143,6 +164,7 @@ const FileGridItem = ({
 
     return (
         <div
+            ref={itemRef}
             className={cn(
                 "group relative flex flex-col items-center rounded-[32px] transition-all duration-500 cursor-pointer border border-white/[0.03] hover:border-white/20 hover:shadow-[0_25px_50px_rgba(0,0,0,0.5),0_0_30px_rgba(255,255,255,0.03)] animate-scale-in overflow-hidden active:scale-95",
                 entry.is_dir
@@ -212,29 +234,269 @@ const FileGridItem = ({
                     <p className="text-[9px] text-primary/40 font-black uppercase tracking-widest mt-1">Directory Segment</p>
                 </div>
             )}
+        </div>
+    );
+};
 
-            {/* Inner Glow/Rim Light Effect */}
-            <div className="absolute inset-0 rounded-[32px] opacity-0 group-hover:opacity-100 transition-opacity duration-700 pointer-events-none bg-gradient-to-br from-white/[0.07] to-transparent ring-1 ring-inset ring-white/[0.07]" />
+
+const ExplorerSplit = ({
+    tab,
+    onFileClick,
+    onContextMenu,
+    onClose
+}: {
+    tab: any;
+    onFileClick: (entry: FileEntry) => void;
+    onContextMenu: (e: React.MouseEvent, entry: FileEntry) => void;
+    onClose: () => void;
+}) => {
+    const { scanQueue, addToQueue, removeFromQueue, updateExplorerTab } = useStore();
+    const [entries, setEntries] = useState<FileEntry[]>([]);
+    const [isLoading, setIsLoading] = useState(false);
+
+    useEffect(() => {
+        loadDirectory(tab.path);
+    }, [tab.path]);
+
+    const loadDirectory = async (path: string) => {
+        setIsLoading(true);
+        try {
+            const data = await invoke<FileEntry[]>("read_directory", { path });
+            setEntries(data);
+        } catch (error) {
+            console.error("Failed to read directory:", error);
+            handleUp();
+        } finally {
+            setIsLoading(false);
+        }
+    };
+
+    const handleBack = () => {
+        if (tab.historyIndex > 0) {
+            const newIndex = tab.historyIndex - 1;
+            const newPath = tab.history[newIndex];
+            updateExplorerTab(tab.id, {
+                path: newPath,
+                historyIndex: newIndex,
+                name: newPath.split(/[/\\]/).pop() || tab.name
+            });
+        }
+    };
+
+    const handleForward = () => {
+        if (tab.historyIndex < tab.history.length - 1) {
+            const newIndex = tab.historyIndex + 1;
+            const newPath = tab.history[newIndex];
+            updateExplorerTab(tab.id, {
+                path: newPath,
+                historyIndex: newIndex,
+                name: newPath.split(/[/\\]/).pop() || tab.name
+            });
+        }
+    };
+
+    const handleUp = () => {
+        const parts = tab.path.split(/[/\\]/);
+        parts.pop();
+        const parentPath = parts.join("/");
+        if (parts.length > 0) {
+            const target = parentPath || "/";
+            if (target === tab.path) return;
+
+            const newHistory = tab.history.slice(0, tab.historyIndex + 1);
+            newHistory.push(target);
+
+            updateExplorerTab(tab.id, {
+                path: target,
+                name: target.split(/[/\\]/).pop() || "Root",
+                history: newHistory,
+                historyIndex: newHistory.length - 1
+            });
+        }
+    };
+
+    const handleEntryClick = (entry: FileEntry) => {
+        if (entry.is_dir) {
+            const newHistory = tab.history.slice(0, tab.historyIndex + 1);
+            newHistory.push(entry.path);
+
+            updateExplorerTab(tab.id, {
+                path: entry.path,
+                name: entry.name,
+                history: newHistory,
+                historyIndex: newHistory.length - 1
+            });
+        } else {
+            onFileClick(entry);
+        }
+    };
+
+    const filteredEntries = entries.filter(e =>
+        e.name.toLowerCase().includes((tab.searchQuery || "").toLowerCase())
+    );
+
+    const getListIcon = (entry: FileEntry) => {
+        if (entry.is_dir) return <Folder className="w-5 h-5 text-blue-400" />;
+        const ext = entry.name.split('.').pop()?.toLowerCase();
+        if (["jpg", "jpeg", "png", "webp", "gif"].includes(ext || "")) return <ImageIcon className="w-5 h-5 text-purple-400" />;
+        if (["mp4", "mov", "mkv"].includes(ext || "")) return <Video className="w-5 h-5 text-red-400" />;
+        return <File className="w-5 h-5 text-slate-400" />;
+    };
+
+    return (
+        <div className="flex-1 flex flex-col min-w-[320px] border-r border-white/5 bg-black/20 overflow-hidden relative group/split">
+            {/* Split Header */}
+            <div className="flex h-11 shrink-0 items-center justify-between px-4 bg-white/[0.03] border-b border-white/5">
+                <div className="flex items-center gap-2 overflow-hidden">
+                    <Folder className="w-3.5 h-3.5 text-primary" />
+                    <span className="text-[11px] font-black uppercase tracking-tight truncate italic text-primary">{tab.name}</span>
+                </div>
+                <button
+                    onClick={onClose}
+                    className="p-1 rounded-md hover:bg-white/10 text-white/40 hover:text-white transition-all ml-2"
+                >
+                    <X className="w-3.5 h-3.5" />
+                </button>
+            </div>
+
+            {/* Toolbar */}
+            <div className="flex flex-col gap-2 p-3 border-b border-white/5 bg-black/40">
+                <div className="flex items-center gap-2">
+                    <div className="flex items-center gap-1 p-1 bg-white/5 rounded-lg border border-white/5">
+                        <Button variant="ghost" size="icon" onClick={handleBack} disabled={tab.historyIndex <= 0} className="h-7 w-7 rounded-md">
+                            <ChevronLeft className="w-3.5 h-3.5" />
+                        </Button>
+                        <Button variant="ghost" size="icon" onClick={handleForward} disabled={tab.historyIndex >= tab.history.length - 1} className="h-7 w-7 rounded-md">
+                            <ChevronRight className="w-3.5 h-3.5" />
+                        </Button>
+                        <Button variant="ghost" size="icon" onClick={handleUp} className="h-7 w-7 rounded-md">
+                            <ArrowUp className="w-3.5 h-3.5" />
+                        </Button>
+                    </div>
+                    <div className="flex-1 relative group">
+                        <div className="absolute inset-y-0 left-2.5 flex items-center pointer-events-none text-white/20 group-focus-within:text-primary transition-colors">
+                            <Search className="w-3 h-3" />
+                        </div>
+                        <Input
+                            placeholder="Search..."
+                            value={tab.searchQuery || ""}
+                            onChange={(e) => updateExplorerTab(tab.id, { searchQuery: e.target.value })}
+                            className="h-8 pl-8 bg-black/40 border-white/10 text-[10px] rounded-lg focus:border-primary/50"
+                        />
+                    </div>
+                    <div className="flex items-center bg-black/40 rounded-lg p-0.5 border border-white/5">
+                        <Button
+                            variant="ghost"
+                            size="icon"
+                            onClick={() => updateExplorerTab(tab.id, { viewMode: 'grid' })}
+                            className={cn("h-7 w-7 rounded-md", (tab.viewMode || 'grid') === 'grid' ? "bg-white/10 text-primary" : "text-white/40")}
+                        >
+                            <LayoutGrid className="w-3.5 h-3.5" />
+                        </Button>
+                        <Button
+                            variant="ghost"
+                            size="icon"
+                            onClick={() => updateExplorerTab(tab.id, { viewMode: 'list' })}
+                            className={cn("h-7 w-7 rounded-md", tab.viewMode === 'list' ? "bg-white/10 text-primary" : "text-white/40")}
+                        >
+                            <ListIcon className="w-3.5 h-3.5" />
+                        </Button>
+                    </div>
+                </div>
+                <div className="px-2">
+                    <p className="text-[9px] font-mono opacity-30 truncate">{tab.path}</p>
+                </div>
+            </div>
+
+            {/* Content Aria */}
+            <div className="flex-1 relative overflow-hidden">
+                <ScrollArea className="h-full w-full" type="always">
+                    <div className="p-4">
+                        {isLoading ? (
+                            <div className="flex flex-col items-center justify-center py-20 gap-3">
+                                <Loader2 className="w-6 h-6 animate-spin text-primary opacity-50" />
+                                <span className="text-[9px] font-black uppercase tracking-widest text-primary/40 italic">Syncing...</span>
+                            </div>
+                        ) : filteredEntries.length === 0 ? (
+                            <div className="flex flex-col items-center justify-center py-20 text-white/10 gap-3">
+                                <FolderOpen className="w-8 h-8 opacity-20" />
+                                <p className="text-[10px] font-black uppercase tracking-widest italic">Empty</p>
+                            </div>
+                        ) : tab.viewMode === 'grid' ? (
+                            <div className="grid grid-cols-[repeat(auto-fill,minmax(180px,1fr))] gap-6">
+                                {filteredEntries.map((entry) => (
+                                    <FileGridItem
+                                        key={entry.path}
+                                        entry={entry}
+                                        onClick={handleEntryClick}
+                                        onContextMenu={onContextMenu}
+                                        scanQueue={scanQueue}
+                                        addToQueue={addToQueue}
+                                        removeFromQueue={removeFromQueue}
+                                    />
+                                ))}
+                            </div>
+                        ) : (
+                            <div className="space-y-1">
+                                {filteredEntries.map((entry) => (
+                                    <div
+                                        key={entry.path}
+                                        className="group/item flex items-center gap-3 p-2 rounded-lg hover:bg-white/[0.05] transition-all cursor-pointer border border-transparent hover:border-white/10"
+                                        onClick={() => handleEntryClick(entry)}
+                                        onContextMenu={(e) => onContextMenu(e, entry)}
+                                    >
+                                        <div className="w-8 h-8 rounded-md bg-white/5 flex items-center justify-center border border-white/5 group-hover/item:border-primary/20 transition-all">
+                                            {getListIcon(entry)}
+                                        </div>
+                                        <div className="flex-1 min-w-0">
+                                            <p className="text-[11px] font-bold truncate group-hover/item:text-primary transition-colors">{entry.name}</p>
+                                            <p className="text-[9px] text-white/20 font-mono tracking-tighter truncate">{entry.path}</p>
+                                        </div>
+                                        {!entry.is_dir && (
+                                            <div className="px-2 py-0.5 rounded bg-white/5 border border-white/5">
+                                                <span className="text-[9px] text-white/40 font-black tabular-nums">{formatSize(entry.size)}</span>
+                                            </div>
+                                        )}
+                                        {entry.is_dir && (
+                                            <button
+                                                onClick={(e) => {
+                                                    e.stopPropagation();
+                                                    if (scanQueue.includes(entry.path)) removeFromQueue(entry.path);
+                                                    else addToQueue(entry.path);
+                                                }}
+                                                className={cn(
+                                                    "w-7 h-7 rounded-md flex items-center justify-center transition-all bg-white/5 border border-white/5",
+                                                    scanQueue.includes(entry.path) ? "bg-primary text-black opacity-100" : "text-white/20 opacity-0 group-hover/item:opacity-100"
+                                                )}
+                                            >
+                                                {scanQueue.includes(entry.path) ? <Minus className="w-3.5 h-3.5" /> : <Plus className="w-3.5 h-3.5" />}
+                                            </button>
+                                        )}
+                                    </div>
+                                ))}
+                            </div>
+                        )}
+                    </div>
+                </ScrollArea>
+            </div>
         </div>
     );
 };
 
 export function FileExplorerView() {
-    const { explorerPath, setExplorerPath, scanQueue, addToQueue, removeFromQueue } = useStore();
-    const [entries, setEntries] = useState<FileEntry[]>([]);
-    const [isLoading, setIsLoading] = useState(false);
-    const [searchQuery, setSearchQuery] = useState("");
-    const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
-    const [history, setHistory] = useState<string[]>([]);
-    const [historyIndex, setHistoryIndex] = useState(-1);
+    const {
+        explorerTabs,
+        setActiveTabId,
+        closeExplorerTab,
+    } = useStore();
 
-    // Preview State
+    // Preview State (shared across splits)
     const [previewFile, setPreviewFile] = useState<FileEntry | null>(null);
     const [previewError, setPreviewError] = useState(false);
     const [previewWidth, setPreviewWidth] = useState(420);
     const [isResizing, setIsResizing] = useState(false);
 
-    // Context Menu State
+    // Context Menu State (shared)
     const [contextMenu, setContextMenu] = useState<ContextMenuState | null>(null);
 
     useEffect(() => {
@@ -263,57 +525,12 @@ export function FileExplorerView() {
         };
     }, [isResizing]);
 
-    useEffect(() => {
-        if (explorerPath) {
-            loadDirectory(explorerPath);
-            setPreviewFile(null); // Clear preview on nav
-            setContextMenu(null); // Clear menu
-        }
-    }, [explorerPath]);
-
     // Close context menu on click elsewhere
     useEffect(() => {
         const handleClick = () => setContextMenu(null);
         document.addEventListener("click", handleClick);
         return () => document.removeEventListener("click", handleClick);
     }, []);
-
-    const loadDirectory = async (path: string) => {
-        setIsLoading(true);
-        try {
-            // Optimistic error handling (if path deleted)
-            const data = await invoke<FileEntry[]>("read_directory", { path });
-            setEntries(data);
-        } catch (error) {
-            console.error("Failed to read directory:", error);
-            // If current dir invalid, go up
-            handleUp();
-        } finally {
-            setIsLoading(false);
-        }
-    };
-
-    const handleEntryClick = async (entry: FileEntry) => {
-        if (entry.is_dir) {
-            if (entry.path === explorerPath) return;
-
-            const newHistory = history.slice(0, historyIndex + 1);
-            newHistory.push(entry.path);
-            setHistory(newHistory);
-            setHistoryIndex(newHistory.length - 1);
-
-            setExplorerPath(entry.path);
-        } else {
-            try {
-                const folderPath = entry.path.split('/').slice(0, -1).join('/');
-                await invoke("allow_folder_access", { path: folderPath });
-            } catch (err) {
-                console.error("Security handshake failed:", err);
-            }
-            setPreviewError(false);
-            setPreviewFile(entry);
-        }
-    };
 
     const handleContextMenu = (e: React.MouseEvent, entry: FileEntry) => {
         e.preventDefault();
@@ -336,14 +553,14 @@ export function FileExplorerView() {
 
             if (report.success_count > 0) {
                 toast.success("Item deleted", { id: toastId });
-                // If we deleted the currently previewed file, close preview
                 if (previewFile?.path === entry.path) {
                     setPreviewFile(null);
                 }
-                // Refresh directory
-                if (explorerPath) loadDirectory(explorerPath);
+                // Refresh is tricky with multi-split, but typically we want to refresh all splits
+                // In this simple impl, loadDirectory is called on path change.
+                // To force refresh without store changes, we'd need a refresh bus.
+                // For now, let's just toast and expect user to nav back/forth or rely on auto-refresh if we added it.
             } else {
-                // Show specific error if available
                 const msg = report.errors && report.errors.length > 0 ? report.errors[0] : "Failed to delete item";
                 toast.error(msg, { id: toastId, duration: 4000 });
             }
@@ -353,98 +570,28 @@ export function FileExplorerView() {
         }
     };
 
-    const handleBack = () => {
-        if (historyIndex > 0) {
-            const newIndex = historyIndex - 1;
-            setHistoryIndex(newIndex);
-            setExplorerPath(history[newIndex]);
-        }
-    };
-
-    const handleForward = () => {
-        if (historyIndex < history.length - 1) {
-            const newIndex = historyIndex + 1;
-            setHistoryIndex(newIndex);
-            setExplorerPath(history[newIndex]);
-        }
-    };
-
-    const handleUp = () => {
-        if (!explorerPath) return;
-        const parts = explorerPath.split(/[/\\]/);
-        parts.pop();
-        const parentPath = parts.join("/");
-        if (parts.length > 0) {
-            const target = parentPath || "/";
-            if (target === explorerPath) return;
-            const newHistory = history.slice(0, historyIndex + 1);
-            newHistory.push(target);
-            setHistory(newHistory);
-            setHistoryIndex(newHistory.length - 1);
-            setExplorerPath(target);
-        }
-    };
-
-    useEffect(() => {
-        if (explorerPath && history.length === 0) {
-            setHistory([explorerPath]);
-            setHistoryIndex(0);
-        }
-    }, [explorerPath]);
-
-    const filteredEntries = entries.filter(e =>
-        e.name.toLowerCase().includes(searchQuery.toLowerCase())
-    );
-
-    const isVideo = (path: string) => {
-        const ext = path.split('.').pop()?.toLowerCase();
-        return ["mp4", "mov", "mkv", "webm"].includes(ext || "");
-    };
-
     const safeConvertFileSrc = (path: string) => {
         if (!path) return "";
         return convertFileSrc(path);
     };
 
-    const getListIcon = (entry: FileEntry) => {
-        if (entry.is_dir) return <Folder className="w-5 h-5 text-blue-400" />;
-        const ext = entry.name.split('.').pop()?.toLowerCase();
-        if (["jpg", "jpeg", "png", "webp", "gif"].includes(ext || "")) return <ImageIcon className="w-5 h-5 text-purple-400" />;
-        if (["mp4", "mov", "mkv"].includes(ext || "")) return <Video className="w-5 h-5 text-red-400" />;
-        return <File className="w-5 h-5 text-slate-400" />;
-    };
-
-    if (!explorerPath) {
+    if (explorerTabs.length === 0) {
         return (
             <div className="flex-1 flex items-center justify-center relative overflow-hidden bg-black/5 animate-scale-in">
-                {/* Background Glows */}
                 <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[600px] bg-primary/10 rounded-full blur-[120px] opacity-20 animate-pulse" />
-
                 <div className="relative z-10 text-center max-w-2xl px-6">
                     <div className="inline-flex items-center justify-center w-24 h-24 rounded-[32px] bg-white/[0.03] border border-white/10 backdrop-blur-2xl mb-12 group hover:border-primary/40 transition-all duration-700 shadow-2xl">
                         <Folder className="w-10 h-10 text-primary/40 group-hover:text-primary transition-all duration-700 animate-float" />
                     </div>
-
                     <h1 className="text-7xl font-black text-white tracking-tighter mb-6 uppercase italic leading-none drop-shadow-[0_10px_30px_rgba(0,0,0,0.5)]">
-                        How may I <span className="text-primary italic">help</span> you?
+                        Spatial <span className="text-primary italic">Audit</span>
                     </h1>
-
                     <div className="flex flex-col items-center gap-4">
                         <div className="h-px w-24 bg-gradient-to-r from-transparent via-primary/50 to-transparent" />
                         <p className="text-[10px] font-black uppercase tracking-[0.4em] text-primary/40 italic flex items-center gap-3">
-                            <span className="w-1.5 h-1.5 rounded-full bg-primary animate-pulse" />
-                            Select a segment to begin data optimization
-                            <span className="w-1.5 h-1.5 rounded-full bg-primary animate-pulse" />
+                            Open segments from sidebar to begin
                         </p>
                     </div>
-                </div>
-
-                {/* Corner Accents */}
-                <div className="absolute bottom-12 left-12 p-8 border-l border-b border-white/5 opacity-40">
-                    <p className="text-[8px] font-mono text-white/20 tracking-widest uppercase">Initializing Core Protocol...</p>
-                </div>
-                <div className="absolute top-12 right-12 p-8 border-r border-t border-white/5 opacity-40 text-right">
-                    <p className="text-[8px] font-mono text-white/20 tracking-widest uppercase">System Status: Optimal</p>
                 </div>
             </div>
         );
@@ -452,160 +599,44 @@ export function FileExplorerView() {
 
     return (
         <div className="flex-1 flex flex-col h-full overflow-hidden bg-background/20 backdrop-blur-md text-white relative">
-            <header className="flex h-16 shrink-0 items-center justify-between gap-2 px-6 border-b border-border/50 backdrop-blur-xl sticky top-0 z-10 transition-all duration-500">
+            <header className="flex h-14 shrink-0 items-center justify-between gap-2 px-4 border-b border-border/10 backdrop-blur-xl sticky top-0 z-10">
                 <div className="flex items-center gap-3">
-                    <div className="p-2 rounded-xl bg-primary/10 border border-primary/20">
-                        <img src="/src/assets/logo.png" alt="Logo" className="w-5 h-5 object-contain" />
+                    <SidebarTrigger className="h-8 w-8 text-white/40 hover:text-white" />
+                    <div className="h-4 w-px bg-white/10 mx-1" />
+                    <div className="p-1.5 rounded-lg bg-primary/10 border border-primary/20">
+                        <img src="/src/assets/logo.png" alt="Logo" className="w-4 h-4 object-contain" />
                     </div>
-                    <div className="flex flex-col">
-                        <h1 className="text-sm font-bold tracking-tight">Aether Workspace</h1>
-                        <div className="flex items-center gap-2">
-                            <span className="text-[10px] font-mono opacity-50 truncate max-w-[300px]">{explorerPath}</span>
-                        </div>
-                    </div>
+                    <h1 className="text-xs font-black uppercase tracking-widest text-white/60 italic">Aether Multiview Explorer</h1>
+                </div>
+                <div className="flex items-center gap-4">
+                    <span className="text-[9px] font-black uppercase tracking-widest text-primary/40 italic">Active Segments: {explorerTabs.length}</span>
                 </div>
             </header>
 
-            <div className="flex-1 flex flex-row h-full overflow-hidden relative">
-                <div className="flex-1 flex flex-col h-full overflow-hidden border-r border-white/5">
-                    {/* Toolbar */}
-                    <div className="flex items-center gap-3 p-4 border-b border-white/5 bg-black/30 backdrop-blur-xl">
-                        <div className="flex items-center gap-1.5 p-1 bg-white/5 rounded-xl border border-white/5">
-                            <Button variant="ghost" size="icon" onClick={handleBack} disabled={historyIndex <= 0} className="h-8 w-8 hover:bg-white/10 rounded-lg disabled:opacity-20 text-white/70">
-                                <ChevronLeft className="w-4 h-4" />
-                            </Button>
-                            <Button variant="ghost" size="icon" onClick={handleForward} disabled={historyIndex >= history.length - 1} className="h-8 w-8 hover:bg-white/10 rounded-lg disabled:opacity-20 text-white/70">
-                                <ChevronRight className="w-4 h-4" />
-                            </Button>
-                            <Button variant="ghost" size="icon" onClick={handleUp} className="h-8 w-8 hover:bg-white/10 rounded-lg text-white/70">
-                                <ArrowUp className="w-4 h-4" />
-                            </Button>
-                        </div>
-
-                        <div className="flex-1 mx-2 relative group">
-                            <div className="absolute inset-y-0 left-3.5 flex items-center pointer-events-none text-primary/50 group-focus-within:text-primary transition-colors">
-                                <Folder className="w-4 h-4" />
-                            </div>
-                            <Input
-                                value={explorerPath}
-                                readOnly
-                                className="h-10 pl-10 pr-4 bg-black/40 border-white/10 text-xs font-mono rounded-xl focus:border-primary/50 transition-all text-white/60"
-                            />
-                        </div>
-
-                        <div className="relative w-64 group">
-                            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-white/30 group-focus-within:text-primary transition-colors" />
-                            <Input
-                                placeholder="Search in folder..."
-                                value={searchQuery}
-                                onChange={(e) => setSearchQuery(e.target.value)}
-                                className="h-10 pl-10 bg-black/40 border-white/10 text-xs rounded-xl focus:border-primary/50 transition-all"
-                            />
-                        </div>
-
-                        <div className="flex items-center bg-black/40 rounded-xl p-1 border border-white/5">
-                            <Button
-                                variant="ghost"
-                                size="icon"
-                                onClick={() => setViewMode('grid')}
-                                className={cn("h-8 w-8 rounded-lg transition-all", viewMode === 'grid' ? "bg-white/15 text-primary shadow-lg shadow-primary/10" : "text-white/40 hover:text-white/60")}
-                            >
-                                <LayoutGrid className="w-4 h-4" />
-                            </Button>
-                            <Button
-                                variant="ghost"
-                                size="icon"
-                                onClick={() => setViewMode('list')}
-                                className={cn("h-8 w-8 rounded-lg transition-all", viewMode === 'list' ? "bg-white/15 text-primary shadow-lg shadow-primary/10" : "text-white/40 hover:text-white/60")}
-                            >
-                                <ListIcon className="w-4 h-4" />
-                            </Button>
-                        </div>
-                    </div>
-
-                    {/* Vertical Scroll Container */}
-                    <div className="flex-1 relative overflow-hidden bg-gradient-to-br from-white/[0.03] to-transparent">
-                        <ScrollArea className="h-full w-full" type="always">
-                            <div className="p-8" onContextMenu={(e) => e.preventDefault()}>
-                                {isLoading ? (
-                                    <div className="flex flex-col items-center justify-center py-32 gap-4">
-                                        <Loader2 className="w-10 h-10 animate-spin text-primary opacity-50" />
-                                        <span className="text-[10px] font-black uppercase tracking-[0.3em] text-primary/40 italic">Syncing Matrix...</span>
-                                    </div>
-                                ) : filteredEntries.length === 0 ? (
-                                    <div className="flex flex-col items-center justify-center py-32 text-white/10 gap-4 animate-slide-up">
-                                        <div className="w-24 h-24 rounded-full bg-white/[0.02] flex items-center justify-center border border-white/5">
-                                            <FolderOpen className="w-10 h-10 opacity-20" />
-                                        </div>
-                                        <p className="text-[11px] font-black uppercase tracking-[0.2em] italic">Zero Segments Found</p>
-                                    </div>
-                                ) : viewMode === 'grid' ? (
-                                    <div className="grid grid-cols-[repeat(auto-fill,minmax(240px,1fr))] gap-10">
-                                        {filteredEntries.map((entry) => (
-                                            <FileGridItem
-                                                key={entry.path}
-                                                entry={entry}
-                                                onClick={handleEntryClick}
-                                                onContextMenu={handleContextMenu}
-                                                scanQueue={scanQueue}
-                                                addToQueue={addToQueue}
-                                                removeFromQueue={removeFromQueue}
-                                            />
-                                        ))}
-                                    </div>
-                                ) : (
-                                    <div className="space-y-1.5">
-                                        {filteredEntries.map((entry) => (
-                                            <div
-                                                key={entry.path}
-                                                className="group flex items-center gap-4 p-3 rounded-xl hover:bg-white/[0.05] transition-all cursor-pointer border border-transparent hover:border-white/10"
-                                                onClick={() => handleEntryClick(entry)}
-                                                onContextMenu={(e) => handleContextMenu(e, entry)}
-                                            >
-                                                <div className="w-10 h-10 rounded-lg bg-white/5 flex items-center justify-center border border-white/5 group-hover:border-primary/20 group-hover:bg-primary/5 transition-all">
-                                                    {getListIcon(entry)}
-                                                </div>
-                                                <div className="flex-1 min-w-0">
-                                                    <p className="text-xs font-bold truncate group-hover:text-primary transition-colors">{entry.name}</p>
-                                                    <p className="text-[10px] text-white/20 font-mono tracking-tighter truncate">{entry.path}</p>
-                                                </div>
-                                                {!entry.is_dir && (
-                                                    <div className="px-3 py-1 rounded-md bg-white/5 border border-white/5">
-                                                        <span className="text-[10px] text-white/40 font-black tabular-nums">{formatSize(entry.size)}</span>
-                                                    </div>
-                                                )}
-
-                                                {entry.is_dir && (
-                                                    <button
-                                                        onClick={(e) => {
-                                                            e.stopPropagation();
-                                                            if (scanQueue.includes(entry.path)) removeFromQueue(entry.path);
-                                                            else addToQueue(entry.path);
-                                                        }}
-                                                        className={cn(
-                                                            "w-8 h-8 rounded-lg flex items-center justify-center transition-all bg-white/5 border border-white/5",
-                                                            scanQueue.includes(entry.path) ? "bg-primary text-black opacity-100" : "text-white/20 opacity-0 group-hover:opacity-100 hover:text-primary hover:border-primary/20"
-                                                        )}
-                                                    >
-                                                        {scanQueue.includes(entry.path) ? <Minus className="w-4 h-4" /> : <Plus className="w-4 h-4" />}
-                                                    </button>
-                                                )}
-                                            </div>
-                                        ))}
-                                    </div>
-                                )}
-                            </div>
-                        </ScrollArea>
-                    </div>
+            <div className="flex-1 flex flex-row overflow-hidden relative">
+                {/* Scrollable container for splits if they overflow */}
+                <div className="flex-1 flex flex-row h-full overflow-x-auto no-scrollbar">
+                    {explorerTabs.map((tab) => (
+                        <ExplorerSplit
+                            key={tab.id}
+                            tab={tab}
+                            onFileClick={(entry) => {
+                                setPreviewError(false);
+                                setPreviewFile(entry);
+                                setActiveTabId(tab.id);
+                            }}
+                            onContextMenu={handleContextMenu}
+                            onClose={() => closeExplorerTab(tab.id)}
+                        />
+                    ))}
                 </div>
 
                 {/* Preview Panel */}
                 {previewFile && (
                     <div
-                        className="flex flex-col h-full bg-black/40 backdrop-blur-2xl border-l border-white/10 overflow-hidden relative animate-in slide-in-from-right duration-500"
+                        className="flex flex-col h-full bg-black/60 backdrop-blur-3xl border-l border-white/10 overflow-hidden relative animate-in slide-in-from-right duration-500"
                         style={{ width: `${previewWidth}px` }}
                     >
-                        {/* Resize Handle */}
                         <div
                             className="absolute left-0 top-0 bottom-0 w-1.5 cursor-col-resize hover:bg-primary/30 transition-colors z-50"
                             onMouseDown={(e) => {
@@ -615,132 +646,118 @@ export function FileExplorerView() {
                         />
 
                         <div className="flex-1 flex flex-col overflow-hidden">
-                            {/* Preview Content */}
-                            <div className="flex-1 flex flex-col bg-black/60 relative overflow-hidden group/media">
+                            <div className="flex-1 flex flex-col relative overflow-hidden group/media">
                                 <div className="absolute top-6 right-6 z-20">
                                     <Button
                                         variant="ghost"
                                         size="icon"
                                         onClick={() => setPreviewFile(null)}
-                                        className="rounded-2xl bg-black/50 text-white hover:bg-primary hover:text-black shadow-2xl border border-white/10 hover:scale-110 transition-all duration-300 h-10 w-10"
+                                        className="rounded-xl bg-black/50 text-white hover:bg-primary hover:text-black shadow-2xl border border-white/10 h-10 w-10"
                                     >
                                         <X className="w-5 h-5" />
                                     </Button>
                                 </div>
 
-                                <div className="flex-1 flex items-center justify-center bg-slate-950/20 backdrop-blur-sm p-4">
+                                <div className="flex-1 flex items-center justify-center p-4">
                                     {previewError ? (
                                         <div className="flex flex-col items-center gap-6 text-white/20 animate-slide-up">
-                                            <div className="w-20 h-20 rounded-full border-2 border-dashed border-white/10 flex items-center justify-center">
-                                                {isVideo(previewFile.path) ? <VideoOff className="w-8 h-8" /> : <ImageOff className="w-8 h-8" />}
+                                            <div className="w-16 h-16 rounded-full border border-dashed border-white/10 flex items-center justify-center">
+                                                <X className="w-6 h-6" />
                                             </div>
-                                            <span className="text-[10px] font-black uppercase tracking-[0.3em] italic">Render Protocol Failed</span>
+                                            <span className="text-[9px] font-black uppercase tracking-widest italic">Render Error</span>
                                         </div>
-                                    ) : isVideo(previewFile.path) ? (
+                                    ) : previewFile.name.match(/\.(mp4|mov|mkv|webm)$/i) ? (
                                         <video
                                             src={safeConvertFileSrc(previewFile.path)}
                                             controls
-                                            muted
-                                            className="max-w-full max-h-full rounded-2xl shadow-2xl border border-white/5"
+                                            className="max-w-full max-h-full rounded-xl shadow-2xl border border-white/5"
                                             onError={() => setPreviewError(true)}
                                         />
                                     ) : (
                                         <img
                                             src={safeConvertFileSrc(previewFile.path)}
-                                            className="max-w-full max-h-full object-contain p-2 rounded-2xl drop-shadow-[0_20px_50px_rgba(0,0,0,0.5)]"
+                                            className="max-w-full max-h-full object-contain p-2 rounded-xl drop-shadow-2xl"
                                             alt="Preview"
                                             onError={() => setPreviewError(true)}
                                         />
                                     )}
                                 </div>
 
-                                <div className="p-6 pb-8 bg-gradient-to-t from-black via-black/80 to-transparent flex flex-col gap-4">
-                                    <div className="flex items-center gap-3">
-                                        <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center border border-primary/20 shadow-2xl">
-                                            {isVideo(previewFile.path) ? <Video className="w-5 h-5 text-primary" /> : <ImageIcon className="w-5 h-5 text-primary" />}
-                                        </div>
-                                        <div className="flex flex-col min-w-0">
-                                            <span className="text-base font-black text-white truncate tracking-tighter uppercase leading-tight italic">{previewFile.name}</span>
-                                            <div className="flex items-center gap-2">
-                                                <div className="w-1.5 h-1.5 rounded-full bg-primary shadow-[0_0_8px_rgba(74,222,220,1)]" />
-                                                <span className="text-[9px] text-primary/60 font-black tracking-[0.2em] uppercase italic">Master Object</span>
-                                            </div>
-                                        </div>
+                                <div className="p-6 bg-gradient-to-t from-black to-transparent flex flex-col gap-4">
+                                    <div className="flex flex-col min-w-0">
+                                        <span className="text-sm font-black text-white truncate tracking-tight uppercase italic mb-1">{previewFile.name}</span>
+                                        <span className="text-[9px] text-white/30 truncate font-mono">{previewFile.path}</span>
                                     </div>
 
-                                    <div className="mt-2 flex flex-col gap-3">
-                                        <div className="grid grid-cols-2 gap-3">
-                                            <Button
-                                                variant="secondary"
-                                                size="lg"
-                                                onClick={() => invoke("reveal_in_finder", { path: previewFile.path })}
-                                                className="bg-white/5 hover:bg-white/15 text-white border border-white/10 rounded-2xl h-11 text-[9px] font-black uppercase tracking-[0.15em] transition-all hover:scale-[1.02] shadow-xl"
-                                            >
-                                                <ExternalLink className="w-4 h-4 mr-2.5 text-primary" />
-                                                Reveal
-                                            </Button>
-                                            <Button
-                                                variant="destructive"
-                                                size="lg"
-                                                onClick={() => handleDelete(previewFile)}
-                                                className="bg-red-500/10 hover:bg-red-500/20 text-red-500 border border-red-500/20 rounded-2xl h-11 text-[9px] font-black uppercase tracking-[0.15em] transition-all hover:scale-[1.02] shadow-xl shadow-red-500/5"
-                                            >
-                                                <Trash2 className="w-4 h-4 mr-2.5" />
-                                                Purge
-                                            </Button>
-                                        </div>
+                                    <div className="grid grid-cols-2 gap-3">
+                                        <Button
+                                            variant="secondary"
+                                            onClick={() => invoke("reveal_in_finder", { path: previewFile.path })}
+                                            className="bg-white/5 hover:bg-white/10 text-white border border-white/5 rounded-xl h-10 text-[9px] font-black uppercase tracking-widest"
+                                        >
+                                            <ExternalLink className="w-3.5 h-3.5 mr-2 text-primary" />
+                                            Reveal
+                                        </Button>
+                                        <Button
+                                            variant="destructive"
+                                            onClick={() => handleDelete(previewFile)}
+                                            className="bg-red-500/10 hover:bg-red-500/20 text-red-500 border border-red-500/10 rounded-xl h-10 text-[9px] font-black uppercase tracking-widest"
+                                        >
+                                            <Trash2 className="w-3.5 h-3.5 mr-2" />
+                                            Purge
+                                        </Button>
                                     </div>
                                 </div>
                             </div>
                         </div>
                     </div>
                 )}
-
-                {/* Context Menu */}
-                {contextMenu && (
-                    <div
-                        className="fixed z-[100] min-w-[200px] glass-dark border border-white/10 rounded-2xl shadow-[0_20px_80px_rgba(0,0,0,1)] p-1.5 animate-in fade-in zoom-in-95 duration-200"
-                        style={{ top: contextMenu.y, left: contextMenu.x }}
-                        onClick={(e) => e.stopPropagation()}
-                    >
-                        <div className="px-3 py-2 text-[10px] font-black text-white/30 uppercase tracking-[0.15em] border-b border-white/10 mb-1.5 truncate max-w-[240px] italic">
-                            {contextMenu.entry.name}
-                        </div>
-                        <button
-                            onClick={() => {
-                                invoke("reveal_in_finder", { path: contextMenu.entry.path });
-                                setContextMenu(null);
-                            }}
-                            className="w-full text-left flex items-center gap-3 px-3 py-2.5 rounded-xl hover:bg-white/10 text-[11px] font-bold text-white transition-all group"
-                        >
-                            <ExternalLink className="w-4 h-4 text-primary group-hover:scale-110 transition-transform" />
-                            Reveal in Finder
-                        </button>
-                        <button
-                            onClick={() => {
-                                navigator.clipboard.writeText(contextMenu.entry.path);
-                                setContextMenu(null);
-                                toast.success("Path copied");
-                            }}
-                            className="w-full text-left flex items-center gap-3 px-3 py-2.5 rounded-xl hover:bg-white/10 text-[11px] font-bold text-white transition-all group"
-                        >
-                            <FileText className="w-4 h-4 text-primary group-hover:scale-110 transition-transform" />
-                            Copy System Path
-                        </button>
-                        <div className="h-px bg-white/10 my-1.5" />
-                        <button
-                            onClick={() => {
-                                handleDelete(contextMenu.entry);
-                                setContextMenu(null);
-                            }}
-                            className="w-full text-left flex items-center gap-3 px-3 py-2.5 rounded-xl hover:bg-red-500/15 text-[11px] font-bold text-red-400 group transition-all"
-                        >
-                            <Trash2 className="w-4 h-4 group-hover:scale-110 transition-transform" />
-                            Execute Purge
-                        </button>
-                    </div>
-                )}
             </div>
+
+            {/* Context Menu */}
+            {contextMenu && (
+                <div
+                    className="fixed z-[100] min-w-[180px] glass-dark border border-white/10 rounded-xl shadow-2xl p-1 animate-in fade-in zoom-in-95 duration-200"
+                    style={{ top: contextMenu.y, left: contextMenu.x }}
+                    onClick={(e) => e.stopPropagation()}
+                >
+                    <div className="px-3 py-2 text-[9px] font-black text-white/30 uppercase tracking-widest border-b border-white/5 mb-1 truncate italic">
+                        {contextMenu.entry.name}
+                    </div>
+                    <button
+                        onClick={() => {
+                            invoke("reveal_in_finder", { path: contextMenu.entry.path });
+                            setContextMenu(null);
+                        }}
+                        className="w-full text-left flex items-center gap-3 px-3 py-2 rounded-lg hover:bg-white/10 text-[10px] font-bold text-white transition-all group"
+                    >
+                        <ExternalLink className="w-3.5 h-3.5 text-primary group-hover:scale-110 transition-transform" />
+                        Reveal in Finder
+                    </button>
+                    <button
+                        onClick={() => {
+                            navigator.clipboard.writeText(contextMenu.entry.path);
+                            setContextMenu(null);
+                            toast.success("Path copied");
+                        }}
+                        className="w-full text-left flex items-center gap-3 px-3 py-2 rounded-lg hover:bg-white/10 text-[10px] font-bold text-white transition-all group"
+                    >
+                        <FileText className="w-3.5 h-3.5 text-primary group-hover:scale-110 transition-transform" />
+                        Copy Path
+                    </button>
+                    <div className="h-px bg-white/5 my-1" />
+                    <button
+                        onClick={() => {
+                            handleDelete(contextMenu.entry);
+                            setContextMenu(null);
+                        }}
+                        className="w-full text-left flex items-center gap-3 px-3 py-2 rounded-lg hover:bg-red-500/15 text-[10px] font-bold text-red-400 group transition-all"
+                    >
+                        <Trash2 className="w-3.5 h-3.5 group-hover:scale-110 transition-transform" />
+                        Purge
+                    </button>
+                </div>
+            )}
         </div>
     );
 }

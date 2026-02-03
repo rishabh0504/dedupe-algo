@@ -31,6 +31,8 @@ import {
     SidebarMenu,
     SidebarGroup,
     SidebarGroupContent,
+    SidebarRail,
+    SidebarTrigger
 } from "@/components/ui/sidebar";
 import { cn } from "@/lib/utils";
 import {
@@ -77,8 +79,11 @@ export function AppSidebar() {
     // Removed renderNode function as we now use SidebarItem
 
     return (
-        <Sidebar className="border-r border-border/40 bg-background/50 backdrop-blur-3xl" variant="inset">
+        <Sidebar className="border-r border-border/40 bg-background/50 backdrop-blur-3xl" variant="inset" collapsible="icon">
             <SidebarHeader className="p-6 relative overflow-hidden">
+                <div className="absolute top-4 right-4 z-20">
+                    <SidebarTrigger className="h-8 w-8 text-white/40 hover:text-white" />
+                </div>
                 <div className="absolute inset-0 opacity-[0.03] pointer-events-none"
                     style={{ backgroundImage: 'radial-gradient(circle, #000 1px, transparent 1px)', backgroundSize: '16px 16px' }} />
 
@@ -358,6 +363,7 @@ export function AppSidebar() {
 
                 </div>
             </SidebarFooter>
+            <SidebarRail />
         </Sidebar>
     );
 }
