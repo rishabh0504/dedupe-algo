@@ -175,13 +175,15 @@ const FileGridItem = ({
                 return (
                     <div className="w-full h-full absolute inset-0 bg-black/20 group-hover:ring-1 ring-primary/50 transition-all">
                         <video
+                            key={entry.path} // Force remount on path change to reset playing state
                             ref={videoRef}
                             src={convertFileSrc(entry.path)}
                             className="w-full h-full object-cover"
-                            muted
+                            muted // Default to muted
                             loop
                             playsInline
                             preload="none"
+                            autoPlay={false} // Ensure video starts paused
                             onLoadedMetadata={(e) => setDuration(formatDuration(e.currentTarget.duration))}
                             onError={() => setMediaError(true)}
                         />
@@ -209,7 +211,7 @@ const FileGridItem = ({
             ref={itemRef}
             data-path={entry.path}
             className={cn(
-                "group relative flex flex-col items-center rounded-[32px] transition-all duration-500 cursor-pointer border border-white/[0.03] hover:border-white/20 hover:shadow-[0_25px_50px_rgba(0,0,0,0.5),0_0_30px_rgba(255,255,255,0.03)] animate-scale-in overflow-hidden active:scale-95",
+                "group relative flex flex-col items-center rounded-[32px] transition-all duration-500 cursor-pointer shadow-none hover:shadow-[0_25px_50px_rgba(0,0,0,0.5),0_0_30px_rgba(255,255,255,0.03)] animate-scale-in overflow-hidden active:scale-95",
                 entry.is_dir
                     ? "bg-white/[0.04] hover:bg-white/[0.08] gap-4 py-8 min-h-[180px] p-3"
                     : "bg-black/60 hover:bg-white/[0.05] h-[280px] p-0"
@@ -270,17 +272,19 @@ const FileGridItem = ({
                     </div>
                 )}
 
-                <div
-                    onClick={onToggleSelection}
-                    className={cn(
-                        "absolute bottom-4 left-4 z-30 w-15 h-15 rounded-xl border-2 flex items-center justify-center transition-all bg-black/40 backdrop-blur-md cursor-pointer group/cb",
-                        (isSelected || isMarqueeSelected)
-                            ? "bg-primary border-primary text-black opacity-100"
-                            : "border-white/20 text-transparent opacity-0 group-hover:opacity-100 hover:border-white/40"
-                    )}
-                >
-                    {(isSelected || isMarqueeSelected) ? <CheckSquare className="w-10 h-10" /> : <Square className="w-10 h-10 group-hover/cb:text-white/40" />}
-                </div>
+            </div>
+
+            {/* Checkbox moved to outer container for consistent bottom alignment */}
+            <div
+                onClick={onToggleSelection}
+                className={cn(
+                    "absolute bottom-4 left-4 z-30 w-10 h-10 rounded-xl border-2 flex items-center justify-center transition-all bg-black/40 backdrop-blur-md cursor-pointer group/cb",
+                    (isSelected || isMarqueeSelected)
+                        ? "bg-primary border-primary text-black opacity-100"
+                        : "border-white/20 text-transparent opacity-0 group-hover:opacity-100 hover:border-white/40"
+                )}
+            >
+                {(isSelected || isMarqueeSelected) ? <CheckSquare className="w-7 h-7" /> : <Square className="w-7 h-7 group-hover/cb:text-white/40" />}
             </div>
 
             {entry.is_dir && (
@@ -884,112 +888,169 @@ const ExplorerSplit = ({
                                 <p className="text-[10px] font-black uppercase tracking-widest italic">Empty</p>
                             </div>
                         ) : tab.viewMode === 'grid' ? (
-                            <div className="grid grid-cols-[repeat(auto-fill,minmax(180px,1fr))] gap-6">
-                                {sortedEntries.map((entry) => (
-                                    <FileGridItem
-                                        key={entry.path}
-                                        entry={entry}
-                                        onClick={handleEntryClick}
-                                        onContextMenu={onContextMenu}
-                                        scanQueue={scanQueue}
-                                        addToQueue={addToQueue}
-                                        removeFromQueue={removeFromQueue}
-                                        renamingPath={renamingItem?.path || null}
-                                        onRenameCommit={(val) => {
-                                            setNewName(val);
-                                            // Trigger commit in parent context
-                                            setTimeout(onRenameCommit, 0);
-                                        }}
-                                        onRenameCancel={() => setRenamingItem(null)}
-                                        isSelected={explorerSelection.some(e => e.path === entry.path)}
-                                        isMarqueeSelected={marqueeSelectedPaths.has(entry.path)}
-                                        onToggleSelection={(e) => {
-                                            e.stopPropagation();
-                                            toggleExplorerSelection(entry);
-                                        }}
-                                    />
-                                ))}
-                            </div>
-                        ) : (
-                            <div className="space-y-1">
-                                {sortedEntries.map((entry) => (
-                                    <div
-                                        key={entry.path}
-                                        data-path={entry.path}
-                                        className="group/item flex items-center gap-3 p-2 rounded-lg hover:bg-white/[0.05] transition-all cursor-pointer border border-transparent hover:border-white/10"
-                                        onClick={() => handleEntryClick(entry)}
-                                        onContextMenu={(e) => onContextMenu(e, entry)}
-                                    >
-                                        <div
-                                            onClick={(e) => {
-                                                e.stopPropagation();
-                                                toggleExplorerSelection(entry);
-                                            }}
-                                            className={cn(
-                                                "w-12 h-12 rounded-xl border-2 flex items-center justify-center transition-all bg-black/40",
-                                                (explorerSelection.some(e => e.path === entry.path) || marqueeSelectedPaths.has(entry.path))
-                                                    ? "bg-primary border-primary text-black opacity-100"
-                                                    : "border-white/10 text-transparent opacity-0 group-hover/item:opacity-100 hover:border-white/30"
-                                            )}
-                                        >
-                                            {(explorerSelection.some(e => e.path === entry.path) || marqueeSelectedPaths.has(entry.path)) ? <CheckSquare className="w-9 h-9" /> : <Square className="w-9 h-9 opacity-20" />}
-                                        </div>
-                                        <div className="w-8 h-8 rounded-md bg-white/5 flex items-center justify-center border border-white/5 group-hover/item:border-primary/20 transition-all">
-                                            {getListIcon(entry)}
-                                        </div>
-                                        <div className="flex-1 min-w-0">
-                                            {renamingItem?.path === entry.path ? (
-                                                <input
-                                                    autoFocus
-                                                    value={newName}
-                                                    onChange={(e) => setNewName(e.target.value)}
-                                                    onKeyDown={(e) => {
-                                                        if (e.key === 'Enter') onRenameCommit();
-                                                        else if (e.key === 'Escape') setRenamingItem(null);
-                                                    }}
-                                                    onBlur={onRenameCommit}
-                                                    className="w-full bg-black/60 border border-primary/50 rounded px-2 py-0.5 text-[11px] font-bold text-white focus:outline-none"
-                                                />
-                                            ) : (
-                                                <>
-                                                    <p className="text-[11px] font-bold truncate group-hover/item:text-primary transition-colors">{entry.name}</p>
-                                                    <p className="text-[9px] text-white/20 font-mono tracking-tighter truncate">{entry.path}</p>
-                                                </>
-                                            )}
-                                        </div>
-                                        {!entry.is_dir && (
-                                            <div className="px-2 py-0.5 rounded bg-white/5 border border-white/5">
-                                                <span className="text-[9px] text-white/40 font-black tabular-nums">{formatSize(entry.size)}</span>
+                            (() => {
+                                const folders = sortedEntries.filter(e => e.is_dir);
+                                const files = sortedEntries.filter(e => !e.is_dir);
+
+                                return (
+                                    <div className="flex flex-col gap-8">
+                                        {folders.length > 0 && (
+                                            <div className="grid grid-cols-[repeat(auto-fill,minmax(180px,1fr))] gap-6">
+                                                {folders.map((entry) => (
+                                                    <FileGridItem
+                                                        key={entry.path}
+                                                        entry={entry}
+                                                        onClick={handleEntryClick}
+                                                        onContextMenu={onContextMenu}
+                                                        scanQueue={scanQueue}
+                                                        addToQueue={addToQueue}
+                                                        removeFromQueue={removeFromQueue}
+                                                        renamingPath={renamingItem?.path || null}
+                                                        onRenameCommit={(val) => {
+                                                            setNewName(val);
+                                                            setTimeout(onRenameCommit, 0);
+                                                        }}
+                                                        onRenameCancel={() => setRenamingItem(null)}
+                                                        isSelected={explorerSelection.some(e => e.path === entry.path)}
+                                                        isMarqueeSelected={marqueeSelectedPaths.has(entry.path)}
+                                                        onToggleSelection={(e) => {
+                                                            e.stopPropagation();
+                                                            toggleExplorerSelection(entry);
+                                                        }}
+                                                    />
+                                                ))}
                                             </div>
                                         )}
-                                        {entry.is_dir && entry.size > 0 && (
-                                            <div className="px-2 py-0.5 rounded bg-white/5 border border-white/5">
-                                                <span className="text-[9px] text-white/40 font-black tabular-nums">{formatSize(entry.size)}</span>
-                                            </div>
+
+                                        {folders.length > 0 && files.length > 0 && (
+                                            <div className="h-px bg-white/5 w-full" />
                                         )}
-                                        {entry.is_dir && (
-                                            <button
-                                                onClick={(e) => {
-                                                    e.stopPropagation();
-                                                    if (scanQueue.includes(entry.path)) removeFromQueue(entry.path);
-                                                    else addToQueue(entry.path);
-                                                }}
-                                                className={cn(
-                                                    "w-7 h-7 rounded-md flex items-center justify-center transition-all bg-white/5 border border-white/5",
-                                                    scanQueue.includes(entry.path) ? "bg-primary text-black opacity-100" : "text-white/20 opacity-0 group-hover/item:opacity-100"
-                                                )}
-                                            >
-                                                {scanQueue.includes(entry.path) ? <Minus className="w-3.5 h-3.5" /> : <Plus className="w-3.5 h-3.5" />}
-                                            </button>
+
+                                        {files.length > 0 && (
+                                            <div className="grid grid-cols-[repeat(auto-fill,minmax(180px,1fr))] gap-6">
+                                                {files.map((entry) => (
+                                                    <FileGridItem
+                                                        key={entry.path}
+                                                        entry={entry}
+                                                        onClick={handleEntryClick}
+                                                        onContextMenu={onContextMenu}
+                                                        scanQueue={scanQueue}
+                                                        addToQueue={addToQueue}
+                                                        removeFromQueue={removeFromQueue}
+                                                        renamingPath={renamingItem?.path || null}
+                                                        onRenameCommit={(val) => {
+                                                            setNewName(val);
+                                                            setTimeout(onRenameCommit, 0);
+                                                        }}
+                                                        onRenameCancel={() => setRenamingItem(null)}
+                                                        isSelected={explorerSelection.some(e => e.path === entry.path)}
+                                                        isMarqueeSelected={marqueeSelectedPaths.has(entry.path)}
+                                                        onToggleSelection={(e) => {
+                                                            e.stopPropagation();
+                                                            toggleExplorerSelection(entry);
+                                                        }}
+                                                    />
+                                                ))}
+                                            </div>
                                         )}
                                     </div>
-                                ))}
+                                );
+                            })()
+                        ) : (
+                            <div className="space-y-1">
+                                {(() => {
+                                    const folders = sortedEntries.filter(e => e.is_dir);
+                                    const files = sortedEntries.filter(e => !e.is_dir);
+
+                                    const renderListItem = (entry: FileEntry) => (
+                                        <div
+                                            key={entry.path}
+                                            data-path={entry.path}
+                                            className="group/item flex items-center gap-3 p-2 rounded-lg hover:bg-white/[0.05] transition-all cursor-pointer border border-transparent hover:border-white/10"
+                                            onClick={() => handleEntryClick(entry)}
+                                            onContextMenu={(e) => onContextMenu(e, entry)}
+                                        >
+                                            <div
+                                                onClick={(e) => {
+                                                    e.stopPropagation();
+                                                    toggleExplorerSelection(entry);
+                                                }}
+                                                className={cn(
+                                                    "w-8 h-8 rounded-lg border-2 flex items-center justify-center transition-all bg-black/40",
+                                                    (explorerSelection.some(e => e.path === entry.path) || marqueeSelectedPaths.has(entry.path))
+                                                        ? "bg-primary border-primary text-black opacity-100"
+                                                        : "border-white/10 text-transparent opacity-0 group-hover/item:opacity-100 hover:border-white/30"
+                                                )}
+                                            >
+                                                {(explorerSelection.some(e => e.path === entry.path) || marqueeSelectedPaths.has(entry.path)) ? <CheckSquare className="w-6 h-6" /> : <Square className="w-6 h-6 opacity-20" />}
+                                            </div>
+                                            <div className="w-8 h-8 rounded-md bg-white/5 flex items-center justify-center border border-white/5 group-hover/item:border-primary/20 transition-all">
+                                                {getListIcon(entry)}
+                                            </div>
+                                            <div className="flex-1 min-w-0">
+                                                {renamingItem?.path === entry.path ? (
+                                                    <input
+                                                        autoFocus
+                                                        value={newName}
+                                                        onChange={(e) => setNewName(e.target.value)}
+                                                        onKeyDown={(e) => {
+                                                            if (e.key === 'Enter') onRenameCommit();
+                                                            else if (e.key === 'Escape') setRenamingItem(null);
+                                                        }}
+                                                        onBlur={onRenameCommit}
+                                                        className="w-full bg-black/60 border border-primary/50 rounded px-2 py-0.5 text-[11px] font-bold text-white focus:outline-none"
+                                                    />
+                                                ) : (
+                                                    <>
+                                                        <p className="text-[11px] font-bold truncate group-hover/item:text-primary transition-colors">{entry.name}</p>
+                                                        <p className="text-[9px] text-white/20 font-mono tracking-tighter truncate">{entry.path}</p>
+                                                    </>
+                                                )}
+                                            </div>
+                                            {!entry.is_dir && (
+                                                <div className="px-2 py-0.5 rounded bg-white/5 border border-white/5">
+                                                    <span className="text-[9px] text-white/40 font-black tabular-nums">{formatSize(entry.size)}</span>
+                                                </div>
+                                            )}
+                                            {entry.is_dir && entry.size > 0 && (
+                                                <div className="px-2 py-0.5 rounded bg-white/5 border border-white/5">
+                                                    <span className="text-[9px] text-white/40 font-black tabular-nums">{formatSize(entry.size)}</span>
+                                                </div>
+                                            )}
+                                            {entry.is_dir && (
+                                                <button
+                                                    onClick={(e) => {
+                                                        e.stopPropagation();
+                                                        if (scanQueue.includes(entry.path)) removeFromQueue(entry.path);
+                                                        else addToQueue(entry.path);
+                                                    }}
+                                                    className={cn(
+                                                        "w-7 h-7 rounded-md flex items-center justify-center transition-all bg-white/5 border border-white/5",
+                                                        scanQueue.includes(entry.path) ? "bg-primary text-black opacity-100" : "text-white/20 opacity-0 group-hover/item:opacity-100"
+                                                    )}
+                                                >
+                                                    {scanQueue.includes(entry.path) ? <Minus className="w-3.5 h-3.5" /> : <Plus className="w-3.5 h-3.5" />}
+                                                </button>
+                                            )}
+                                        </div>
+                                    );
+
+                                    return (
+                                        <>
+                                            {folders.map(renderListItem)}
+                                            {folders.length > 0 && files.length > 0 && (
+                                                <div className="h-px bg-white/5 w-full my-2" />
+                                            )}
+                                            {files.map(renderListItem)}
+                                        </>
+                                    );
+                                })()}
                             </div>
                         )}
                     </div>
                 </ScrollArea>
-            </div>
-        </div>
+            </div >
+        </div >
     );
 };
 
@@ -1265,8 +1326,12 @@ export function FileExplorerView() {
                                         </div>
                                     ) : previewFile.name.match(/\.(mp4|mov|mkv|webm)$/i) ? (
                                         <video
+                                            key={previewFile.path} // Force remount on path change to reset playing state
                                             src={safeConvertFileSrc(previewFile.path)}
                                             controls
+                                            muted // Default to muted
+                                            autoPlay={false} // Ensure video starts paused
+                                            playsInline
                                             className="max-w-full max-h-full rounded-xl shadow-2xl border border-white/5"
                                             onError={() => setPreviewError(true)}
                                         />
