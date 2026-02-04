@@ -1,5 +1,14 @@
 import { create } from 'zustand';
 
+export interface FileEntry {
+  name: string;
+  path: string;
+  is_dir: boolean;
+  size: number;
+  created: number;
+  modified: number;
+}
+
 export interface FileMetadata {
   path: string;
   size: number;
@@ -18,7 +27,7 @@ export interface ExplorerTab {
   path: string;
   history: string[];
   historyIndex: number;
-  viewMode: 'grid' | 'list';
+  viewMode: 'grid' | 'list' | 'selected';
   searchQuery: string;
   sortBy: 'name' | 'size' | 'modified' | 'kind';
   sortOrder: 'asc' | 'desc';
@@ -72,6 +81,13 @@ interface UIState {
   triggerRefresh: () => void;
   isVoiceEnabled: boolean;
   setVoiceEnabled: (enabled: boolean) => void;
+  explorerSelection: FileEntry[];
+  toggleExplorerSelection: (entry: FileEntry) => void;
+  clearExplorerSelection: () => void;
+  contextFolders: string[];
+  pinContextFolder: (path: string) => void;
+  unpinContextFolder: (path: string) => void;
+  clearContextFolders: () => void;
 }
 
 export const useStore = create<UIState>((set) => ({
@@ -99,6 +115,7 @@ export const useStore = create<UIState>((set) => ({
     sortOrder: t.sortOrder || 'asc'
   })),
   activeTabId: localStorage.getItem('aether-active-tab-id'),
+  contextFolders: JSON.parse(localStorage.getItem('aether-context-folders') || '[]'),
   refreshTrigger: 0,
   triggerRefresh: () => set((state) => ({ refreshTrigger: state.refreshTrigger + 1 })),
   isVoiceEnabled: false, // ALWAYS OFF by default (User must explicitly enable)
@@ -253,5 +270,31 @@ export const useStore = create<UIState>((set) => ({
       scanResults: { ...state.scanResults, groups: newGroups },
       selectionQueue: state.selectionQueue.filter(p => !paths.includes(p))
     };
+  }),
+  explorerSelection: [],
+  toggleExplorerSelection: (entry) => set((state) => {
+    const isSelected = state.explorerSelection.some(e => e.path === entry.path);
+    return {
+      explorerSelection: isSelected
+        ? state.explorerSelection.filter(e => e.path !== entry.path)
+        : [...state.explorerSelection, entry]
+    };
+  }),
+  clearExplorerSelection: () => set({ explorerSelection: [] }),
+  pinContextFolder: (path) => set((state) => {
+    const newFolders = state.contextFolders.includes(path)
+      ? state.contextFolders
+      : [...state.contextFolders, path];
+    localStorage.setItem('aether-context-folders', JSON.stringify(newFolders));
+    return { contextFolders: newFolders };
+  }),
+  unpinContextFolder: (path) => set((state) => {
+    const newFolders = state.contextFolders.filter(f => f !== path);
+    localStorage.setItem('aether-context-folders', JSON.stringify(newFolders));
+    return { contextFolders: newFolders };
+  }),
+  clearContextFolders: () => set(() => {
+    localStorage.setItem('aether-context-folders', JSON.stringify([]));
+    return { contextFolders: [] };
   }),
 }));

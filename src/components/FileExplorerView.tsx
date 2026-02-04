@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef, useMemo } from "react";
 import { invoke, convertFileSrc } from "@tauri-apps/api/core";
-import { useStore } from "@/store/useStore";
+
 import {
     Folder,
     File,
@@ -25,8 +25,14 @@ import {
     SortDesc,
     Play,
     X,
-    ExternalLink
+    ExternalLink,
+    CheckSquare,
+    Square,
+    Pin,
+    PinOff,
+    XCircle
 } from "lucide-react";
+import { useStore, FileEntry } from "@/store/useStore";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -34,14 +40,6 @@ import { cn, formatSize } from "@/lib/utils";
 import { toast } from "sonner";
 import { SidebarTrigger } from "@/components/ui/sidebar";
 
-interface FileEntry {
-    name: string;
-    path: string;
-    is_dir: boolean;
-    size: number;
-    created: number;
-    modified: number;
-}
 
 // Context Menu Setup
 interface ContextMenuState {
@@ -67,7 +65,10 @@ const FileGridItem = ({
     removeFromQueue,
     renamingPath,
     onRenameCommit,
-    onRenameCancel
+    onRenameCancel,
+    isSelected,
+    isMarqueeSelected,
+    onToggleSelection
 }: {
     entry: FileEntry;
     onClick: (entry: FileEntry) => void;
@@ -78,6 +79,9 @@ const FileGridItem = ({
     renamingPath: string | null;
     onRenameCommit: (newName: string) => void;
     onRenameCancel: () => void;
+    isSelected: boolean;
+    isMarqueeSelected?: boolean;
+    onToggleSelection: (e: React.MouseEvent) => void;
 }) => {
     const [mediaError, setMediaError] = useState(false);
     const [isHovering, setIsHovering] = useState(false);
@@ -203,6 +207,7 @@ const FileGridItem = ({
     return (
         <div
             ref={itemRef}
+            data-path={entry.path}
             className={cn(
                 "group relative flex flex-col items-center rounded-[32px] transition-all duration-500 cursor-pointer border border-white/[0.03] hover:border-white/20 hover:shadow-[0_25px_50px_rgba(0,0,0,0.5),0_0_30px_rgba(255,255,255,0.03)] animate-scale-in overflow-hidden active:scale-95",
                 entry.is_dir
@@ -264,6 +269,18 @@ const FileGridItem = ({
                         </div>
                     </div>
                 )}
+
+                <div
+                    onClick={onToggleSelection}
+                    className={cn(
+                        "absolute bottom-4 left-4 z-30 w-15 h-15 rounded-xl border-2 flex items-center justify-center transition-all bg-black/40 backdrop-blur-md cursor-pointer group/cb",
+                        (isSelected || isMarqueeSelected)
+                            ? "bg-primary border-primary text-black opacity-100"
+                            : "border-white/20 text-transparent opacity-0 group-hover:opacity-100 hover:border-white/40"
+                    )}
+                >
+                    {(isSelected || isMarqueeSelected) ? <CheckSquare className="w-10 h-10" /> : <Square className="w-10 h-10 group-hover/cb:text-white/40" />}
+                </div>
             </div>
 
             {entry.is_dir && (
@@ -298,6 +315,13 @@ const FileGridItem = ({
 };
 
 
+interface SelectionBox {
+    startX: number;
+    startY: number;
+    currentX: number;
+    currentY: number;
+}
+
 const ExplorerSplit = ({
     tab,
     onFileClick,
@@ -321,19 +345,126 @@ const ExplorerSplit = ({
     setNewName: (name: string) => void;
     refreshTrigger: number;
 }) => {
-    const { scanQueue, addToQueue, removeFromQueue, updateExplorerTab } = useStore();
-    const [entries, setEntries] = useState<FileEntry[]>([]);
+    const {
+        scanQueue,
+        addToQueue,
+        removeFromQueue,
+        updateExplorerTab,
+        explorerSelection,
+        toggleExplorerSelection,
+        contextFolders,
+        clearExplorerSelection,
+        pinContextFolder,
+        clearContextFolders,
+        triggerRefresh
+    } = useStore();
+    const [items, setItems] = useState<FileEntry[]>([]);
     const [isLoading, setIsLoading] = useState(false);
+    const [selectionBox, setSelectionBox] = useState<SelectionBox | null>(null);
+    const [marqueeSelectedPaths, setMarqueeSelectedPaths] = useState<Set<string>>(new Set());
+    const scrollAreaRef = useRef<HTMLDivElement>(null);
+    const [targetPath, setTargetPath] = useState<string>("");
+    const [quickContextPath, setQuickContextPath] = useState<string>("");
+    const [isConfirmingDelete, setIsConfirmingDelete] = useState(false);
+
+    const handleBulkDelete = async () => {
+        if (!isConfirmingDelete) {
+            setIsConfirmingDelete(true);
+            setTimeout(() => setIsConfirmingDelete(false), 3000); // Reset after 3s
+            return;
+        }
+
+        const toastId = toast.loading(`Purging ${explorerSelection.length} staged items using rm -rf...`);
+        try {
+            const paths = explorerSelection.map(e => e.path);
+            await invoke("purge_staged_rm_rf", { paths });
+
+            toast.success(`Successfully purged ${explorerSelection.length} items`, { id: toastId });
+
+            clearExplorerSelection();
+            triggerRefresh();
+            setIsConfirmingDelete(false);
+        } catch (error) {
+            console.error(error);
+            toast.error("Failed to execute rm -rf purge", { id: toastId });
+        }
+    };
+
+    const handleBulkMove = async () => {
+        if (!targetPath || explorerSelection.length === 0) return;
+
+        // Filter out invalid moves
+        const validItems = explorerSelection.filter(item => {
+            // Cannot move a folder into itself
+            if (item.path === targetPath) return false;
+            // Cannot move a folder into its own subdirectory
+            // Ensure we check with a separator to avoid partial name matches (e.g. /tmp/foo vs /tmp/foobar)
+            const itemPathWithSlash = item.path.endsWith('/') ? item.path : item.path + '/';
+            if (targetPath.startsWith(itemPathWithSlash)) return false;
+            return true;
+        });
+
+        if (validItems.length === 0) {
+            toast.error("No valid items to move.");
+            return;
+        }
+
+        const toastId = toast.loading(`Moving ${validItems.length} items to ${targetPath.split(/[/\\]/).pop()}...`);
+        try {
+            const paths = validItems.map(e => e.path);
+            await invoke("bulk_move", { paths, targetDir: targetPath });
+            toast.success(`Successfully moved ${validItems.length} items`, { id: toastId });
+            clearExplorerSelection();
+            triggerRefresh(); // Refresh UI
+        } catch (error) {
+            console.error(error);
+            toast.error("Failed to execute bulk move", { id: toastId });
+        }
+    };
+
+    const handleBulkCopy = async () => {
+        if (!targetPath || explorerSelection.length === 0) return;
+        const toastId = toast.loading(`Copying ${explorerSelection.length} items to ${targetPath.split(/[/\\]/).pop()}...`);
+        try {
+            const paths = explorerSelection.map(e => e.path);
+            await invoke("bulk_copy", { paths, targetDir: targetPath });
+            toast.success(`Successfully copied ${explorerSelection.length} items`, { id: toastId });
+            clearExplorerSelection();
+            triggerRefresh();
+        } catch (error) {
+            console.error(error);
+            toast.error("Failed to execute bulk copy", { id: toastId });
+        }
+    };
+
+    const handleQuickContext = async () => {
+        if (!quickContextPath) return;
+        const toastId = toast.loading("Creating context folder...");
+        try {
+            // Check if it already exists or just try to create
+            await invoke("create_dir", { path: quickContextPath });
+            pinContextFolder(quickContextPath);
+            setTargetPath(quickContextPath);
+            setQuickContextPath("");
+            toast.success("Folder created and pinned to context", { id: toastId });
+            triggerRefresh();
+        } catch (error) {
+            console.error(error);
+            toast.error("Failed to create folder. Ensure path is absolute.", { id: toastId });
+        }
+    };
 
     useEffect(() => {
-        loadDirectory(tab.path);
-    }, [tab.path, renamingItem, refreshTrigger]);
+        if (tab.viewMode !== 'selected') {
+            loadDirectory(tab.path);
+        }
+    }, [tab.path, renamingItem, refreshTrigger, tab.viewMode]);
 
     const loadDirectory = async (path: string) => {
         setIsLoading(true);
         try {
             const data = await invoke<FileEntry[]>("read_directory", { path });
-            setEntries(data);
+            setItems(data);
         } catch (error) {
             console.error("Failed to read directory:", error);
             handleUp();
@@ -403,7 +534,8 @@ const ExplorerSplit = ({
     };
 
     const sortedEntries = useMemo(() => {
-        return [...entries]
+        const sourceEntries = tab.viewMode === 'selected' ? explorerSelection : items;
+        return [...sourceEntries]
             .filter(e => e.name.toLowerCase().includes((tab.searchQuery || "").toLowerCase()))
             .sort((a, b) => {
                 const order = (tab.sortOrder || 'asc') === 'asc' ? 1 : -1;
@@ -420,7 +552,7 @@ const ExplorerSplit = ({
                     return a.name.toLowerCase().localeCompare(b.name.toLowerCase()) * order;
                 }
             });
-    }, [entries, tab.searchQuery, tab.sortBy, tab.sortOrder]);
+    }, [items, explorerSelection, tab.searchQuery, tab.sortBy, tab.sortOrder, tab.viewMode]);
 
     const getListIcon = (entry: FileEntry) => {
         if (entry.is_dir) return <Folder className="w-5 h-5 text-blue-400" />;
@@ -428,6 +560,87 @@ const ExplorerSplit = ({
         if (["jpg", "jpeg", "png", "webp", "gif"].includes(ext || "")) return <ImageIcon className="w-5 h-5 text-purple-400" />;
         if (["mp4", "mov", "mkv"].includes(ext || "")) return <Video className="w-5 h-5 text-red-400" />;
         return <File className="w-5 h-5 text-slate-400" />;
+    };
+
+    const calculateIntersections = (box: SelectionBox, container: HTMLElement) => {
+        const left = Math.min(box.startX, box.currentX);
+        const top = Math.min(box.startY, box.currentY);
+        const right = Math.max(box.startX, box.currentX);
+        const bottom = Math.max(box.startY, box.currentY);
+
+        const itemElements = container.querySelectorAll('[data-path]');
+        const found = new Set<string>();
+
+        itemElements.forEach((el) => {
+            const element = el as HTMLElement;
+            const path = element.getAttribute('data-path');
+            if (!path) return;
+
+            // Get position relative to the scroll area viewport
+            const elLeft = element.offsetLeft;
+            const elTop = element.offsetTop;
+            const elRight = elLeft + element.offsetWidth;
+            const elBottom = elTop + element.offsetHeight;
+
+            // Check intersection with scroll adjustment if needed
+            // But since startX/Y are relative to container, and offsetLeft/Top are relative to parent (viewport),
+            // this should work if the box is also relative to the container.
+            if (elLeft < right && elRight > left && elTop < bottom && elBottom > top) {
+                found.add(path);
+            }
+        });
+
+        setMarqueeSelectedPaths(found);
+    };
+
+    const handleMouseDown = (e: React.MouseEvent) => {
+        // Only start selection on Left Click (button 0)
+        if (e.button !== 0) return;
+
+        // Only start selection if clicking on the background or container (not on buttons/inputs)
+        const target = e.target as HTMLElement;
+        if (target.closest('button') || target.closest('input') || target.closest('select')) return;
+
+        const rect = e.currentTarget.getBoundingClientRect();
+        const startX = e.clientX - rect.left;
+        const startY = e.clientY - rect.top;
+
+        setSelectionBox({
+            startX,
+            startY,
+            currentX: startX,
+            currentY: startY,
+        });
+        setMarqueeSelectedPaths(new Set());
+    };
+
+    const handleMouseMove = (e: React.MouseEvent) => {
+        if (!selectionBox) return;
+
+        const rect = e.currentTarget.getBoundingClientRect();
+        const nextBox = {
+            ...selectionBox,
+            currentX: e.clientX - rect.left,
+            currentY: e.clientY - rect.top,
+        };
+
+        setSelectionBox(nextBox);
+        calculateIntersections(nextBox, e.currentTarget as HTMLElement);
+    };
+
+    const handleMouseUp = () => {
+        if (!selectionBox) return;
+
+        // Add all marquee selected items to the main selection
+        marqueeSelectedPaths.forEach(path => {
+            const entry = items.find(i => i.path === path);
+            if (entry && !explorerSelection.some(e => e.path === path)) {
+                toggleExplorerSelection(entry);
+            }
+        });
+
+        setSelectionBox(null);
+        setMarqueeSelectedPaths(new Set());
     };
 
     return (
@@ -478,7 +691,7 @@ const ExplorerSplit = ({
                             variant="ghost"
                             size="icon"
                             onClick={() => {
-                                const modes: ('name' | 'size' | 'modified')[] = ['name', 'size', 'modified'];
+                                const modes: ('name' | 'modified' | 'kind')[] = ['name', 'modified', 'kind'];
                                 const next = modes[(modes.indexOf(tab.sortBy || 'name') + 1) % modes.length];
                                 updateExplorerTab(tab.id, { sortBy: next });
                             }}
@@ -499,24 +712,134 @@ const ExplorerSplit = ({
                         />
                     </div>
                     <div className="flex items-center bg-black/40 rounded-lg p-0.5 border border-white/5">
-                        <Button
-                            variant="ghost"
-                            size="icon"
-                            onClick={() => updateExplorerTab(tab.id, { viewMode: 'grid' })}
-                            className={cn("h-7 w-7 rounded-md", (tab.viewMode || 'grid') === 'grid' ? "bg-white/10 text-primary" : "text-white/40")}
-                        >
-                            <LayoutGrid className="w-3.5 h-3.5" />
-                        </Button>
-                        <Button
-                            variant="ghost"
-                            size="icon"
-                            onClick={() => updateExplorerTab(tab.id, { viewMode: 'list' })}
-                            className={cn("h-7 w-7 rounded-md", tab.viewMode === 'list' ? "bg-white/10 text-primary" : "text-white/40")}
-                        >
-                            <ListIcon className="w-3.5 h-3.5" />
-                        </Button>
+                        {['grid', 'list', 'selected'].map((mode) => (
+                            <Button
+                                key={mode}
+                                variant="ghost"
+                                size="icon"
+                                onClick={() => updateExplorerTab(tab.id, { viewMode: mode as any })}
+                                className={cn(
+                                    "h-7 w-7 rounded-sm transition-all duration-300",
+                                    (tab.viewMode || 'grid') === mode
+                                        ? "bg-primary text-black"
+                                        : "text-white/40 hover:text-white"
+                                )}
+                                title={`${mode.charAt(0).toUpperCase() + mode.slice(1)} View`}
+                            >
+                                {mode === 'grid' ? <LayoutGrid className="w-3.5 h-3.5" /> :
+                                    mode === 'list' ? <ListIcon className="w-3.5 h-3.5" /> :
+                                        <div className="relative">
+                                            <CheckSquare className="w-3.5 h-3.5" />
+                                            {explorerSelection.length > 0 && (
+                                                <span className="absolute -top-1 -right-1 flex h-2.5 w-2.5 items-center justify-center rounded-full bg-red-500 text-[6px] font-bold text-white ring-1 ring-black">
+                                                    {explorerSelection.length}
+                                                </span>
+                                            )}
+                                        </div>
+                                }
+                            </Button>
+                        ))}
                     </div>
                 </div>
+
+                {tab.viewMode === 'selected' && explorerSelection.length > 0 && (
+                    <div className="flex flex-col gap-2 mt-2 p-2 bg-primary/5 rounded-lg border border-primary/20 animate-in fade-in slide-in-from-top-1 duration-300">
+                        <div className="flex items-center gap-2">
+                            <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={clearExplorerSelection}
+                                className="h-7 px-3 text-[10px] font-black uppercase tracking-widest text-red-400 hover:text-red-500 hover:bg-red-500/10 transition-all border border-red-500/20"
+                            >
+                                <Trash2 className="w-3.5 h-3.5 mr-1.5" />
+                                Clear Selected
+                            </Button>
+                            <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={handleBulkDelete}
+                                className={cn(
+                                    "h-7 px-3 text-[10px] font-black uppercase tracking-widest transition-all border",
+                                    isConfirmingDelete
+                                        ? "bg-red-500 text-white border-red-600 scale-105 shadow-[0_0_15px_rgba(239,68,68,0.4)]"
+                                        : "text-red-400 hover:text-red-500 hover:bg-red-500/10 border-red-500/10"
+                                )}
+                            >
+                                <XCircle className="w-3.5 h-3.5 mr-1.5" />
+                                {isConfirmingDelete ? "Click to Confirm Purge" : "Purge STAGED"}
+                            </Button>
+                            <div className="w-px h-4 bg-primary/20 mx-1" />
+                            <div className="flex-1 flex items-center gap-2">
+                                <span className="text-[9px] font-black uppercase tracking-widest text-primary/40 whitespace-nowrap">Target:</span>
+                                <select
+                                    value={targetPath}
+                                    onChange={(e) => setTargetPath(e.target.value)}
+                                    className="flex-1 h-7 bg-black/40 border border-white/10 rounded px-2 text-[10px] text-white focus:outline-none focus:border-primary/40"
+                                >
+                                    <option value="">Select context folder...</option>
+                                    {contextFolders.map(path => (
+                                        <option key={path} value={path}>{path.split(/[/\\]/).pop() || path}</option>
+                                    ))}
+                                </select>
+                                <Button
+                                    variant="ghost"
+                                    size="sm"
+                                    onClick={clearContextFolders}
+                                    title="Clear Pinned Folders"
+                                    className="h-7 w-7 p-0 text-white/40 hover:text-red-400 transition-colors"
+                                >
+                                    <X className="w-3.5 h-3.5" />
+                                </Button>
+                            </div>
+                            <div className="flex items-center gap-1">
+                                <Button
+                                    variant="ghost"
+                                    size="sm"
+                                    disabled={!targetPath}
+                                    onClick={handleBulkMove}
+                                    className="h-7 px-3 text-[10px] font-black uppercase tracking-widest text-primary hover:bg-primary/10 transition-all disabled:opacity-30"
+                                >
+                                    Move
+                                </Button>
+                                <Button
+                                    variant="ghost"
+                                    size="sm"
+                                    disabled={!targetPath}
+                                    onClick={handleBulkCopy}
+                                    className="h-7 px-3 text-[10px] font-black uppercase tracking-widest text-primary hover:bg-primary/10 transition-all disabled:opacity-30"
+                                >
+                                    Copy
+                                </Button>
+                            </div>
+                        </div>
+
+                        <div className="h-px bg-primary/10 mx-1" />
+
+                        <div className="flex items-center gap-2">
+                            <span className="text-[9px] font-black uppercase tracking-widest text-primary/40 whitespace-nowrap">Quick Context:</span>
+                            <div className="flex-1 relative">
+                                <Input
+                                    placeholder="Enter absolute path to create folder..."
+                                    value={quickContextPath}
+                                    onChange={(e) => setQuickContextPath(e.target.value)}
+                                    onKeyDown={(e) => e.key === 'Enter' && handleQuickContext()}
+                                    className="h-7 bg-black/20 border-white/5 text-[10px] rounded focus:border-primary/30 pl-2"
+                                />
+                            </div>
+                            <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={handleQuickContext}
+                                disabled={!quickContextPath}
+                                className="h-7 px-3 text-[10px] font-black uppercase tracking-widest text-primary hover:bg-primary/10 transition-all disabled:opacity-30 border border-primary/20"
+                            >
+                                <Plus className="w-3.5 h-3.5 mr-1.5" />
+                                Create Target
+                            </Button>
+                        </div>
+                    </div>
+                )}
+
                 <div className="px-2">
                     <p className="text-[9px] font-mono opacity-30 truncate">{tab.path}</p>
                 </div>
@@ -527,8 +850,29 @@ const ExplorerSplit = ({
                 className="flex-1 relative overflow-hidden"
                 onContextMenu={(e) => onContextMenu(e, undefined, tab.path)}
             >
-                <ScrollArea className="h-full w-full" type="always">
-                    <div className="p-4 min-h-full">
+                <ScrollArea
+                    className="h-full w-full"
+                    ref={scrollAreaRef}
+                    type="always"
+                >
+                    <div
+                        className="p-6 min-h-full relative select-none"
+                        onMouseDown={handleMouseDown}
+                        onMouseMove={handleMouseMove}
+                        onMouseUp={handleMouseUp}
+                    >
+                        {/* Selection Box Visual */}
+                        {selectionBox && (
+                            <div
+                                className="absolute pointer-events-none border border-primary/50 bg-primary/10 z-50 rounded-sm"
+                                style={{
+                                    left: Math.min(selectionBox.startX, selectionBox.currentX),
+                                    top: Math.min(selectionBox.startY, selectionBox.currentY),
+                                    width: Math.abs(selectionBox.currentX - selectionBox.startX),
+                                    height: Math.abs(selectionBox.currentY - selectionBox.startY),
+                                }}
+                            />
+                        )}
                         {isLoading ? (
                             <div className="flex flex-col items-center justify-center py-20 gap-3">
                                 <Loader2 className="w-6 h-6 animate-spin text-primary opacity-50" />
@@ -557,6 +901,12 @@ const ExplorerSplit = ({
                                             setTimeout(onRenameCommit, 0);
                                         }}
                                         onRenameCancel={() => setRenamingItem(null)}
+                                        isSelected={explorerSelection.some(e => e.path === entry.path)}
+                                        isMarqueeSelected={marqueeSelectedPaths.has(entry.path)}
+                                        onToggleSelection={(e) => {
+                                            e.stopPropagation();
+                                            toggleExplorerSelection(entry);
+                                        }}
                                     />
                                 ))}
                             </div>
@@ -565,10 +915,25 @@ const ExplorerSplit = ({
                                 {sortedEntries.map((entry) => (
                                     <div
                                         key={entry.path}
+                                        data-path={entry.path}
                                         className="group/item flex items-center gap-3 p-2 rounded-lg hover:bg-white/[0.05] transition-all cursor-pointer border border-transparent hover:border-white/10"
                                         onClick={() => handleEntryClick(entry)}
                                         onContextMenu={(e) => onContextMenu(e, entry)}
                                     >
+                                        <div
+                                            onClick={(e) => {
+                                                e.stopPropagation();
+                                                toggleExplorerSelection(entry);
+                                            }}
+                                            className={cn(
+                                                "w-12 h-12 rounded-xl border-2 flex items-center justify-center transition-all bg-black/40",
+                                                (explorerSelection.some(e => e.path === entry.path) || marqueeSelectedPaths.has(entry.path))
+                                                    ? "bg-primary border-primary text-black opacity-100"
+                                                    : "border-white/10 text-transparent opacity-0 group-hover/item:opacity-100 hover:border-white/30"
+                                            )}
+                                        >
+                                            {(explorerSelection.some(e => e.path === entry.path) || marqueeSelectedPaths.has(entry.path)) ? <CheckSquare className="w-9 h-9" /> : <Square className="w-9 h-9 opacity-20" />}
+                                        </div>
                                         <div className="w-8 h-8 rounded-md bg-white/5 flex items-center justify-center border border-white/5 group-hover/item:border-primary/20 transition-all">
                                             {getListIcon(entry)}
                                         </div>
@@ -636,7 +1001,10 @@ export function FileExplorerView() {
         closeExplorerTab,
         updateExplorerTab,
         triggerRefresh,
-        refreshTrigger
+        refreshTrigger,
+        contextFolders,
+        pinContextFolder,
+        unpinContextFolder
     } = useStore();
 
     // Container ref for absolute positioning
@@ -650,6 +1018,10 @@ export function FileExplorerView() {
 
     // Context Menu State (shared)
     const [contextMenu, setContextMenu] = useState<ContextMenuState | null>(null);
+
+    // Creation State
+    const [creationItem, setCreationItem] = useState<{ path: string, type: 'file' | 'dir' } | null>(null);
+    const [creationName, setCreationName] = useState("");
 
     useEffect(() => {
         if (!isResizing) return;
@@ -710,39 +1082,30 @@ export function FileExplorerView() {
         });
     };
 
-    const generateUntitledName = (base: string, currentEntries: FileEntry[], isDir: boolean): string => {
-        let name = base;
-        let counter = 1;
-
-        while (currentEntries.find(e => e.name.toLowerCase() === name.toLowerCase() && e.is_dir === isDir)) {
-            name = `${base.split('.')[0]} (${counter})${base.includes('.') ? '.' + base.split('.').pop() : ''}`;
-            counter++;
+    const handleCreate = async (dirPath: string, type: 'file' | 'dir', name?: string) => {
+        if (!name) {
+            setCreationItem({ path: dirPath, type });
+            setCreationName("");
+            return;
         }
-        return name;
-    };
 
-    const handleCreate = async (dirPath: string, type: 'file' | 'dir') => {
         toast.promise(
             async () => {
-                const name = type === 'dir' ? "Untitled Folder" : "untitled";
-                const extension = type === 'file' ? ".txt" : "";
-
-                const currentEntries = await invoke<FileEntry[]>("read_directory", { path: dirPath });
-                const finalName = generateUntitledName(name + extension, currentEntries, type === 'dir');
-
-                const fullPath = `${dirPath}/${finalName}`;
+                const fullPath = `${dirPath}/${name}`;
                 if (type === 'dir') {
                     await invoke("create_dir", { path: fullPath });
+                    pinContextFolder(fullPath);
                 } else {
                     await invoke("create_file", { path: fullPath });
                 }
 
                 triggerRefresh();
+                setCreationItem(null);
             },
             {
                 loading: `Creating ${type}...`,
-                success: `${type === 'dir' ? 'Folder' : 'File'} created`,
-                error: (err) => `Failed to create: ${err}`
+                success: `${type.charAt(0).toUpperCase() + type.slice(1)} created`,
+                error: (err) => `Failed to create ${type}: ${err}`
             }
         );
     };
@@ -992,6 +1355,34 @@ export function FileExplorerView() {
                                 <Edit2 className="w-3.5 h-3.5 text-primary group-hover:scale-110 transition-transform" />
                                 Rename
                             </button>
+                            {contextMenu.entry!.is_dir && (
+                                <button
+                                    onClick={() => {
+                                        const path = contextMenu.entry!.path;
+                                        if (contextFolders.includes(path)) {
+                                            unpinContextFolder(path);
+                                            toast.success("Folder unpinned");
+                                        } else {
+                                            pinContextFolder(path);
+                                            toast.success("Folder pinned to context");
+                                        }
+                                        setContextMenu(null);
+                                    }}
+                                    className="w-full text-left flex items-center gap-3 px-3 py-2 rounded-xl hover:bg-slate-100 text-[11px] font-bold text-slate-700 transition-all group"
+                                >
+                                    {contextFolders.includes(contextMenu.entry!.path) ? (
+                                        <>
+                                            <PinOff className="w-3.5 h-3.5 text-orange-400 group-hover:scale-110 transition-transform" />
+                                            Unpin from Context
+                                        </>
+                                    ) : (
+                                        <>
+                                            <Pin className="w-3.5 h-3.5 text-primary group-hover:scale-110 transition-transform" />
+                                            Pin to Context
+                                        </>
+                                    )}
+                                </button>
+                            )}
                             <div className="h-px bg-slate-100 my-1.5" />
                             <button
                                 onClick={() => {
@@ -1008,6 +1399,33 @@ export function FileExplorerView() {
 
                     {contextMenu.type === 'background' && (
                         <div className="flex flex-col">
+                            <button
+                                onClick={() => {
+                                    const path = contextMenu.path;
+                                    if (contextFolders.includes(path)) {
+                                        unpinContextFolder(path);
+                                        toast.success("Folder unpinned");
+                                    } else {
+                                        pinContextFolder(path);
+                                        toast.success("Folder pinned to context");
+                                    }
+                                    setContextMenu(null);
+                                }}
+                                className="w-full text-left flex items-center gap-3 px-3 py-2 rounded-xl hover:bg-slate-100 text-[11px] font-bold text-slate-700 transition-all group"
+                            >
+                                {contextFolders.includes(contextMenu.path) ? (
+                                    <>
+                                        <PinOff className="w-3.5 h-3.5 text-orange-400 group-hover:scale-110 transition-transform" />
+                                        Unpin Current Folder
+                                    </>
+                                ) : (
+                                    <>
+                                        <Pin className="w-3.5 h-3.5 text-primary group-hover:scale-110 transition-transform" />
+                                        Pin Current Folder
+                                    </>
+                                )}
+                            </button>
+                            <div className="h-px bg-slate-100 my-1.5" />
                             <button
                                 onClick={() => {
                                     handleCreate(contextMenu.path, 'dir');
@@ -1094,6 +1512,91 @@ export function FileExplorerView() {
                     )}
                 </div>
             )}
+
+            <CreationNamingModal
+                creationItem={creationItem}
+                creationName={creationName}
+                setCreationName={setCreationName}
+                setCreationItem={setCreationItem}
+                handleCreate={handleCreate}
+            />
         </div>
     );
 }
+
+{/* Creation Naming Modal */ }
+interface CreationNamingModalProps {
+    creationItem: { path: string, type: 'file' | 'dir' } | null;
+    creationName: string;
+    setCreationName: (name: string) => void;
+    setCreationItem: (item: { path: string, type: 'file' | 'dir' } | null) => void;
+    handleCreate: (dirPath: string, type: 'file' | 'dir', name?: string) => void;
+}
+
+const CreationNamingModal = ({
+    creationItem,
+    creationName,
+    setCreationName,
+    setCreationItem,
+    handleCreate
+}: CreationNamingModalProps) => {
+    if (!creationItem) return null;
+    return (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/70 backdrop-blur-md animate-in fade-in duration-300">
+            <div
+                className="w-[450px] bg-[#0c0c0c] border border-white/10 rounded-2xl shadow-[0_0_50px_rgba(0,0,0,0.5)] p-8 space-y-6 animate-in zoom-in-95 duration-300"
+                onKeyDown={(e) => {
+                    if (e.key === 'Enter' && creationName.trim()) {
+                        handleCreate(creationItem.path, creationItem.type, creationName.trim());
+                    } else if (e.key === 'Escape') {
+                        setCreationItem(null);
+                    }
+                }}
+            >
+                <div className="flex items-center gap-4">
+                    <div className="p-3 bg-primary/10 rounded-xl">
+                        {creationItem.type === 'dir' ? (
+                            <FolderPlus className="w-6 h-6 text-primary" />
+                        ) : (
+                            <FilePlus className="w-6 h-6 text-primary" />
+                        )}
+                    </div>
+                    <div>
+                        <h3 className="text-lg font-black uppercase tracking-tight text-white leading-none mb-1">
+                            New {creationItem.type === 'dir' ? 'Folder' : 'File'}
+                        </h3>
+                        <p className="text-[11px] text-white/30 font-medium uppercase tracking-widest">Assign a name to continue</p>
+                    </div>
+                </div>
+
+                <div className="relative group">
+                    <Input
+                        autoFocus
+                        placeholder={`Enter ${creationItem.type} name...`}
+                        value={creationName}
+                        onChange={(e) => setCreationName(e.target.value)}
+                        className="bg-white/5 border-white/10 text-base focus:border-primary/50 transition-all h-14 pl-4 rounded-xl text-white placeholder:text-white/10"
+                    />
+                    <div className="absolute inset-0 rounded-xl bg-primary/5 opacity-0 group-focus-within:opacity-100 pointer-events-none transition-opacity" />
+                </div>
+
+                <div className="flex justify-end gap-3 pt-4">
+                    <Button
+                        variant="ghost"
+                        onClick={() => setCreationItem(null)}
+                        className="text-[11px] font-black uppercase tracking-widest text-white/30 hover:text-white transition-colors h-11 px-6 rounded-xl"
+                    >
+                        Cancel
+                    </Button>
+                    <Button
+                        disabled={!creationName.trim()}
+                        onClick={() => handleCreate(creationItem.path, creationItem.type, creationName.trim())}
+                        className="bg-primary text-black hover:bg-primary/90 text-[11px] font-black uppercase tracking-widest px-8 h-11 rounded-xl shadow-[0_10px_20px_rgba(255,255,255,0.05)] active:scale-95 transition-all"
+                    >
+                        Create {creationItem.type === 'dir' ? 'Folder' : 'File'}
+                    </Button>
+                </div>
+            </div>
+        </div>
+    );
+};

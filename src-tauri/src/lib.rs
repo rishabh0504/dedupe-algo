@@ -258,6 +258,65 @@ fn delete_selections(paths: Vec<String>) -> DeletionReport {
     }
 }
 
+#[tauri::command]
+fn purge_staged_rm_rf(paths: Vec<String>) -> Result<(), String> {
+    use std::process::Command;
+    if paths.is_empty() { return Ok(()); }
+    
+    // Rust's Command API handles spaces correctly by passing each path as a separate argument to the OS
+    let status = Command::new("rm")
+        .arg("-rf")
+        .arg("--") // End of options to handle paths starting with -
+        .args(paths)
+        .status()
+        .map_err(|e| format!("Failed to execute rm command: {}", e))?;
+
+    if status.success() {
+        Ok(())
+    } else {
+        Err(format!("rm command failed with status: {}", status))
+    }
+}
+
+#[tauri::command]
+fn bulk_move(paths: Vec<String>, target_dir: String) -> Result<(), String> {
+    use std::process::Command;
+    if paths.is_empty() { return Ok(()); }
+    
+    let status = Command::new("mv")
+        .arg("--") // End of options
+        .args(paths)
+        .arg(target_dir)
+        .status()
+        .map_err(|e| format!("Failed to execute mv command: {}", e))?;
+
+    if status.success() {
+        Ok(())
+    } else {
+        Err(format!("mv command failed with status: {}", status))
+    }
+}
+
+#[tauri::command]
+fn bulk_copy(paths: Vec<String>, target_dir: String) -> Result<(), String> {
+    use std::process::Command;
+    if paths.is_empty() { return Ok(()); }
+    
+    let status = Command::new("cp")
+        .arg("-r")
+        .arg("--") // End of options
+        .args(paths)
+        .arg(target_dir)
+        .status()
+        .map_err(|e| format!("Failed to execute cp command: {}", e))?;
+
+    if status.success() {
+        Ok(())
+    } else {
+        Err(format!("cp command failed with status: {}", status))
+    }
+}
+
 use std::process::Command;
 
 #[tauri::command]
@@ -619,7 +678,10 @@ pub fn run() {
             speak_native_macos,
             create_dir,
             create_file,
-            rename_path
+            rename_path,
+            purge_staged_rm_rf,
+            bulk_move,
+            bulk_copy
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
