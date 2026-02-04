@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef, useMemo } from "react";
 import { invoke, convertFileSrc } from "@tauri-apps/api/core";
+import { Drive } from "../hooks/useDrives";
 
 import {
     Folder,
@@ -74,8 +75,8 @@ const FileGridItem = ({
     entry: FileEntry;
     onClick: (entry: FileEntry) => void;
     onContextMenu: (e: React.MouseEvent, entry?: FileEntry, path?: string) => void;
-    scanQueue: string[];
-    addToQueue: (path: string) => void;
+    scanQueue: Drive[];
+    addToQueue: (drive: Drive) => void;
     removeFromQueue: (path: string) => void;
     renamingPath: string | null;
     onRenameCommit: (newName: string) => void;
@@ -233,15 +234,21 @@ const FileGridItem = ({
                     <button
                         onClick={(e) => {
                             e.stopPropagation();
-                            if (scanQueue.includes(entry.path)) removeFromQueue(entry.path);
-                            else addToQueue(entry.path);
+                            if (scanQueue.some(item => item.mount_point === entry.path)) removeFromQueue(entry.path);
+                            else addToQueue({
+                                name: entry.name,
+                                mount_point: entry.path,
+                                total_space: 0,
+                                available_space: 0,
+                                is_removable: false
+                            });
                         }}
                         className={cn(
                             "absolute z-10 top-2 right-2 w-9 h-9 rounded-full flex items-center justify-center shadow-2xl border border-white/25 backdrop-blur-2xl transition-all duration-500 transform scale-0 group-hover:scale-100 rotate-12 group-hover:rotate-0",
-                            scanQueue.includes(entry.path) ? "bg-primary text-black scale-100" : "bg-black/70 text-white hover:bg-primary hover:text-black"
+                            scanQueue.some(item => item.mount_point === entry.path) ? "bg-primary text-black scale-100" : "bg-black/70 text-white hover:bg-primary hover:text-black"
                         )}
                     >
-                        {scanQueue.includes(entry.path) ? <Minus className="w-5 h-5" /> : <Plus className="w-5 h-5" />}
+                        {scanQueue.some(item => item.mount_point === entry.path) ? <Minus className="w-5 h-5" /> : <Plus className="w-5 h-5" />}
                     </button>
                 )}
 
@@ -1022,15 +1029,21 @@ const ExplorerSplit = ({
                                                 <button
                                                     onClick={(e) => {
                                                         e.stopPropagation();
-                                                        if (scanQueue.includes(entry.path)) removeFromQueue(entry.path);
-                                                        else addToQueue(entry.path);
+                                                        if (scanQueue.some(item => item.mount_point === entry.path)) removeFromQueue(entry.path);
+                                                        else addToQueue({
+                                                            name: entry.name,
+                                                            mount_point: entry.path,
+                                                            total_space: 0,
+                                                            available_space: 0,
+                                                            is_removable: false
+                                                        });
                                                     }}
                                                     className={cn(
                                                         "w-7 h-7 rounded-md flex items-center justify-center transition-all bg-white/5 border border-white/5",
-                                                        scanQueue.includes(entry.path) ? "bg-primary text-black opacity-100" : "text-white/20 opacity-0 group-hover/item:opacity-100"
+                                                        scanQueue.some(item => item.mount_point === entry.path) ? "bg-primary text-black opacity-100" : "text-white/20 opacity-0 group-hover/item:opacity-100"
                                                     )}
                                                 >
-                                                    {scanQueue.includes(entry.path) ? <Minus className="w-3.5 h-3.5" /> : <Plus className="w-3.5 h-3.5" />}
+                                                    {scanQueue.some(item => item.mount_point === entry.path) ? <Minus className="w-3.5 h-3.5" /> : <Plus className="w-3.5 h-3.5" />}
                                                 </button>
                                             )}
                                         </div>

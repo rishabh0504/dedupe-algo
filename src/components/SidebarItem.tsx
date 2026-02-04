@@ -30,7 +30,7 @@ export function SidebarItem({ node, level = 0 }: SidebarItemProps) {
     const [hasLoaded, setHasLoaded] = useState(false);
     const { scanQueue, addToQueue, removeFromQueue, isScanning, addExplorerTab, setActiveView, setActiveDedupeTab } = useStore();
 
-    const isQueued = scanQueue.includes(node.mount_point);
+    const isQueued = scanQueue.some(item => item.mount_point === node.mount_point);
 
     const handleExpand = async (e: React.MouseEvent) => {
         e.stopPropagation();
@@ -69,7 +69,7 @@ export function SidebarItem({ node, level = 0 }: SidebarItemProps) {
         if (isQueued) {
             removeFromQueue(node.mount_point);
         } else {
-            addToQueue(node.mount_point);
+            addToQueue(node);
             setActiveView('dedupe');
             setActiveDedupeTab('queue');
         }

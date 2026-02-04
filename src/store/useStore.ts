@@ -1,4 +1,5 @@
 import { create } from 'zustand';
+import { Drive } from '../hooks/useDrives';
 
 export interface FileEntry {
   name: string;
@@ -35,7 +36,7 @@ export interface ExplorerTab {
 
 interface UIState {
   isScanning: boolean;
-  scanQueue: string[];
+  scanQueue: Drive[];
   scanResults: ScanResult | null;
   selectionQueue: string[]; // paths to delete
   scanHidden: boolean;
@@ -57,11 +58,12 @@ interface UIState {
   setScanTimestamp: (ts: number) => void;
   setScanProgress: (progress: { current: number; total: number; file: string; } | null) => void;
   setOnboarded: (val: boolean) => void;
-  addToQueue: (path: string) => void;
+  addToQueue: (drive: Drive) => void;
   removeFromQueue: (path: string) => void;
   clearQueue: () => void;
   setResults: (results: ScanResult | null) => void;
   toggleSelection: (path: string) => void;
+  toggleBulkSelection: (paths: string[], select: boolean) => void;
   smartSelect: (criteria: "newest" | "oldest") => void;
   clearSelection: () => void;
   activeView: 'explorer' | 'dedupe' | 'jarvis';
@@ -227,11 +229,13 @@ export const useStore = create<UIState>((set) => ({
     localStorage.setItem('aether-onboarded', val.toString());
     set({ isOnboarded: val });
   },
-  addToQueue: (path) => set((state) => ({
-    scanQueue: state.scanQueue.includes(path) ? state.scanQueue : [...state.scanQueue, path]
+  addToQueue: (drive) => set((state) => ({
+    scanQueue: state.scanQueue.some(item => item.mount_point === drive.mount_point)
+      ? state.scanQueue
+      : [...state.scanQueue, drive]
   })),
   removeFromQueue: (path) => set((state) => ({
-    scanQueue: state.scanQueue.filter((p) => p !== path)
+    scanQueue: state.scanQueue.filter((item) => item.mount_point !== path)
   })),
   clearQueue: () => set({ scanQueue: [] }),
   setResults: (results) => set({ scanResults: results }),
@@ -240,6 +244,14 @@ export const useStore = create<UIState>((set) => ({
       ? state.selectionQueue.filter((p) => p !== path)
       : [...state.selectionQueue, path]
   })),
+  toggleBulkSelection: (paths, select) => set((state) => {
+    const currentQueue = new Set(state.selectionQueue);
+    paths.forEach(p => {
+      if (select) currentQueue.add(p);
+      else currentQueue.delete(p);
+    });
+    return { selectionQueue: Array.from(currentQueue) };
+  }),
   smartSelect: (criteria) => set((state) => {
     if (!state.scanResults) return state;
 

@@ -133,7 +133,7 @@ function App() {
       setScanPhase('partial');
 
       const response = await invoke<ScanResult>("start_scan", {
-        paths: scanQueue,
+        paths: scanQueue.map(item => item.mount_point),
         scanHidden,
         scanImages,
         scanVideos,

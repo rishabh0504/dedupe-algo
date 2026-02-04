@@ -35,7 +35,7 @@ interface ResultsViewProps {
 }
 
 export function ResultsView({ onRescan }: ResultsViewProps) {
-    const { scanResults, selectionQueue, toggleSelection, clearSelection } = useStore();
+    const { scanResults, selectionQueue, toggleSelection, toggleBulkSelection, clearSelection } = useStore();
     const [isConfirmOpen, setConfirmOpen] = useState(false);
     const [previewFile, setPreviewFile] = useState<FileMetadata | null>(null);
     const [previewError, setPreviewError] = useState(false);
@@ -288,6 +288,7 @@ export function ResultsView({ onRescan }: ResultsViewProps) {
                                     scanResults={filteredResults}
                                     selectedSet={selectedSet}
                                     toggleSelection={toggleSelection}
+                                    toggleBulkSelection={toggleBulkSelection}
                                     handlePreview={handlePreview}
                                     isMedia={isMedia}
                                 />

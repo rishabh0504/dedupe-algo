@@ -1,9 +1,6 @@
-import * as React from "react";
 import { useStore } from "../store/useStore";
-import { useDrives } from "../hooks/useDrives";
 import { formatSize } from "../lib/utils";
-import { useQuery, useIsFetching } from "@tanstack/react-query";
-import { invoke } from "@tauri-apps/api/core";
+import { useIsFetching } from "@tanstack/react-query";
 import {
     HardDrive,
     X,
@@ -32,17 +29,11 @@ interface Drive {
 
 export function ScanQueueView({ onStartScan }: { onStartScan: () => void }) {
     const { scanQueue, removeFromQueue, isScanning, scanPhase } = useStore();
-    const { data: drives } = useDrives();
 
-    const { data: systemNodes } = useQuery({
-        queryKey: ["systemNodes"],
-        queryFn: () => invoke<Drive[]>("get_system_nodes")
-    });
 
     const isIndexing = useIsFetching({ queryKey: ["folderSize"] }) > 0;
 
-    const allNodes = React.useMemo(() => [...(drives || []), ...(systemNodes || [])], [drives, systemNodes]);
-    const queuedDrives = allNodes.filter(d => scanQueue.includes(d.mount_point)) || [];
+    const queuedDrives = scanQueue;
 
     const getPhaseMessage = () => {
         if (isIndexing) return "Mapping Data Intensity...";
@@ -208,32 +199,34 @@ function TargetCard({ drive, onRemove, isScanning }: { drive: Drive, onRemove: (
                 </Button>
             </CardHeader>
             <CardContent className="px-4 pb-4 space-y-4">
-                <div className="space-y-1.5">
-                    <div className="flex justify-between items-end">
-                        <div className="flex flex-col">
-                            <span className="text-[8px] font-black uppercase tracking-tighter opacity-20">Disk Pressure</span>
-                            <span className="text-[10px] font-bold tabular-nums text-muted-foreground/80">
-                                {formatSize(used)} / {formatSize(drive.total_space)}
-                            </span>
+                {drive.total_space > 0 && (
+                    <div className="space-y-1.5">
+                        <div className="flex justify-between items-end">
+                            <div className="flex flex-col">
+                                <span className="text-[8px] font-black uppercase tracking-tighter opacity-20">Disk Pressure</span>
+                                <span className="text-[10px] font-bold tabular-nums text-muted-foreground/80">
+                                    {formatSize(used)} / {formatSize(drive.total_space)}
+                                </span>
+                            </div>
+                            <Badge variant="secondary" className="text-[8px] h-4 font-black bg-primary/10 text-primary border-primary/20 px-1.5">
+                                {usagePercent}%
+                            </Badge>
                         </div>
-                        <Badge variant="secondary" className="text-[8px] h-4 font-black bg-primary/10 text-primary border-primary/20 px-1.5">
-                            {usagePercent}%
-                        </Badge>
+                        <div className="h-1.5 w-full bg-primary/5 rounded-full overflow-hidden border border-primary/5">
+                            <div
+                                className="h-full bg-primary/40 rounded-full transition-all duration-1000 group-hover:bg-primary/60"
+                                style={{ width: `${usagePercent}%` }}
+                            />
+                        </div>
                     </div>
-                    <div className="h-1.5 w-full bg-primary/5 rounded-full overflow-hidden border border-primary/5">
-                        <div
-                            className="h-full bg-primary/40 rounded-full transition-all duration-1000 group-hover:bg-primary/60"
-                            style={{ width: `${usagePercent}%` }}
-                        />
-                    </div>
-                </div>
+                )}
 
                 <div className="p-2.5 rounded-xl border flex items-center justify-between transition-all bg-emerald-500/5 border-emerald-500/10 group-hover:bg-emerald-500/10">
                     <div className="flex flex-col">
                         <span className="text-[9px] font-black uppercase tracking-widest opacity-30 italic">IO Intensity</span>
                         <div className="flex items-center gap-2 mt-0.5">
                             <span className="text-[13px] font-black text-white tracking-tight">
-                                Ready
+                                {drive.total_space > 0 ? "Ready" : "System Node"}
                             </span>
                         </div>
                     </div>
