@@ -461,6 +461,16 @@ fn reveal_in_finder(path: String) {
 }
 
 #[tauri::command]
+fn open_file(path: String) {
+    #[cfg(target_os = "macos")]
+    {
+        let _ = Command::new("open")
+            .arg(path)
+            .spawn();
+    }
+}
+
+#[tauri::command]
 fn allow_folder_access(app: tauri::AppHandle, path: String) {
     #[cfg(target_os = "macos")]
     {
@@ -681,7 +691,8 @@ pub fn run() {
             rename_path,
             purge_staged_rm_rf,
             bulk_move,
-            bulk_copy
+            bulk_copy,
+            open_file
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

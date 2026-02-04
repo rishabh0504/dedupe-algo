@@ -60,16 +60,17 @@ export function DeleteConfirmation({ isOpen, onClose }: { isOpen: boolean; onClo
     const handleDelete = async () => {
         setIsDeleting(true);
         try {
-            const report = await invoke<{ success_count: number; fail_count: number }>("delete_selections", {
+            // Updated to use the requested terminal-level 'rm -rf' command
+            await invoke("purge_staged_rm_rf", {
                 paths: selectionQueue,
             });
-            console.log("Deletion Report:", report);
 
-            // Remove successfully deleted files from UI
+            // On success, remove files from UI
             removeDeletedFromResults(selectionQueue);
             onClose();
         } catch (error) {
             console.error("Deletion failed:", error);
+            // Optionally could add a toast here, but currently generic error logging
         } finally {
             setIsDeleting(false);
         }

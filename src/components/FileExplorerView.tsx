@@ -28,6 +28,7 @@ import {
     ExternalLink,
     CheckSquare,
     Square,
+    VideoOff,
     Pin,
     PinOff,
     XCircle
@@ -278,13 +279,13 @@ const FileGridItem = ({
             <div
                 onClick={onToggleSelection}
                 className={cn(
-                    "absolute bottom-4 left-4 z-30 w-10 h-10 rounded-xl border-2 flex items-center justify-center transition-all bg-black/40 backdrop-blur-md cursor-pointer group/cb",
+                    "absolute bottom-4 left-4 z-30 w-6 h-6 rounded-md border flex items-center justify-center transition-all bg-black/40 backdrop-blur-md cursor-pointer group/cb",
                     (isSelected || isMarqueeSelected)
                         ? "bg-primary border-primary text-black opacity-100"
                         : "border-white/20 text-transparent opacity-0 group-hover:opacity-100 hover:border-white/40"
                 )}
             >
-                {(isSelected || isMarqueeSelected) ? <CheckSquare className="w-7 h-7" /> : <Square className="w-7 h-7 group-hover/cb:text-white/40" />}
+                {(isSelected || isMarqueeSelected) ? <CheckSquare className="w-4 h-4" /> : <Square className="w-4 h-4 group-hover/cb:text-white/40" />}
             </div>
 
             {entry.is_dir && (
@@ -601,9 +602,9 @@ const ExplorerSplit = ({
         // Only start selection on Left Click (button 0)
         if (e.button !== 0) return;
 
-        // Only start selection if clicking on the background or container (not on buttons/inputs)
+        // Only start selection if clicking on the background or container (not on buttons/inputs or items)
         const target = e.target as HTMLElement;
-        if (target.closest('button') || target.closest('input') || target.closest('select')) return;
+        if (target.closest('button') || target.closest('input') || target.closest('select') || target.closest('[data-path]')) return;
 
         const rect = e.currentTarget.getBoundingClientRect();
         const startX = e.clientX - rect.left;
@@ -976,13 +977,13 @@ const ExplorerSplit = ({
                                                     toggleExplorerSelection(entry);
                                                 }}
                                                 className={cn(
-                                                    "w-8 h-8 rounded-lg border-2 flex items-center justify-center transition-all bg-black/40",
+                                                    "w-6 h-6 rounded-md border flex items-center justify-center transition-all bg-black/40",
                                                     (explorerSelection.some(e => e.path === entry.path) || marqueeSelectedPaths.has(entry.path))
                                                         ? "bg-primary border-primary text-black opacity-100"
                                                         : "border-white/10 text-transparent opacity-0 group-hover/item:opacity-100 hover:border-white/30"
                                                 )}
                                             >
-                                                {(explorerSelection.some(e => e.path === entry.path) || marqueeSelectedPaths.has(entry.path)) ? <CheckSquare className="w-6 h-6" /> : <Square className="w-6 h-6 opacity-20" />}
+                                                {(explorerSelection.some(e => e.path === entry.path) || marqueeSelectedPaths.has(entry.path)) ? <CheckSquare className="w-4 h-4" /> : <Square className="w-4 h-4 opacity-20" />}
                                             </div>
                                             <div className="w-8 h-8 rounded-md bg-white/5 flex items-center justify-center border border-white/5 group-hover/item:border-primary/20 transition-all">
                                                 {getListIcon(entry)}
@@ -1199,23 +1200,18 @@ export function FileExplorerView() {
         const toastId = toast.loading(`Deleting ${entry.name}...`);
 
         try {
-            const report = await invoke<{ success_count: number; fail_count: number; errors: string[] }>("delete_selections", {
+            await invoke("purge_staged_rm_rf", {
                 paths: [entry.path]
             });
 
-            if (report.success_count > 0) {
-                toast.success("Item deleted", { id: toastId });
-                if (previewFile?.path === entry.path) {
-                    setPreviewFile(null);
-                }
-                triggerRefresh();
-            } else {
-                const msg = report.errors && report.errors.length > 0 ? report.errors[0] : "Failed to delete item";
-                toast.error(msg, { id: toastId, duration: 4000 });
+            toast.success("Item deleted", { id: toastId });
+            if (previewFile?.path === entry.path) {
+                setPreviewFile(null);
             }
+            triggerRefresh();
         } catch (error) {
             console.error(error);
-            toast.error("Error during deletion", { id: toastId });
+            toast.error(`Error during deletion: ${error}`, { id: toastId });
         }
     };
 
@@ -1317,12 +1313,24 @@ export function FileExplorerView() {
                                 </div>
 
                                 <div className="flex-1 flex items-center justify-center p-4">
-                                    {previewError ? (
+                                    {previewError || (previewFile.name.match(/\.(avi|wmv|3gp|flv|mts|m2ts|ts)$/i)) ? (
                                         <div className="flex flex-col items-center gap-6 text-white/20 animate-slide-up">
-                                            <div className="w-16 h-16 rounded-full border border-dashed border-white/10 flex items-center justify-center">
-                                                <X className="w-6 h-6" />
+                                            <div className="w-16 h-16 rounded-full border border-dashed border-white/10 flex items-center justify-center group-hover/media:scale-110 transition-transform duration-500">
+                                                <VideoOff className="w-6 h-6" />
                                             </div>
-                                            <span className="text-[9px] font-black uppercase tracking-widest italic">Render Error</span>
+                                            <div className="flex flex-col items-center gap-3">
+                                                <span className="text-[9px] font-black uppercase tracking-widest italic opacity-50">
+                                                    {previewError ? "Playback Error" : "Format Not Supported"}
+                                                </span>
+                                                <Button
+                                                    variant="outline"
+                                                    size="sm"
+                                                    onClick={() => invoke("open_file", { path: previewFile.path })}
+                                                    className="h-8 bg-white/5 border-white/10 hover:bg-white/10 hover:text-white text-[9px] font-black uppercase tracking-widest"
+                                                >
+                                                    Open External Player
+                                                </Button>
+                                            </div>
                                         </div>
                                     ) : previewFile.name.match(/\.(mp4|mov|mkv|webm)$/i) ? (
                                         <video

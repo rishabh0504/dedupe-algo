@@ -145,7 +145,12 @@ export function ResultsView({ onRescan }: ResultsViewProps) {
 
     const isVideo = (path: string) => {
         const ext = path.split('.').pop()?.toLowerCase();
-        return ["mp4", "mov", "mkv", "webm"].includes(ext || "");
+        return ["mp4", "mov", "mkv", "webm", "avi", "wmv", "3gp", "flv", "mts", "m2ts", "ts"].includes(ext || "");
+    };
+
+    const isNativeVideo = (path: string) => {
+        const ext = path.split('.').pop()?.toLowerCase();
+        return ["mp4", "mov", "webm"].includes(ext || "");
     };
 
     const safeConvertFileSrc = (path: string) => {
@@ -329,22 +334,32 @@ export function ResultsView({ onRescan }: ResultsViewProps) {
                                 </Button>
                             </div>
 
-                            <div className="flex-1 flex items-center justify-center bg-slate-950/50">
-                                {previewError ? (
-                                    <div className="flex flex-col items-center gap-4 text-white/20">
-                                        <div className="w-16 h-16 rounded-full border-2 border-dashed border-white/10 flex items-center justify-center">
-                                            {isVideo(previewFile.path) ? <VideoOff className="w-6 h-6" /> : <ImageOff className="w-6 h-6" />}
+                            <div className="flex-1 flex items-center justify-center bg-slate-950/50 relative">
+                                {previewError || (isVideo(previewFile.path) && !isNativeVideo(previewFile.path)) ? (
+                                    <div className="flex flex-col items-center gap-6 text-white/20 animate-in fade-in zoom-in-95 duration-500">
+                                        <div className="w-20 h-20 rounded-full border border-dashed border-white/10 flex items-center justify-center bg-white/[0.02]">
+                                            {isVideo(previewFile.path) ? <VideoOff className="w-8 h-8 opacity-50" /> : <ImageOff className="w-8 h-8 opacity-50" />}
                                         </div>
-                                        <span className="text-[10px] font-black uppercase tracking-widest">
-                                            {isVideo(previewFile.path) ? "Playback Failed" : "Render Failed"}
-                                        </span>
+                                        <div className="flex flex-col items-center gap-2">
+                                            <span className="text-[10px] font-black uppercase tracking-widest text-white/40">
+                                                {isVideo(previewFile.path) ? "Format Not Supported In-App" : "Render Failed"}
+                                            </span>
+                                            <Button
+                                                variant="outline"
+                                                size="sm"
+                                                onClick={() => invoke("open_file", { path: previewFile.path })}
+                                                className="h-8 text-[9px] font-black uppercase tracking-widest bg-white/5 border-white/10 hover:bg-white/10 hover:text-white"
+                                            >
+                                                Open System Player
+                                            </Button>
+                                        </div>
                                     </div>
                                 ) : isVideo(previewFile.path) ? (
                                     <video
                                         src={safeConvertFileSrc(previewFile.path)}
                                         controls
                                         muted
-                                        className="max-w-full max-h-full"
+                                        className="max-w-full max-h-full shadow-2xl"
                                         onError={() => setPreviewError(true)}
                                     />
                                 ) : (
