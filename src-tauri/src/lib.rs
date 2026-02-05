@@ -14,6 +14,27 @@ struct AppState {
 
 use std::collections::HashMap;
 use rayon::prelude::*;
+use std::path::{Path, PathBuf};
+
+fn get_unique_path(target_path: PathBuf) -> PathBuf {
+    if !target_path.exists() {
+        return target_path;
+    }
+
+    let parent = target_path.parent().unwrap_or_else(|| Path::new(""));
+    let stem = target_path.file_stem().unwrap_or_default().to_string_lossy();
+    let extension = target_path.extension().map(|e| format!(".{}", e.to_string_lossy())).unwrap_or_default();
+
+    let mut counter = 1;
+    loop {
+        let new_name = format!("{} ({}){}", stem, counter, extension);
+        let new_path = parent.join(new_name);
+        if !new_path.exists() {
+            return new_path;
+        }
+        counter += 1;
+    }
+}
 
 #[derive(Serialize)]
 struct ScanResult {
@@ -297,18 +318,26 @@ fn bulk_move(paths: Vec<String>, target_dir: String) -> Result<(), String> {
     use std::process::Command;
     if paths.is_empty() { return Ok(()); }
     
-    let status = Command::new("mv")
-        .arg("--") // End of options
-        .args(paths)
-        .arg(target_dir)
-        .status()
-        .map_err(|e| format!("Failed to execute mv command: {}", e))?;
+    let target_dir_path = Path::new(&target_dir);
+    for path_str in paths {
+        let source_path = Path::new(&path_str);
+        if let Some(file_name) = source_path.file_name() {
+            let dest_path = target_dir_path.join(file_name);
+            let unique_dest = get_unique_path(dest_path);
 
-    if status.success() {
-        Ok(())
-    } else {
-        Err(format!("mv command failed with status: {}", status))
+            let status = Command::new("mv")
+                .arg("--") // End of options
+                .arg(&path_str)
+                .arg(unique_dest)
+                .status()
+                .map_err(|e| format!("Failed to execute mv command for {}: {}", path_str, e))?;
+
+            if !status.success() {
+                return Err(format!("mv command failed for {} with status: {}", path_str, status));
+            }
+        }
     }
+    Ok(())
 }
 
 #[tauri::command]
@@ -316,19 +345,27 @@ fn bulk_copy(paths: Vec<String>, target_dir: String) -> Result<(), String> {
     use std::process::Command;
     if paths.is_empty() { return Ok(()); }
     
-    let status = Command::new("cp")
-        .arg("-r")
-        .arg("--") // End of options
-        .args(paths)
-        .arg(target_dir)
-        .status()
-        .map_err(|e| format!("Failed to execute cp command: {}", e))?;
+    let target_dir_path = Path::new(&target_dir);
+    for path_str in paths {
+        let source_path = Path::new(&path_str);
+        if let Some(file_name) = source_path.file_name() {
+            let dest_path = target_dir_path.join(file_name);
+            let unique_dest = get_unique_path(dest_path);
 
-    if status.success() {
-        Ok(())
-    } else {
-        Err(format!("cp command failed with status: {}", status))
+            let status = Command::new("cp")
+                .arg("-r")
+                .arg("--") // End of options
+                .arg(&path_str)
+                .arg(unique_dest)
+                .status()
+                .map_err(|e| format!("Failed to execute cp command for {}: {}", path_str, e))?;
+
+            if !status.success() {
+                return Err(format!("cp command failed for {} with status: {}", path_str, status));
+            }
+        }
     }
+    Ok(())
 }
 
 use std::process::Command;

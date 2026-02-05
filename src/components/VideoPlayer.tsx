@@ -27,8 +27,8 @@ export const VideoPlayer: React.FC<VideoPlayerProps> = ({
     const [isPlaying, setIsPlaying] = useState(false);
     const [currentTime, setCurrentTime] = useState(0);
     const [duration, setDuration] = useState(0);
-    const [volume, setVolume] = useState(1);
-    const [isMuted, setIsMuted] = useState(false);
+    const [volume, setVolume] = useState(0);
+    const [isMuted, setIsMuted] = useState(true);
     const [showControls, setShowControls] = useState(true);
     const controlsTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
@@ -114,6 +114,7 @@ export const VideoPlayer: React.FC<VideoPlayerProps> = ({
                 onLoadedMetadata={handleLoadedMetadata}
                 onClick={togglePlay}
                 onError={onError}
+                muted={isMuted}
                 playsInline
             />
 
