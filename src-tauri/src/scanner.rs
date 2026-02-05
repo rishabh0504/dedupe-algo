@@ -67,112 +67,128 @@ pub fn get_full_hash(path: &str) -> Option<String> {
     Some(hash)
 }
 
+pub fn scan_directory_shell(
+    path: &str,
+    script_path: &str,
+    min_file_size: u64,
+    whitelist_exts: &HashSet<String>,
+    scan_hidden: bool,
+) -> Option<Vec<FileMetadata>> {
+    use std::process::Command;
+
+    let exts_csv = whitelist_exts.iter().cloned().collect::<Vec<String>>().join(",");
+    
+    let output = Command::new(script_path)
+        .args([path, &min_file_size.to_string(), &exts_csv, &scan_hidden.to_string()])
+        .output()
+        .ok()?;
+
+    if !output.status.success() {
+        return None;
+    }
+
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    let mut files = Vec::new();
+
+    for line in stdout.lines() {
+        let parts: Vec<&str> = line.splitn(3, ' ').collect();
+        if parts.len() == 3 {
+            let size = parts[0].parse::<u64>().unwrap_or(0);
+            let modified = parts[1].parse::<u64>().unwrap_or(0);
+            let path = parts[2].trim().to_string();
+
+            files.push(FileMetadata {
+                path,
+                size,
+                modified,
+                partial_hash: None,
+                full_hash: None,
+            });
+        }
+    }
+
+    Some(files)
+}
+
 pub fn scan_directory(
     path: &str, 
+    script_path: Option<&str>,
     scan_hidden: bool,
     scan_images: bool,
     scan_videos: bool,
     scan_zips: bool,
     min_file_size: u64
 ) -> Vec<FileMetadata> {
+    // Whitelist setup
+    let mut whitelist_exts = HashSet::new();
+    if scan_images {
+        for ext in ["jpg", "jpeg", "png", "gif", "webp", "heic", "tiff", "bmp", "arw", "cr2", "nef", "dng", "orf", "rw2", "svg", "psd", "ai", "ico"] {
+            whitelist_exts.insert(ext.to_string());
+        }
+    }
+    if scan_videos {
+        for ext in ["mp4", "mov", "avi", "mkv", "wmv", "flv", "webm", "m4v", "ts", "mts", "m2ts", "3gp", "divx", "vob"] {
+            whitelist_exts.insert(ext.to_string());
+        }
+    }
+    if scan_zips {
+        for ext in ["zip", "tar", "gz", "7z", "rar"] {
+            whitelist_exts.insert(ext.to_string());
+        }
+    }
+    for ext in ["pdf", "docx", "xlsx", "pptx", "txt", "md", "mp3", "wav", "flac", "m4a", "ogg"] {
+        whitelist_exts.insert(ext.to_string());
+    }
 
+    // Attempt shell discovery first (Fastest)
+    if let Some(sp) = script_path {
+        if let Some(files) = scan_directory_shell(path, sp, min_file_size, &whitelist_exts, scan_hidden) {
+            if !files.is_empty() {
+                return files;
+            }
+        }
+    }
 
-    // Comprehensive Blacklist
+    // Comprehensive Blacklist for fallback
     let blacklist = [
         "/System", "/Library", "/Windows", "/bin", "/usr/bin", "/usr/sbin",
         "/dev", "/proc", "/sys", "/etc", "/var/lib", "/var/cache",
         ".Trash", "$RECYCLE.BIN"
     ];
 
-    // Developer / High-Entropy Folder Exclusions
-    let dev_black_names = [
+    let dev_black_names: HashSet<&str> = [
         "node_modules", "venv", ".venv", "env", "target", "dist", "build",
         "__pycache__", ".git", ".hg", ".svn", ".vscode", ".idea"
-    ];
+    ].iter().cloned().collect();
 
-    // Build Whitelist dynamically (Using HashSet for O(1) lookup)
-    let mut whitelist_exts = HashSet::new();
-    
-    if scan_images {
-        for ext in ["jpg", "jpeg", "png", "gif", "webp", "heic", "tiff", "bmp", "arw", "cr2", "nef", "dng", "orf", "rw2", "svg", "psd", "ai", "ico"] {
-            whitelist_exts.insert(ext.to_string());
-        }
-    }
-    
-    if scan_videos {
-        for ext in ["mp4", "mov", "avi", "mkv", "wmv", "flv", "webm", "m4v", "ts", "mts", "m2ts", "3gp", "divx", "vob"] {
-            whitelist_exts.insert(ext.to_string());
-        }
-    }
-    
-    if scan_zips {
-        for ext in ["zip", "tar", "gz", "7z", "rar"] {
-            whitelist_exts.insert(ext.to_string());
-        }
-    }
-
-    // Always include documents and audio
-    for ext in ["pdf", "docx", "xlsx", "pptx", "txt", "md", "mp3", "wav", "flac", "m4a", "ogg"] {
-        whitelist_exts.insert(ext.to_string());
-    }
-
-
-    
     jwalk::WalkDirGeneric::<((), ())>::new(path)
         .skip_hidden(!scan_hidden)
-        .follow_links(false) // Core protection: never follow symlinks to avoid recursion or duplication
+        .follow_links(false)
         .parallelism(jwalk::Parallelism::RayonNewPool(0))
-        .into_iter()
-        .filter_map(|e| {
-            match e {
-                Ok(entry) => Some(entry),
-                Err(err) => {
-                    eprintln!("Scan error (permission/access): {}", err);
-                    None
+        .process_read_dir(move |_, _, _, children| {
+            children.retain(|child| {
+                if let Ok(entry) = child {
+                    if entry.file_type.is_dir() {
+                        let name = entry.file_name.to_string_lossy();
+                        if dev_black_names.contains(&*name) {
+                            return false;
+                        }
+                    }
                 }
-            }
+                true
+            });
         })
+        .into_iter()
+        .filter_map(|e| e.ok())
         .filter_map(|entry| {
             let path_buf = entry.path();
             let path_str = path_buf.to_string_lossy();
             
-            // Dot-folder explicit exclusion
-            if !scan_hidden {
-                if let Some(name) = path_buf.file_name() {
-                    let name_str = name.to_string_lossy();
-                    if name_str.starts_with('.') {
-                        return None;
-                    }
-                }
-            }
-
-            // 1. Absolute Path Blacklist Check
             if blacklist.iter().any(|b| path_str.starts_with(b)) {
                 return None;
             }
 
-            // 2. Folder Name Blacklist Check (for Dev tools/Libraries)
-            if entry.file_type.is_dir() {
-                if let Some(name) = path_buf.file_name() {
-                    let name_str = name.to_string_lossy();
-                    if dev_black_names.iter().any(|&b| name_str == b) {
-                        return None; 
-                    }
-                }
-            }
-
             if entry.file_type.is_file() {
-                // Optimization: Use a simpler check for parent folders
-                let mut components = path_buf.components();
-                while let Some(comp) = components.next() {
-                    if let Some(name) = comp.as_os_str().to_str() {
-                        if dev_black_names.contains(&name) {
-                            return None;
-                        }
-                    }
-                }
-
-                // 3. Extension Whitelist Check (O(1))
                 let ext = path_buf.extension()
                     .and_then(|s| s.to_str())
                     .unwrap_or("")
@@ -183,7 +199,6 @@ pub fn scan_directory(
                 }
 
                 if let Ok(metadata) = entry.metadata() {
-                    // Min File Size Filter
                     if metadata.len() < min_file_size {
                         return None;
                     }

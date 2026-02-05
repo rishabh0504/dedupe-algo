@@ -47,7 +47,8 @@
       "binaries/jarvis"
     ],
     "resources": [
-      "../models/*"
+      "../models/*",
+      "scripts/*"
     ]
   }
 }

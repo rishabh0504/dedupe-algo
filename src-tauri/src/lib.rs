@@ -40,11 +40,25 @@ fn start_scan(
 ) -> ScanResult {
     use tauri::Emitter;
 
-    // Phase 1: Traversal (Parallel across root paths)
-    println!("Starting scan for paths: {:?}", paths);
+    // Resolve script path
+    let script_path = app.path().resource_dir()
+        .ok()
+        .map(|p| p.join("scripts/scanner_utils.sh"))
+        .filter(|p| p.exists())
+        .map(|p| p.to_string_lossy().into_owned());
+
+    println!("Starting scan for paths: {:?} (Shell optimization: {:?})", paths, script_path.is_some());
     let all_files: Vec<FileMetadata> = paths.par_iter()
         .flat_map(|path| {
-            let found = scan_directory(path, scan_hidden, scan_images, scan_videos, scan_zips, min_file_size);
+            let found = scan_directory(
+                path, 
+                script_path.as_deref(),
+                scan_hidden, 
+                scan_images, 
+                scan_videos, 
+                scan_zips, 
+                min_file_size
+            );
             println!("Scanned path: {}. Found {} files.", path, found.len());
             found
         })

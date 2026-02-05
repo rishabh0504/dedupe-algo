@@ -17,7 +17,8 @@ import {
     LayoutGrid,
     Binary,
     Folders,
-    Loader2
+    Loader2,
+    CopyCheck
 } from "lucide-react";
 import { DeleteConfirmation } from "./DeleteConfirmation";
 import { Button } from "@/components/ui/button";
@@ -253,6 +254,21 @@ export function ResultsView({ onRescan }: ResultsViewProps) {
                                 </button>
                             )}
                         </div>
+
+                        {viewMode === 'cluster' && scanResults && scanResults.groups.length > 0 && (
+                            <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => {
+                                    const allDuplicates = scanResults.groups.flatMap(group => group.slice(1).map(f => f.path));
+                                    toggleBulkSelection(allDuplicates, true);
+                                }}
+                                className="rounded-xl h-11 px-6 font-black text-[10px] uppercase tracking-widest hover:bg-primary/5 text-primary border border-transparent hover:border-primary/20 transition-all mr-2"
+                            >
+                                <CopyCheck className="w-3.5 h-3.5 mr-2" />
+                                Select All But One
+                            </Button>
+                        )}
 
                         {selectionQueue.length > 0 && (
                             <Button
