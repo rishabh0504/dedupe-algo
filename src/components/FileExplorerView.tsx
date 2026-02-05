@@ -29,7 +29,6 @@ import {
     ExternalLink,
     CheckSquare,
     Square,
-    VideoOff,
     Pin,
     PinOff,
     XCircle
@@ -41,6 +40,11 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { cn, formatSize } from "@/lib/utils";
 import { toast } from "sonner";
 import { SidebarTrigger } from "@/components/ui/sidebar";
+import { VideoPlayer } from "./VideoPlayer";
+import {
+    MonitorPlay,
+    TerminalSquare
+} from "lucide-react";
 
 
 // Context Menu Setup
@@ -1327,33 +1331,48 @@ export function FileExplorerView() {
 
                                 <div className="flex-1 flex items-center justify-center p-4">
                                     {previewError || (previewFile.name.match(/\.(avi|wmv|3gp|flv|mts|m2ts|ts)$/i)) ? (
-                                        <div className="flex flex-col items-center gap-6 text-white/20 animate-slide-up">
-                                            <div className="w-16 h-16 rounded-full border border-dashed border-white/10 flex items-center justify-center group-hover/media:scale-110 transition-transform duration-500">
-                                                <VideoOff className="w-6 h-6" />
+                                        <div className="flex flex-col items-center justify-center w-full h-full p-8">
+                                            <div className="relative mb-6">
+                                                <div className="absolute -inset-8 bg-primary/10 rounded-full blur-2xl animate-pulse" />
+                                                <div className="w-20 h-20 rounded-3xl bg-white/[0.02] border border-white/10 flex items-center justify-center relative z-10">
+                                                    <MonitorPlay className="w-8 h-8 text-primary/50" />
+                                                </div>
+                                                <div className="absolute -bottom-2 -right-2 w-7 h-7 rounded-xl bg-zinc-900 border border-white/10 flex items-center justify-center z-20">
+                                                    <TerminalSquare className="w-3.5 h-3.5 text-primary" />
+                                                </div>
                                             </div>
-                                            <div className="flex flex-col items-center gap-3">
-                                                <span className="text-[9px] font-black uppercase tracking-widest italic opacity-50">
-                                                    {previewError ? "Playback Error" : "Format Not Supported"}
-                                                </span>
+
+                                            <div className="flex flex-col items-center gap-2 text-center max-w-xs">
+                                                <h4 className="text-sm font-black text-white uppercase tracking-tighter italic">Deep Audit Protocol</h4>
+                                                <p className="text-[10px] text-white/30 font-medium leading-relaxed uppercase tracking-widest">
+                                                    Codecs for this format are restricted by the system sandbox. Use the high-performance hardware decoder for full validation.
+                                                </p>
+                                            </div>
+
+                                            <div className="mt-8 flex flex-col gap-3 w-full max-w-[200px]">
+                                                <Button
+                                                    variant="default"
+                                                    size="lg"
+                                                    onClick={() => invoke("trigger_quick_look", { path: previewFile.path })}
+                                                    className="h-11 bg-white text-black font-black text-[9px] uppercase tracking-[0.2em] rounded-xl shadow-xl hover:scale-[1.02] transition-all"
+                                                >
+                                                    Initialize Quick Look
+                                                </Button>
                                                 <Button
                                                     variant="outline"
                                                     size="sm"
                                                     onClick={() => invoke("open_file", { path: previewFile.path })}
-                                                    className="h-8 bg-white/5 border-white/10 hover:bg-white/10 hover:text-white text-[9px] font-black uppercase tracking-widest"
+                                                    className="h-10 text-white/60 hover:text-white font-black text-[8px] uppercase tracking-widest border-white/10 bg-white/5"
                                                 >
-                                                    Open External Player
+                                                    Full System Playback
                                                 </Button>
                                             </div>
                                         </div>
                                     ) : previewFile.name.match(/\.(mp4|mov|mkv|webm)$/i) ? (
-                                        <video
-                                            key={previewFile.path} // Force remount on path change to reset playing state
+                                        <VideoPlayer
+                                            key={previewFile.path}
                                             src={safeConvertFileSrc(previewFile.path)}
-                                            controls
-                                            muted // Default to muted
-                                            autoPlay={false} // Ensure video starts paused
-                                            playsInline
-                                            className="max-w-full max-h-full rounded-xl shadow-2xl border border-white/5"
+                                            className="w-full h-full"
                                             onError={() => setPreviewError(true)}
                                         />
                                     ) : (

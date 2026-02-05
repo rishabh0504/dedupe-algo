@@ -7,9 +7,7 @@ import {
     AlertCircle,
     X,
     Video,
-    Image as ImageIcon,
-    ImageOff,
-    VideoOff,
+    ImageIcon,
     CheckCircle2,
     ExternalLink,
     RotateCcw,
@@ -18,7 +16,9 @@ import {
     Binary,
     Folders,
     Loader2,
-    CopyCheck
+    CopyCheck,
+    MonitorPlay,
+    TerminalSquare
 } from "lucide-react";
 import { DeleteConfirmation } from "./DeleteConfirmation";
 import { Button } from "@/components/ui/button";
@@ -28,6 +28,7 @@ import { invoke, convertFileSrc } from "@tauri-apps/api/core";
 import { ClusterResultsView } from "./views/ClusterResultsView";
 import { FolderResultsView } from "./views/FolderResultsView";
 import { CategoryResultsView } from "./views/CategoryResultsView";
+import { VideoPlayer } from "./VideoPlayer";
 import { transformToCategories, transformToFolders } from "../lib/dataTransform";
 import { toast } from "sonner";
 
@@ -141,16 +142,18 @@ export function ResultsView({ onRescan }: ResultsViewProps) {
 
     const isMedia = (path: string) => {
         const ext = path.split('.').pop()?.toLowerCase();
-        return ["jpg", "jpeg", "png", "webp", "gif", "mp4", "mov", "mkv", "webm"].includes(ext || "");
+        return ["jpg", "jpeg", "png", "webp", "gif", "mp4", "mov", "mkv", "webm", "avi", "3gp", "flv"].includes(ext || "");
     };
 
     const isVideo = (path: string) => {
         const ext = path.split('.').pop()?.toLowerCase();
-        return ["mp4", "mov", "mkv", "webm", "avi", "wmv", "3gp", "flv", "mts", "m2ts", "ts"].includes(ext || "");
+        return ["mp4", "mov", "mkv", "webm", "avi", "wmv", "3gp", "flv", "mts", "m2ts", "ts", "divx", "vob"].includes(ext || "");
     };
 
     const isNativeVideo = (path: string) => {
         const ext = path.split('.').pop()?.toLowerCase();
+        // WebKit (Safari/Tauri Mac) supports mp4, mov (if codec is right), and webm
+        // mkv, flv, and 3gp are generally NOT supported natively
         return ["mp4", "mov", "webm"].includes(ext || "");
     };
 
@@ -304,7 +307,6 @@ export function ResultsView({ onRescan }: ResultsViewProps) {
                                     scanResults={filteredResults}
                                     selectedSet={selectedSet}
                                     toggleSelection={toggleSelection}
-                                    toggleBulkSelection={toggleBulkSelection}
                                     handlePreview={handlePreview}
                                     isMedia={isMedia}
                                 />
@@ -353,30 +355,47 @@ export function ResultsView({ onRescan }: ResultsViewProps) {
 
                             <div className="flex-1 flex items-center justify-center bg-slate-950/50 relative">
                                 {previewError || (isVideo(previewFile.path) && !isNativeVideo(previewFile.path)) ? (
-                                    <div className="flex flex-col items-center gap-6 text-white/20 animate-in fade-in zoom-in-95 duration-500">
-                                        <div className="w-20 h-20 rounded-full border border-dashed border-white/10 flex items-center justify-center bg-white/[0.02]">
-                                            {isVideo(previewFile.path) ? <VideoOff className="w-8 h-8 opacity-50" /> : <ImageOff className="w-8 h-8 opacity-50" />}
+                                    <div className="flex flex-col items-center justify-center w-full h-full p-12 bg-zinc-950">
+                                        <div className="relative mb-8">
+                                            <div className="absolute -inset-8 bg-primary/10 rounded-full blur-2xl animate-pulse" />
+                                            <div className="w-24 h-24 rounded-3xl bg-white/[0.02] border border-white/10 flex items-center justify-center relative z-10">
+                                                <MonitorPlay className="w-10 h-10 text-primary/50" />
+                                            </div>
+                                            <div className="absolute -bottom-2 -right-2 w-8 h-8 rounded-xl bg-zinc-900 border border-white/10 flex items-center justify-center z-20">
+                                                <TerminalSquare className="w-4 h-4 text-primary" />
+                                            </div>
                                         </div>
-                                        <div className="flex flex-col items-center gap-2">
-                                            <span className="text-[10px] font-black uppercase tracking-widest text-white/40">
-                                                {isVideo(previewFile.path) ? "Format Not Supported In-App" : "Render Failed"}
-                                            </span>
+
+                                        <div className="flex flex-col items-center gap-2 text-center max-w-xs">
+                                            <h4 className="text-sm font-black text-white uppercase tracking-tighter italic">Deep Audit Protocol</h4>
+                                            <p className="text-[10px] text-white/30 font-medium leading-relaxed uppercase tracking-widest">
+                                                Codecs for this format are restricted by the system sandbox. Use the high-performance hardware decoder for full validation.
+                                            </p>
+                                        </div>
+
+                                        <div className="mt-8 flex flex-col gap-3 w-full max-w-[200px]">
+                                            <Button
+                                                variant="default"
+                                                size="lg"
+                                                onClick={() => invoke("trigger_quick_look", { path: previewFile.path })}
+                                                className="h-11 bg-white text-black font-black text-[9px] uppercase tracking-[0.2em] rounded-xl shadow-xl hover:scale-[1.02] transition-all"
+                                            >
+                                                Initialize Quick Look
+                                            </Button>
                                             <Button
                                                 variant="outline"
                                                 size="sm"
                                                 onClick={() => invoke("open_file", { path: previewFile.path })}
-                                                className="h-8 text-[9px] font-black uppercase tracking-widest bg-white/5 border-white/10 hover:bg-white/10 hover:text-white"
+                                                className="h-10 text-white/60 hover:text-white font-black text-[8px] uppercase tracking-widest border-white/10 bg-white/5"
                                             >
-                                                Open System Player
+                                                Full System Playback
                                             </Button>
                                         </div>
                                     </div>
                                 ) : isVideo(previewFile.path) ? (
-                                    <video
+                                    <VideoPlayer
                                         src={safeConvertFileSrc(previewFile.path)}
-                                        controls
-                                        muted
-                                        className="max-w-full max-h-full shadow-2xl"
+                                        className="w-full h-full"
                                         onError={() => setPreviewError(true)}
                                     />
                                 ) : (

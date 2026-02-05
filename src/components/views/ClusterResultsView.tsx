@@ -6,7 +6,6 @@ import {
     FolderClosed,
     Eye,
     ExternalLink,
-    CopyCheck,
 } from "lucide-react";
 import { invoke } from "@tauri-apps/api/core";
 
@@ -14,7 +13,6 @@ interface ClusterResultsViewProps {
     scanResults: { groups: FileMetadata[][] };
     selectedSet: Set<string>;
     toggleSelection: (path: string) => void;
-    toggleBulkSelection: (paths: string[], select: boolean) => void;
     handlePreview: (e: React.MouseEvent, file: FileMetadata) => void;
     isMedia: (path: string) => boolean;
 }
@@ -23,7 +21,6 @@ export const ClusterResultsView: React.FC<ClusterResultsViewProps> = React.memo(
     scanResults,
     selectedSet,
     toggleSelection,
-    toggleBulkSelection,
     handlePreview,
     isMedia,
 }) => {

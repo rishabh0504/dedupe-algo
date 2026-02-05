@@ -485,6 +485,17 @@ fn open_file(path: String) {
 }
 
 #[tauri::command]
+fn trigger_quick_look(path: String) {
+    #[cfg(target_os = "macos")]
+    {
+        let _ = Command::new("qlmanage")
+            .arg("-p")
+            .arg(path)
+            .spawn();
+    }
+}
+
+#[tauri::command]
 fn allow_folder_access(app: tauri::AppHandle, path: String) {
     #[cfg(target_os = "macos")]
     {
@@ -706,7 +717,8 @@ pub fn run() {
             purge_staged_rm_rf,
             bulk_move,
             bulk_copy,
-            open_file
+            open_file,
+            trigger_quick_look
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
