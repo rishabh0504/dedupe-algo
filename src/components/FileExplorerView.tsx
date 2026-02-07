@@ -18,6 +18,7 @@ import {
     Music,
     LayoutGrid,
     List as ListIcon,
+    ListFilter,
     Trash2,
     Edit2,
     FolderPlus,
@@ -31,10 +32,18 @@ import {
     Square,
     Pin,
     PinOff,
-    XCircle
+    Copy,
+    FolderInput,
+    XSquare
 } from "lucide-react";
 import { useStore, FileEntry } from "@/store/useStore";
 import { Button } from "@/components/ui/button";
+import {
+    Tooltip,
+    TooltipContent,
+    TooltipProvider,
+    TooltipTrigger,
+} from "@/components/ui/tooltip";
 import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { cn, formatSize } from "@/lib/utils";
@@ -374,7 +383,6 @@ const ExplorerSplit = ({
         toggleExplorerSelection,
         contextFolders,
         clearExplorerSelection,
-        pinContextFolder,
         clearContextFolders,
         triggerRefresh
     } = useStore();
@@ -382,9 +390,9 @@ const ExplorerSplit = ({
     const [isLoading, setIsLoading] = useState(false);
     const [selectionBox, setSelectionBox] = useState<SelectionBox | null>(null);
     const [marqueeSelectedPaths, setMarqueeSelectedPaths] = useState<Set<string>>(new Set());
-    const scrollAreaRef = useRef<HTMLDivElement>(null);
+    const [scrollAreaRef] = useState<any>(null);
     const [targetPath, setTargetPath] = useState<string>("");
-    const [quickContextPath, setQuickContextPath] = useState<string>("");
+
     const [isConfirmingDelete, setIsConfirmingDelete] = useState(false);
 
     const handleBulkDelete = async () => {
@@ -457,22 +465,7 @@ const ExplorerSplit = ({
         }
     };
 
-    const handleQuickContext = async () => {
-        if (!quickContextPath) return;
-        const toastId = toast.loading("Creating context folder...");
-        try {
-            // Check if it already exists or just try to create
-            await invoke("create_dir", { path: quickContextPath });
-            pinContextFolder(quickContextPath);
-            setTargetPath(quickContextPath);
-            setQuickContextPath("");
-            toast.success("Folder created and pinned to context", { id: toastId });
-            triggerRefresh();
-        } catch (error) {
-            console.error(error);
-            toast.error("Failed to create folder. Ensure path is absolute.", { id: toastId });
-        }
-    };
+
 
     useEffect(() => {
         if (tab.viewMode !== 'selected') {
@@ -740,53 +733,91 @@ const ExplorerSplit = ({
 
             {/* Toolbar */}
             <div className="flex flex-col gap-2 p-3 border-b border-white/5 bg-black/40">
-                <div className="flex items-center gap-2">
+                <div className="flex items-center gap-2 flex-wrap">
                     <div className="flex items-center gap-1 p-1 bg-white/5 rounded-lg border border-white/5">
-                        <Button variant="ghost" size="icon" onClick={handleBack} disabled={tab.historyIndex <= 0} className="h-7 w-7 rounded-md">
-                            <ChevronLeft className="w-3.5 h-3.5" />
-                        </Button>
-                        <Button variant="ghost" size="icon" onClick={handleForward} disabled={tab.historyIndex >= tab.history.length - 1} className="h-7 w-7 rounded-md">
-                            <ChevronRight className="w-3.5 h-3.5" />
-                        </Button>
-                        <Button variant="ghost" size="icon" onClick={handleUp} className="h-7 w-7 rounded-md">
-                            <ArrowUp className="w-3.5 h-3.5" />
-                        </Button>
+                        <TooltipProvider delayDuration={300}>
+                            <Tooltip>
+                                <TooltipTrigger asChild>
+                                    <Button variant="ghost" size="icon" onClick={handleBack} disabled={tab.historyIndex <= 0} className="h-7 w-7 rounded-md">
+                                        <ChevronLeft className="w-3.5 h-3.5" />
+                                    </Button>
+                                </TooltipTrigger>
+                                <TooltipContent side="bottom" className="text-[10px] bg-black/90 border-white/10 text-white">Back</TooltipContent>
+                            </Tooltip>
+
+                            <Tooltip>
+                                <TooltipTrigger asChild>
+                                    <Button variant="ghost" size="icon" onClick={handleForward} disabled={tab.historyIndex >= tab.history.length - 1} className="h-7 w-7 rounded-md">
+                                        <ChevronRight className="w-3.5 h-3.5" />
+                                    </Button>
+                                </TooltipTrigger>
+                                <TooltipContent side="bottom" className="text-[10px] bg-black/90 border-white/10 text-white">Forward</TooltipContent>
+                            </Tooltip>
+
+                            <Tooltip>
+                                <TooltipTrigger asChild>
+                                    <Button variant="ghost" size="icon" onClick={handleUp} className="h-7 w-7 rounded-md">
+                                        <ArrowUp className="w-3.5 h-3.5" />
+                                    </Button>
+                                </TooltipTrigger>
+                                <TooltipContent side="bottom" className="text-[10px] bg-black/90 border-white/10 text-white">Up</TooltipContent>
+                            </Tooltip>
+                        </TooltipProvider>
                     </div>
 
                     <div className="flex items-center bg-black/40 rounded-lg p-0.5 border border-white/5">
-                        <Button
-                            variant="ghost"
-                            size="icon"
-                            onClick={() => updateExplorerTab(tab.id, {
-                                sortOrder: tab.sortOrder === 'asc' ? 'desc' : 'asc'
-                            })}
-                            className="h-7 w-7 rounded-md text-white/40 hover:text-primary transition-all"
-                            title={`Sort ${tab.sortOrder === 'asc' ? 'Descending' : 'Ascending'}`}
-                        >
-                            {tab.sortOrder === 'asc' ? <SortAsc className="w-3.5 h-3.5" /> : <SortDesc className="w-3.5 h-3.5" />}
-                        </Button>
-                        <Button
-                            variant="ghost"
-                            size="icon"
-                            className="h-7 w-7 text-primary/70 hover:text-primary hover:bg-primary/10 transition-colors"
-                            onClick={triggerRefresh}
-                            title="Refresh"
-                        >
-                            <RotateCw className="w-3.5 h-3.5" />
-                        </Button>
-                        <div className="h-4 w-px bg-white/10 mx-1" />
-                        <Button
-                            variant="ghost"
-                            size="icon"
-                            onClick={() => {
-                                const modes: ('name' | 'modified' | 'kind')[] = ['name', 'modified', 'kind'];
-                                const next = modes[(modes.indexOf(tab.sortBy || 'name') + 1) % modes.length];
-                                updateExplorerTab(tab.id, { sortBy: next });
-                            }}
-                            className="h-7 px-2 rounded-md text-[9px] font-black uppercase tracking-widest text-white/40 hover:text-primary transition-all min-w-[50px]"
-                        >
-                            {tab.sortBy || 'name'}
-                        </Button>
+                        <TooltipProvider delayDuration={300}>
+                            <Tooltip>
+                                <TooltipTrigger asChild>
+                                    <Button
+                                        variant="ghost"
+                                        size="icon"
+                                        onClick={() => updateExplorerTab(tab.id, {
+                                            sortOrder: tab.sortOrder === 'asc' ? 'desc' : 'asc'
+                                        })}
+                                        className="h-7 w-7 rounded-md text-white/40 hover:text-primary transition-all"
+                                    >
+                                        {tab.sortOrder === 'asc' ? <SortAsc className="w-3.5 h-3.5" /> : <SortDesc className="w-3.5 h-3.5" />}
+                                    </Button>
+                                </TooltipTrigger>
+                                <TooltipContent side="bottom" className="text-[10px] bg-black/90 border-white/10 text-white">
+                                    Sort {tab.sortOrder === 'asc' ? 'Descending' : 'Ascending'}
+                                </TooltipContent>
+                            </Tooltip>
+                            <Tooltip>
+                                <TooltipTrigger asChild>
+                                    <Button
+                                        variant="ghost"
+                                        size="icon"
+                                        className="h-7 w-7 text-primary/70 hover:text-primary hover:bg-primary/10 transition-colors"
+                                        onClick={triggerRefresh}
+                                    >
+                                        <RotateCw className="w-3.5 h-3.5" />
+                                    </Button>
+                                </TooltipTrigger>
+                                <TooltipContent side="bottom" className="text-[10px] bg-black/90 border-white/10 text-white">Refresh</TooltipContent>
+                            </Tooltip>
+                            <div className="h-4 w-px bg-white/10 mx-1" />
+                            <Tooltip>
+                                <TooltipTrigger asChild>
+                                    <Button
+                                        variant="ghost"
+                                        size="icon"
+                                        onClick={() => {
+                                            const modes: ('name' | 'modified' | 'kind')[] = ['name', 'modified', 'kind'];
+                                            const next = modes[(modes.indexOf(tab.sortBy || 'name') + 1) % modes.length];
+                                            updateExplorerTab(tab.id, { sortBy: next });
+                                        }}
+                                        className="h-7 w-7 rounded-md text-white/40 hover:text-primary transition-all"
+                                    >
+                                        <ListFilter className="w-3.5 h-3.5" />
+                                    </Button>
+                                </TooltipTrigger>
+                                <TooltipContent side="bottom" className="text-[10px] bg-black/90 border-white/10 text-white">
+                                    Sort by: <span className="text-primary font-bold uppercase">{tab.sortBy || 'name'}</span>
+                                </TooltipContent>
+                            </Tooltip>
+                        </TooltipProvider>
                     </div>
                     <div className="flex-1 relative group">
                         <div className="absolute inset-y-0 left-2.5 flex items-center pointer-events-none text-white/20 group-focus-within:text-primary transition-colors">
@@ -876,99 +907,106 @@ const ExplorerSplit = ({
                 )}
 
                 {tab.viewMode === 'selected' && explorerSelection.length > 0 && (
-                    <div className="flex flex-col gap-2 mt-2 p-2 bg-primary/5 rounded-lg border border-primary/20 animate-in fade-in slide-in-from-top-1 duration-300">
+                    <div className="flex items-center gap-2 mt-2 p-2 bg-primary/5 rounded-lg border border-primary/20 animate-in fade-in slide-in-from-top-1 duration-300 flex-wrap">
                         <div className="flex items-center gap-2">
-                            <Button
-                                variant="ghost"
-                                size="sm"
-                                onClick={clearExplorerSelection}
-                                className="h-7 px-3 text-[10px] font-black uppercase tracking-widest text-red-400 hover:text-red-500 hover:bg-red-500/10 transition-all border border-red-500/20"
-                            >
-                                <Trash2 className="w-3.5 h-3.5 mr-1.5" />
-                                Clear Selected
-                            </Button>
-                            <Button
-                                variant="ghost"
-                                size="sm"
-                                onClick={handleBulkDelete}
-                                className={cn(
-                                    "h-7 px-3 text-[10px] font-black uppercase tracking-widest transition-all border",
-                                    isConfirmingDelete
-                                        ? "bg-red-500 text-white border-red-600 scale-105 shadow-[0_0_15px_rgba(239,68,68,0.4)]"
-                                        : "text-red-400 hover:text-red-500 hover:bg-red-500/10 border-red-500/10"
-                                )}
-                            >
-                                <XCircle className="w-3.5 h-3.5 mr-1.5" />
-                                {isConfirmingDelete ? "Click to Confirm Purge" : "Purge STAGED"}
-                            </Button>
-                            <div className="w-px h-4 bg-primary/20 mx-1" />
-                            <div className="flex-1 flex items-center gap-2">
-                                <span className="text-[9px] font-black uppercase tracking-widest text-primary/40 whitespace-nowrap">Target:</span>
-                                <select
-                                    value={targetPath}
-                                    onChange={(e) => setTargetPath(e.target.value)}
-                                    className="flex-1 h-7 bg-black/40 border border-white/10 rounded px-2 text-[10px] text-white focus:outline-none focus:border-primary/40"
-                                >
-                                    <option value="">Select context folder...</option>
-                                    {contextFolders.map(path => (
-                                        <option key={path} value={path}>{path.split(/[/\\]/).pop() || path}</option>
-                                    ))}
-                                </select>
-                                <Button
-                                    variant="ghost"
-                                    size="sm"
-                                    onClick={clearContextFolders}
-                                    title="Clear Pinned Folders"
-                                    className="h-7 w-7 p-0 text-white/40 hover:text-red-400 transition-colors"
-                                >
-                                    <X className="w-3.5 h-3.5" />
-                                </Button>
-                            </div>
-                            <div className="flex items-center gap-1">
-                                <Button
-                                    variant="ghost"
-                                    size="sm"
-                                    disabled={!targetPath}
-                                    onClick={handleBulkMove}
-                                    className="h-7 px-3 text-[10px] font-black uppercase tracking-widest text-primary hover:bg-primary/10 transition-all disabled:opacity-30"
-                                >
-                                    Move
-                                </Button>
-                                <Button
-                                    variant="ghost"
-                                    size="sm"
-                                    disabled={!targetPath}
-                                    onClick={handleBulkCopy}
-                                    className="h-7 px-3 text-[10px] font-black uppercase tracking-widest text-primary hover:bg-primary/10 transition-all disabled:opacity-30"
-                                >
-                                    Copy
-                                </Button>
-                            </div>
+                            <TooltipProvider delayDuration={300}>
+                                <Tooltip>
+                                    <TooltipTrigger asChild>
+                                        <Button
+                                            variant="ghost"
+                                            size="icon"
+                                            onClick={clearExplorerSelection}
+                                            className="h-7 w-7 text-red-400 hover:text-red-500 hover:bg-red-500/10 transition-all border border-red-500/20"
+                                        >
+                                            <XSquare className="w-3.5 h-3.5" />
+                                        </Button>
+                                    </TooltipTrigger>
+                                    <TooltipContent side="bottom" className="text-[10px] bg-black/90 border-white/10 text-white">Clear Selection</TooltipContent>
+                                </Tooltip>
+
+                                <Tooltip>
+                                    <TooltipTrigger asChild>
+                                        <Button
+                                            variant="ghost"
+                                            size="icon"
+                                            onClick={handleBulkDelete}
+                                            className={cn(
+                                                "h-7 w-7 transition-all border",
+                                                isConfirmingDelete
+                                                    ? "bg-red-500 text-white border-red-600 scale-105 shadow-[0_0_15px_rgba(239,68,68,0.4)]"
+                                                    : "text-red-400 hover:text-red-500 hover:bg-red-500/10 border-red-500/10"
+                                            )}
+                                        >
+                                            <Trash2 className="w-3.5 h-3.5" />
+                                        </Button>
+                                    </TooltipTrigger>
+                                    <TooltipContent side="bottom" className="text-[10px] bg-black/90 border-white/10 text-white">
+                                        {isConfirmingDelete ? "Confirm Purge" : "Purge Selected Items"}
+                                    </TooltipContent>
+                                </Tooltip>
+                            </TooltipProvider>
                         </div>
-
-                        <div className="h-px bg-primary/10 mx-1" />
-
-                        <div className="flex items-center gap-2">
-                            <span className="text-[9px] font-black uppercase tracking-widest text-primary/40 whitespace-nowrap">Quick Context:</span>
-                            <div className="flex-1 relative">
-                                <Input
-                                    placeholder="Enter absolute path to create folder..."
-                                    value={quickContextPath}
-                                    onChange={(e) => setQuickContextPath(e.target.value)}
-                                    onKeyDown={(e) => e.key === 'Enter' && handleQuickContext()}
-                                    className="h-7 bg-black/20 border-white/5 text-[10px] rounded focus:border-primary/30 pl-2"
-                                />
-                            </div>
-                            <Button
-                                variant="ghost"
-                                size="sm"
-                                onClick={handleQuickContext}
-                                disabled={!quickContextPath}
-                                className="h-7 px-3 text-[10px] font-black uppercase tracking-widest text-primary hover:bg-primary/10 transition-all disabled:opacity-30 border border-primary/20"
+                        <div className="w-px h-4 bg-primary/20 mx-1 hidden sm:block" />
+                        <div className="flex-1 flex items-center gap-2 min-w-[200px]">
+                            <span className="text-[9px] font-black uppercase tracking-widest text-primary/40 whitespace-nowrap hidden sm:inline">Target:</span>
+                            <select
+                                value={targetPath}
+                                onChange={(e) => setTargetPath(e.target.value)}
+                                className="flex-1 h-7 bg-black/40 border border-white/10 rounded px-2 text-[10px] text-white focus:outline-none focus:border-primary/40 min-w-[120px]"
                             >
-                                <Plus className="w-3.5 h-3.5 mr-1.5" />
-                                Create Target
-                            </Button>
+                                <option value="">Select context folder...</option>
+                                {contextFolders.map(path => (
+                                    <option key={path} value={path}>{path.split(/[/\\]/).pop() || path}</option>
+                                ))}
+                            </select>
+                            <TooltipProvider delayDuration={300}>
+                                <Tooltip>
+                                    <TooltipTrigger asChild>
+                                        <Button
+                                            variant="ghost"
+                                            size="sm"
+                                            onClick={clearContextFolders}
+                                            className="h-7 w-7 p-0 text-white/40 hover:text-red-400 transition-colors shrink-0"
+                                        >
+                                            <X className="w-3.5 h-3.5" />
+                                        </Button>
+                                    </TooltipTrigger>
+                                    <TooltipContent side="bottom" className="text-[10px] bg-black/90 border-white/10 text-white">Clear Pinned Folders</TooltipContent>
+                                </Tooltip>
+                            </TooltipProvider>
+                        </div>
+                        <div className="flex items-center gap-1">
+                            <TooltipProvider delayDuration={300}>
+                                <Tooltip>
+                                    <TooltipTrigger asChild>
+                                        <Button
+                                            variant="ghost"
+                                            size="icon"
+                                            disabled={!targetPath}
+                                            onClick={handleBulkMove}
+                                            className="h-7 w-7 text-primary hover:bg-primary/10 transition-all disabled:opacity-30"
+                                        >
+                                            <FolderInput className="w-3.5 h-3.5" />
+                                        </Button>
+                                    </TooltipTrigger>
+                                    <TooltipContent side="bottom" className="text-[10px] bg-black/90 border-white/10 text-white">Move to Target</TooltipContent>
+                                </Tooltip>
+
+                                <Tooltip>
+                                    <TooltipTrigger asChild>
+                                        <Button
+                                            variant="ghost"
+                                            size="icon"
+                                            disabled={!targetPath}
+                                            onClick={handleBulkCopy}
+                                            className="h-7 w-7 text-primary hover:bg-primary/10 transition-all disabled:opacity-30"
+                                        >
+                                            <Copy className="w-3.5 h-3.5" />
+                                        </Button>
+                                    </TooltipTrigger>
+                                    <TooltipContent side="bottom" className="text-[10px] bg-black/90 border-white/10 text-white">Copy to Target</TooltipContent>
+                                </Tooltip>
+                            </TooltipProvider>
                         </div>
                     </div>
                 )}
