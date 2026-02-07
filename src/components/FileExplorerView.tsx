@@ -43,8 +43,12 @@ import { SidebarTrigger } from "@/components/ui/sidebar";
 import { VideoPlayer } from "./VideoPlayer";
 import {
     MonitorPlay,
-    TerminalSquare
+    TerminalSquare,
+    RotateCw
 } from "lucide-react";
+import { Slider } from "@/components/ui/slider";
+import { Checkbox } from "@/components/ui/checkbox";
+
 
 
 // Context Menu Setup
@@ -489,6 +493,63 @@ const ExplorerSplit = ({
         }
     };
 
+    // --- Search / Filter Logic ---
+    const [isSizeFilterActive, setIsSizeFilterActive] = useState(false);
+    const [hasSearched, setHasSearched] = useState(false);
+    const [sizeRange, setSizeRange] = useState([0, 100]); // Percentage 0-100
+    const [fileResults, setFileResults] = useState<FileEntry[]>([]);
+    const [isSearching, setIsSearching] = useState(false);
+
+    // Convert Slider 0-100 to Bytes (Logarithmic scale 1MB to 100GB)
+    // 1MB = 10^6, 100GB = 10^11. Range is 5 orders of magnitude.
+    const minBytesLog = Math.log10(1024 * 1024); // 1MB
+    const maxBytesLog = Math.log10(20 * 1024 * 1024 * 1024); // 20GB
+
+    const sliderToBytes = (val: number) => {
+        const logVal = minBytesLog + (val / 100) * (maxBytesLog - minBytesLog);
+        return Math.pow(10, logVal);
+    };
+
+    const performSearch = async () => {
+        if (!isSizeFilterActive) return;
+        setIsSearching(true);
+        try {
+            const minBytes = sliderToBytes(sizeRange[0]);
+            const maxBytes = sliderToBytes(sizeRange[1]);
+
+            const results = await invoke<FileEntry[]>("search_files_command", {
+                searchPath: tab.path,
+                minSize: Math.floor(minBytes),
+                maxSize: Math.floor(maxBytes),
+                includeHidden: true // As requested "hidden or visible"
+            });
+            setFileResults(results);
+            setHasSearched(true);
+            toast.success(`Found ${results.length} files`);
+        } catch (error) {
+            console.error("Search failed:", error);
+            toast.error("File search failed");
+        } finally {
+            setIsSearching(false);
+        }
+    };
+
+    useEffect(() => {
+        if (!isSizeFilterActive) {
+            setFileResults([]);
+            setHasSearched(false);
+        }
+    }, [isSizeFilterActive, tab.path]);
+
+    // Override items if filter is active
+    // If filter is active but we haven't searched yet, show nothing (or original items? User said manual search)
+    // Let's show filtered results only if searched. 
+    // If filter ON, we show results. If results empty AND searched, show empty. 
+    // If filter ON and NOT searched, show instructions? or empty?
+    // User wants "filter... apply... search". 
+    const displayItems = isSizeFilterActive ? fileResults : items;
+
+
     const handleBack = () => {
         if (tab.historyIndex > 0) {
             const newIndex = tab.historyIndex - 1;
@@ -550,7 +611,7 @@ const ExplorerSplit = ({
     };
 
     const sortedEntries = useMemo(() => {
-        const sourceEntries = tab.viewMode === 'selected' ? explorerSelection : items;
+        const sourceEntries = tab.viewMode === 'selected' ? explorerSelection : displayItems;
         return [...sourceEntries]
             .filter(e => e.name.toLowerCase().includes((tab.searchQuery || "").toLowerCase()))
             .sort((a, b) => {
@@ -568,7 +629,7 @@ const ExplorerSplit = ({
                     return a.name.toLowerCase().localeCompare(b.name.toLowerCase()) * order;
                 }
             });
-    }, [items, explorerSelection, tab.searchQuery, tab.sortBy, tab.sortOrder, tab.viewMode]);
+    }, [items, explorerSelection, tab.searchQuery, tab.sortBy, tab.sortOrder, tab.viewMode, displayItems]);
 
     const getListIcon = (entry: FileEntry) => {
         if (entry.is_dir) return <Folder className="w-5 h-5 text-blue-400" />;
@@ -649,7 +710,7 @@ const ExplorerSplit = ({
 
         // Add all marquee selected items to the main selection
         marqueeSelectedPaths.forEach(path => {
-            const entry = items.find(i => i.path === path);
+            const entry = displayItems.find(i => i.path === path);
             if (entry && !explorerSelection.some(e => e.path === path)) {
                 toggleExplorerSelection(entry);
             }
@@ -674,6 +735,8 @@ const ExplorerSplit = ({
                     <X className="w-3.5 h-3.5" />
                 </button>
             </div>
+
+
 
             {/* Toolbar */}
             <div className="flex flex-col gap-2 p-3 border-b border-white/5 bg-black/40">
@@ -702,7 +765,16 @@ const ExplorerSplit = ({
                         >
                             {tab.sortOrder === 'asc' ? <SortAsc className="w-3.5 h-3.5" /> : <SortDesc className="w-3.5 h-3.5" />}
                         </Button>
-                        <div className="w-px h-3 bg-white/10 mx-0.5" />
+                        <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-7 w-7 text-primary/70 hover:text-primary hover:bg-primary/10 transition-colors"
+                            onClick={triggerRefresh}
+                            title="Refresh"
+                        >
+                            <RotateCw className="w-3.5 h-3.5" />
+                        </Button>
+                        <div className="h-4 w-px bg-white/10 mx-1" />
                         <Button
                             variant="ghost"
                             size="icon"
@@ -727,6 +799,20 @@ const ExplorerSplit = ({
                             className="h-8 pl-8 bg-black/40 border-white/10 text-[10px] rounded-lg focus:border-primary/50"
                         />
                     </div>
+
+                    {/* Size Filter Toggle */}
+                    <div className="flex items-center gap-2 px-2 h-8 bg-black/40 border border-white/10 rounded-lg">
+                        <Checkbox
+                            id="size-filter"
+                            checked={isSizeFilterActive}
+                            onCheckedChange={(c) => setIsSizeFilterActive(!!c)}
+                            className="w-3.5 h-3.5 border-white/30 data-[state=checked]:bg-primary data-[state=checked]:text-black"
+                        />
+                        <label htmlFor="size-filter" className="text-[9px] uppercase font-black tracking-widest text-white/60 cursor-pointer select-none hover:text-white transition-colors">
+                            Size
+                        </label>
+                    </div>
+
                     <div className="flex items-center bg-black/40 rounded-lg p-0.5 border border-white/5">
                         {['grid', 'list', 'selected'].map((mode) => (
                             <Button
@@ -757,6 +843,37 @@ const ExplorerSplit = ({
                         ))}
                     </div>
                 </div>
+
+                {/* Size Filter Slider Row  */}
+                {isSizeFilterActive && (
+                    <div className="flex items-center gap-3 px-2 py-2 bg-white/5 rounded-lg animate-in fade-in slide-in-from-top-1 duration-200 border border-white/5">
+                        <span className="text-[9px] font-mono text-primary whitespace-nowrap min-w-[50px] text-right">
+                            {formatSize(sliderToBytes(sizeRange[0]))}
+                        </span>
+                        <Slider
+                            value={sizeRange}
+                            max={100}
+                            step={1}
+                            minStepsBetweenThumbs={1}
+                            onValueChange={setSizeRange}
+                            className="flex-1"
+                        />
+                        <span className="text-[9px] font-mono text-primary whitespace-nowrap min-w-[50px]">
+                            {formatSize(sliderToBytes(sizeRange[1]))}
+                        </span>
+
+                        <Button
+                            variant="secondary"
+                            size="sm"
+                            onClick={performSearch}
+                            disabled={isSearching}
+                            className="h-6 px-3 text-[10px] font-bold uppercase tracking-widest bg-primary text-black hover:bg-white hover:text-black transition-colors"
+                        >
+                            {isSearching ? <Loader2 className="w-3 h-3 animate-spin mr-1" /> : <Search className="w-3 h-3 mr-1" />}
+                            Search
+                        </Button>
+                    </div>
+                )}
 
                 {tab.viewMode === 'selected' && explorerSelection.length > 0 && (
                     <div className="flex flex-col gap-2 mt-2 p-2 bg-primary/5 rounded-lg border border-primary/20 animate-in fade-in slide-in-from-top-1 duration-300">
@@ -889,17 +1006,45 @@ const ExplorerSplit = ({
                                 }}
                             />
                         )}
-                        {isLoading ? (
-                            <div className="flex flex-col items-center justify-center py-20 gap-3">
-                                <Loader2 className="w-6 h-6 animate-spin text-primary opacity-50" />
-                                <span className="text-[9px] font-black uppercase tracking-widest text-primary/40 italic">Syncing...</span>
+                        {/* Loader Overlay */}
+                        {(isLoading || isSearching) && (
+                            <div className="absolute inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm animate-in fade-in duration-300">
+                                <div className="flex flex-col items-center gap-4">
+                                    <Loader2 className="w-10 h-10 text-primary animate-spin" />
+                                    <p className="text-xs font-black uppercase tracking-widest text-white/80 animate-pulse">
+                                        {isSearching ? "Searching Files..." : "Loading Content..."}
+                                    </p>
+                                </div>
                             </div>
-                        ) : sortedEntries.length === 0 ? (
-                            <div className="flex flex-col items-center justify-center py-20 text-white/10 gap-3">
-                                <EmptyFolderIcon className="w-8 h-8 opacity-20" />
-                                <p className="text-[10px] font-black uppercase tracking-widest italic">Empty</p>
+                        )}
+
+                        {/* Empty State */}
+                        {!isLoading && !isSearching && displayItems.length === 0 && (
+                            <div className="flex flex-col items-center justify-center h-full text-white/20 select-none pointer-events-none">
+                                {isSizeFilterActive ? (
+                                    hasSearched ? (
+                                        <>
+                                            <Search className="w-12 h-12 mb-4 opacity-50" />
+                                            <p className="text-sm font-bold uppercase tracking-widest">No matching files found</p>
+                                            <p className="text-[10px] mt-2 opacity-60">Try adjusting the size range</p>
+                                        </>
+                                    ) : (
+                                        <>
+                                            <Search className="w-12 h-12 mb-4 opacity-50" />
+                                            <p className="text-sm font-bold uppercase tracking-widest">Ready to Search</p>
+                                            <p className="text-[10px] mt-2 opacity-60">Click Search to find files in range</p>
+                                        </>
+                                    )
+                                ) : (
+                                    <>
+                                        <EmptyFolderIcon className="w-12 h-12 mb-4 opacity-50" />
+                                        <p className="text-sm font-bold uppercase tracking-widest">Empty Directory</p>
+                                    </>
+                                )}
                             </div>
-                        ) : tab.viewMode === 'grid' ? (
+                        )}
+
+                        {(!isLoading && !isSearching && displayItems.length > 0) && (tab.viewMode === 'grid' ? (
                             (() => {
                                 const folders = sortedEntries.filter(e => e.is_dir);
                                 const files = sortedEntries.filter(e => !e.is_dir);
@@ -1064,11 +1209,11 @@ const ExplorerSplit = ({
                                     );
                                 })()}
                             </div>
-                        )}
+                        ))}
                     </div>
                 </ScrollArea>
-            </div >
-        </div >
+            </div>
+        </div>
     );
 };
 

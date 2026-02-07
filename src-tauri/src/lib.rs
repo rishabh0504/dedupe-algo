@@ -603,6 +603,83 @@ struct FileEntry {
 }
 
 #[tauri::command]
+fn search_files_command(
+    app: tauri::AppHandle,
+    search_path: String,
+    min_size: u64,
+    max_size: u64,
+    include_hidden: bool
+) -> Vec<FileEntry> {
+    // Resolve script path
+    let script_path = app.path().resource_dir()
+        .ok()
+        .map(|p| p.join("scripts/file_search.sh"))
+        .filter(|p| p.exists())
+        .map(|p| p.to_string_lossy().into_owned());
+
+    let script = match script_path {
+        Some(s) => s,
+        None => {
+            eprintln!("Search script not found");
+            return Vec::new(); 
+        },
+    };
+
+    let output = Command::new("bash")
+        .arg(&script)
+        .arg(&search_path)
+        .arg(min_size.to_string())
+        .arg(max_size.to_string())
+        .arg(if include_hidden { "true" } else { "false" })
+        .output();
+    
+    println!("DEBUG: Executing script: {} {} {} {} {}", 
+        script, search_path, min_size, max_size, include_hidden);
+    match &output {
+        Ok(o) => {
+            println!("DEBUG: Script Status: {}", o.status);
+            println!("DEBUG: Script Stderr: {}", String::from_utf8_lossy(&o.stderr));
+            println!("DEBUG: Script Stdout: {}", String::from_utf8_lossy(&o.stdout));
+        },
+        Err(e) => println!("DEBUG: Script Execution Error: {}", e),
+    }
+
+    match output {
+        Ok(out) => {
+             let stdout = String::from_utf8_lossy(&out.stdout);
+             let mut results = Vec::new();
+             // Parse lines: Size|Modified|Path
+             for line in stdout.lines() {
+                 let parts: Vec<&str> = line.split('|').collect();
+                 if parts.len() >= 3 {
+                     if let (Ok(size), Ok(modified)) = (parts[0].parse::<u64>(), parts[1].parse::<u64>()) {
+                         let path = parts[2].to_string();
+                         let name = std::path::Path::new(&path)
+                            .file_name()
+                            .map(|n| n.to_string_lossy().to_string())
+                            .unwrap_or_else(|| path.clone());
+
+                         results.push(FileEntry {
+                             name,
+                             path,
+                             is_dir: false,
+                             size,
+                             created: 0, 
+                             modified,
+                         });
+                     }
+                 }
+             }
+             results
+        }
+        Err(e) => {
+            eprintln!("Search command failed: {}", e);
+            Vec::new()
+        }
+    }
+}
+
+#[tauri::command]
 fn create_dir(path: String) -> Result<(), String> {
     std::fs::create_dir_all(&path).map_err(|e| e.to_string())
 }
@@ -755,7 +832,8 @@ pub fn run() {
             bulk_move,
             bulk_copy,
             open_file,
-            trigger_quick_look
+            trigger_quick_look,
+            search_files_command
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
